@@ -1,10 +1,10 @@
-"""Descarga el open data de baloncesto de SkillCorner en data/raw.
+"""Download the SkillCorner basketball open data into data/raw.
 
-Son unos 730 MB: el tracking viaja por Git LFS, asi que hace falta tener
-git-lfs instalado (https://git-lfs.com). El dataset no se versiona en este
-repositorio, se descarga.
+It's about 730 MB: the tracking data travels through Git LFS, so git-lfs
+must be installed (https://git-lfs.com). The dataset is not versioned in
+this repository, it is downloaded.
 
-Uso: python scripts/fetch_data.py
+Usage: python scripts/fetch_data.py
 """
 
 from __future__ import annotations
@@ -21,37 +21,37 @@ TARGET = ROOT / "data" / "raw" / "opendata-basketball"
 
 def main() -> int:
     if shutil.which("git") is None:
-        print("No encuentro git en el PATH.", file=sys.stderr)
+        print("Can't find git on the PATH.", file=sys.stderr)
         return 1
 
     if (TARGET / "data" / "matches.json").exists():
-        print(f"El dataset ya esta en {TARGET}. Nada que hacer.")
+        print(f"The dataset is already at {TARGET}. Nothing to do.")
         return 0
 
     TARGET.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Clonando {REPO} en {TARGET} (unos 730 MB, tarda un rato)...")
+    print(f"Cloning {REPO} into {TARGET} (about 730 MB, this takes a while)...")
     result = subprocess.run(["git", "clone", "--depth", "1", REPO, str(TARGET)], check=False)
     if result.returncode != 0:
-        print("El clonado ha fallado.", file=sys.stderr)
+        print("The clone failed.", file=sys.stderr)
         return result.returncode
 
     if not (TARGET / "data" / "matches.json").exists():
-        print("El clonado termino pero no encuentro data/matches.json.", file=sys.stderr)
+        print("The clone finished but data/matches.json is missing.", file=sys.stderr)
         return 1
 
     tracking = list(TARGET.glob("data/matches/*/*_tracking_data.jsonl.gz"))
     small = [p for p in tracking if p.stat().st_size < 1_000_000]
     if small:
         print(
-            f"Aviso: {len(small)} ficheros de tracking pesan menos de 1 MB. "
-            "Suele significar que git-lfs no estaba instalado y solo se han "
-            "bajado los punteros. Instala git-lfs y ejecuta 'git lfs pull' "
-            f"dentro de {TARGET}.",
+            f"Warning: {len(small)} tracking files are under 1 MB. "
+            "This usually means git-lfs was not installed and only the "
+            "pointers were downloaded. Install git-lfs and run 'git lfs pull' "
+            f"inside {TARGET}.",
             file=sys.stderr,
         )
         return 1
 
-    print(f"Listo: {len(tracking)} partidos con tracking en {TARGET}")
+    print(f"Done: {len(tracking)} games with tracking in {TARGET}")
     return 0
 
 

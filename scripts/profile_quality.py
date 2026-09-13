@@ -1,7 +1,7 @@
-"""Perfil de calidad del tracking sobre los 10 partidos publicados.
+"""Tracking quality profile over the 10 published games.
 
-Uso: python scripts/profile_quality.py
-Escribe reports/quality_by_game.csv y reports/quality_by_zone.csv
+Usage: python scripts/profile_quality.py
+Writes reports/quality_by_game.csv and reports/quality_by_zone.csv
 """
 
 from __future__ import annotations
@@ -36,9 +36,9 @@ def main() -> int:
 
         s = profile.summary
         print(
-            f"[{i}/10] {game_id}  detectadas {s['detected_rate']:.1%}  "
+            f"[{i}/10] {game_id}  detected {s['detected_rate']:.1%}  "
             f"predError {s['pred_error_mean']:.2f} ft  "
-            f"muertos {s['dead_frame_rate']:.1%}  ({time.time() - start:.0f}s)",
+            f"dead {s['dead_frame_rate']:.1%}  ({time.time() - start:.0f}s)",
             flush=True,
         )
 
@@ -47,7 +47,7 @@ def main() -> int:
     pd.concat(zones).to_csv(REPORTS / "quality_by_zone.csv", index=False)
     pd.concat(players).to_csv(REPORTS / "quality_by_player.csv", index=False)
 
-    print("\n=== RESUMEN DE LOS 10 PARTIDOS ===")
+    print("\n=== SUMMARY OF THE 10 GAMES ===")
     print(
         by_game[[
             "game_id", "frames", "dead_frame_rate", "detected_rate",
@@ -55,10 +55,10 @@ def main() -> int:
             "pred_error_detected_mean", "pred_error_extrapolated_mean",
         ]].to_string(index=False)
     )
-    print("\ndeteccion: min {:.1%} max {:.1%}".format(
+    print("\ndetection: min {:.1%} max {:.1%}".format(
         by_game["detected_rate"].min(), by_game["detected_rate"].max()
     ))
-    print("frames muertos: min {:.1%} max {:.1%}".format(
+    print("dead frames: min {:.1%} max {:.1%}".format(
         by_game["dead_frame_rate"].min(), by_game["dead_frame_rate"].max()
     ))
     return 0

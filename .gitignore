@@ -1,4 +1,4 @@
-# Datos crudos: se descargan con scripts/fetch_data.py, nunca se versionan
+# Raw data: fetched with scripts/fetch_data.py, never versioned
 data/raw/
 data/interim/
 data/processed/
@@ -16,6 +16,6 @@ build/
 # Notebooks
 .ipynb_checkpoints/
 
-# Salidas
+# Outputs
 reports/figures/
 *.log

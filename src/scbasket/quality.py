@@ -1,12 +1,13 @@
-"""Perfil de calidad del tracking y propagacion de la incertidumbre.
+"""Tracking quality profile and uncertainty propagation.
 
-El tracking de broadcast no observa todas las posiciones: una parte se
-extrapola. El proveedor entrega esa informacion frame a frame y posicion a
-posicion (isDetected y predError, en pies), pero no la resume ni la propaga a
-nada de lo que se construya encima. Este modulo hace las dos cosas.
+Broadcast tracking does not observe every position: part of it is
+extrapolated. The provider delivers that information frame by frame and
+position by position (isDetected and predError, in feet), but never
+summarizes it or propagates it into anything built on top. This module does
+both.
 
-Lectura de predError: en el 90% de los casos la posicion real esta a menos de
-predError pies de la publicada.
+Reading predError: in 90% of cases, the true position is within predError
+feet of the published one.
 """
 
 from __future__ import annotations
@@ -21,14 +22,14 @@ import pandas as pd
 
 from scbasket.io import Dataset, iter_frames
 
-# Pista FIBA: 28 x 15 metros, origen en el centro.
+# FIBA court: 28 x 15 meters, origin at the center.
 COURT_LENGTH_FT = 91.86
 COURT_WIDTH_FT = 49.21
 
 
 @dataclass
 class GameQuality:
-    """Perfil de calidad de un partido."""
+    """Quality profile of a single game."""
 
     game_id: int
     summary: dict
@@ -39,8 +40,8 @@ class GameQuality:
         s = self.summary
         return (
             f"GameQuality(game_id={self.game_id}, "
-            f"detectadas={s['detected_rate']:.1%}, "
-            f"predError medio={s['pred_error_mean']:.2f} ft)"
+            f"detected={s['detected_rate']:.1%}, "
+            f"mean predError={s['pred_error_mean']:.2f} ft)"
         )
 
 
@@ -50,15 +51,15 @@ def profile_game(
     game_id: int | None = None,
     zone_bins: tuple[int, int] = (6, 4),
 ) -> GameQuality:
-    """Recorre un partido entero y resume su calidad de tracking.
+    """Walk an entire game and summarize its tracking quality.
 
-    Una sola pasada en streaming: no materializa el tracking.
+    A single streaming pass: it never materializes the tracking data.
     """
     n_frames = n_dead = 0
     errors: list[float] = []
     errors_detected: list[float] = []
     errors_extrapolated: list[float] = []
-    per_player: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0.0])  # n, detectadas, suma error
+    per_player: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0.0])  # n, detected, error sum
     nx, ny = zone_bins
     zone_n = np.zeros((nx, ny))
     zone_det = np.zeros((nx, ny))
@@ -150,7 +151,7 @@ def profile_game(
 
 
 def profile_dataset(dataset: Dataset) -> pd.DataFrame:
-    """Perfil resumido de los partidos publicados, uno por fila."""
+    """Summary profile of the published games, one row per game."""
     rows = []
     for game_id in dataset.game_ids:
         profile = profile_game(dataset.tracking_path(game_id), game_id=game_id)
@@ -159,13 +160,14 @@ def profile_dataset(dataset: Dataset) -> pd.DataFrame:
 
 
 def distance_error(error_a: float, error_b: float) -> float:
-    """Error de la distancia entre dos posiciones, en pies.
+    """Error of the distance between two positions, in feet.
 
-    Cota conservadora por suma en cuadratura de los errores de cada extremo.
-    Importa porque casi todo lo tactico es una distancia: quien defiende a
-    quien, si un closeout llego, si el bloqueo fue efectivo. Con un predError
-    medio de 1,5 ft por posicion, la distancia entre dos jugadores arrastra
-    unos 2,1 ft de error, y eso decide si un tiro se marca como contestado.
+    Conservative bound from the quadrature sum of the errors at each
+    endpoint. This matters because almost everything tactical is a distance:
+    who is guarding whom, whether a closeout arrived in time, whether a
+    screen was effective. With a mean predError of 1.5 ft per position, the
+    distance between two players carries about 2.1 ft of error, and that is
+    what decides whether a shot is marked as contested.
     """
     return math.hypot(error_a, error_b)
 
@@ -175,10 +177,10 @@ def distance_with_error(
     player_a: int,
     player_b: int,
 ) -> tuple[float, float]:
-    """Distancia entre dos jugadores en un frame, con su error asociado.
+    """Distance between two players in a frame, with its associated error.
 
-    frame_positions es un corte de load_tracking para un unico frameIdx.
-    Devuelve (distancia, error) en pies.
+    frame_positions is a slice of load_tracking for a single frameIdx.
+    Returns (distance, error) in feet.
     """
     a = frame_positions.loc[frame_positions["playerId"] == player_a]
     b = frame_positions.loc[frame_positions["playerId"] == player_b]

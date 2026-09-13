@@ -1,4 +1,4 @@
-"""Ingesta y perfil de calidad del open data de baloncesto de SkillCorner."""
+"""Shot-value-weighted space control on SkillCorner's basketball open data."""
 
 from scbasket.io import (
     Dataset,

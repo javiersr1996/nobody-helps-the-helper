@@ -1,7 +1,7 @@
-"""Carga de los tres formatos del open data de baloncesto de SkillCorner.
+"""Loading for the three open data formats published by SkillCorner basketball.
 
-El objetivo del modulo es que nadie tenga que releer KNOWN_ISSUES.md para no
-tropezar: las trampas documentadas por el proveedor van codificadas aqui.
+The goal is that nobody has to reread KNOWN_ISSUES.md to avoid the traps: the
+pitfalls documented by the provider are encoded here.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 
-# Columnas que contienen un id de JUGADOR (no de equipo, chance, posesion ni
-# touch). Inventariadas sobre los 10 partidos publicados, familia a familia.
+# Columns that hold a PLAYER id (not a team, chance, possession, or touch id).
+# Inventoried across the 10 published games, family by family.
 PLAYER_ID_COLUMNS = frozenset({
     "playerId", "defPlayerId", "offPlayerId",
     "ballhandlerId", "ballhandlerDefId",
@@ -29,7 +29,7 @@ PLAYER_ID_COLUMNS = frozenset({
     "interceptedByDefenderId",
 })
 
-# Columnas con LISTAS de ids de jugador.
+# Columns holding LISTS of player ids.
 PLAYER_ID_LIST_COLUMNS = frozenset({"offPlayerIds", "defPlayerIds"})
 
 EVENT_FAMILIES = (
@@ -47,22 +47,21 @@ TRACKING_COLUMNS = [
 
 
 def load_game_data(path: str | Path) -> dict:
-    """Metadatos del partido y plantillas."""
+    """Game metadata and rosters."""
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
 def iter_frames(path: str | Path, *, skip_dead: bool = False) -> Iterator[dict]:
-    """Recorre el tracking frame a frame sin cargarlo entero en memoria.
+    """Walk the tracking data frame by frame without loading it all into memory.
 
-    Un partido son unos 125.000 frames y 40 MB comprimidos: itera siempre que
-    puedas en lugar de materializar.
+    A game is about 125,000 frames and 40 MB compressed: iterate whenever you
+    can instead of materializing.
 
-    skip_dead descarta los frames de balon muerto, que llegan con
-    homePlayers/awayPlayers vacios y ball igual a {}. Ojo: en los partidos
-    publicados no son "aproximadamente la mitad" como dice la documentacion
-    del proveedor, sino bastante menos. El modulo quality lo mide partido a
-    partido.
+    skip_dead drops dead-ball frames, which arrive with empty homePlayers/
+    awayPlayers and ball equal to {}. Note: in the published games these are
+    NOT "roughly half" as the provider's documentation claims, but quite a bit
+    less. The quality module measures this game by game.
     """
     with gzip.open(path, "rt", encoding="utf-8") as f:
         for line in f:
@@ -79,15 +78,16 @@ def load_tracking(
     sample_rate: int = 1,
     include_ball: bool = False,
 ) -> pd.DataFrame:
-    """Tracking en formato largo: una fila por jugador y frame.
+    """Tracking data in long format: one row per player and frame.
 
-    isDetected se normaliza a booleano en ambos casos: el proveedor lo entrega
-    como entero para jugadores y como float para el balon.
+    isDetected is normalized to a boolean in both cases: the provider
+    delivers it as an integer for players and as a float for the ball.
 
-    sample_rate submuestrea frames (2 = uno de cada dos, 25 = uno por segundo).
+    sample_rate subsamples frames (2 = one out of every two, 25 = one per
+    second).
     """
     if sample_rate < 1:
-        raise ValueError("sample_rate debe ser >= 1")
+        raise ValueError("sample_rate must be >= 1")
 
     rows: list[tuple] = []
     for i, frame in enumerate(iter_frames(path, skip_dead=skip_dead)):
@@ -124,19 +124,20 @@ def load_events(
     canonical_ids: dict[int, int] | None = None,
     apply_known_fixes: bool = True,
 ) -> dict[str, pd.DataFrame]:
-    """Un DataFrame por familia de eventos, con las trampas ya corregidas.
+    """One DataFrame per event family, with the known pitfalls already fixed.
 
-    Con apply_known_fixes (por defecto):
+    With apply_known_fixes (the default):
 
-    - passes.toReceiverId se renombra a interceptedByDefenderId. Pese al
-      nombre original, el campo guarda el defensor que intercepto el pase, no
-      el receptor previsto. Lo dice KNOWN_ISSUES.md del proveedor.
-    - shots gana countsAsFga: los tiros con falta (fouled) no cuentan como
-      intento de campo en la convencion FIBA de las actas oficiales, pero si
-      aparecen en la tabla shots.
+    - passes.toReceiverId is renamed to interceptedByDefenderId. Despite the
+      original name, the field holds the defender who intercepted the pass,
+      not the intended receiver. This is documented in the provider's
+      KNOWN_ISSUES.md.
+    - shots gains countsAsFga: shots with a foul (fouled) do not count as a
+      field goal attempt under the FIBA convention used in official box
+      scores, but they still appear in the shots table.
 
-    Si se pasa canonical_ids, se unifican los jugadores que aparecen con dos
-    player_id distintos segun el partido.
+    If canonical_ids is passed, players who appear under two different
+    player_id values depending on the game are unified.
     """
     with open(path, encoding="utf-8") as f:
         raw = json.load(f)
@@ -169,15 +170,15 @@ def _canonicalize_player_ids(frame: pd.DataFrame, mapping: dict[int, int]) -> pd
 
 @dataclass(frozen=True)
 class Dataset:
-    """Acceso al repo SkillCorner/opendata-basketball ya clonado en disco."""
+    """Access to the SkillCorner/opendata-basketball repo already cloned on disk."""
 
     root: Path
 
     def __post_init__(self) -> None:
         if not (self.root / "data" / "matches.json").exists():
             raise FileNotFoundError(
-                f"No encuentro data/matches.json bajo {self.root}. "
-                "Clona el dataset con scripts/fetch_data.py."
+                f"Can't find data/matches.json under {self.root}. "
+                "Clone the dataset with scripts/fetch_data.py."
             )
 
     @property
@@ -193,7 +194,7 @@ class Dataset:
 
     @property
     def canonical_ids(self) -> dict[int, int]:
-        """player_id -> id canonico, para los jugadores duplicados."""
+        """player_id -> canonical id, for duplicated players."""
         aliases = pd.read_csv(self.root / "data" / "player_id_aliases.csv")
         return dict(zip(aliases.iloc[:, 0], aliases.iloc[:, 1], strict=True))
 
@@ -216,6 +217,6 @@ class Dataset:
         return load_tracking(self.tracking_path(game_id), **kwargs)
 
     def aggregates(self, name: str) -> pd.DataFrame:
-        """name: shots, drives o picks. Solo ataque, 293 partidos."""
+        """name: shots, drives, or picks. Offense only, 293 games."""
         path = self.root / "data" / "aggregates" / f"acb_{name}aggregates_20252026.csv"
         return pd.read_csv(path)

@@ -1,23 +1,22 @@
-"""Cuanto de la contestacion de un tiro es senal y cuanto es error de tracking.
+"""How much of a shot's contest level is signal and how much is tracking error.
 
-SkillCorner publica contestLevel, contested y shotQuality apoyandose en
-closestDefDist: la distancia entre tirador y defensor mas cercano en el momento
-del release. Esa distancia se calcula sobre dos posiciones que el propio
-proveedor acompana de su error esperado (predError, en pies).
+SkillCorner publishes contestLevel, contested, and shotQuality relying on
+closestDefDist: the distance between the shooter and the closest defender at
+the moment of release. That distance is computed from two positions that the
+provider itself annotates with its expected error (predError, in feet).
 
-Este script mide tres cosas por tiro:
+This script measures three things per shot:
 
-1. Validacion: la distancia recalculada desde el tracking contra la publicada.
-2. Si la distancia cae por debajo de su propio error combinado.
-3. Si la identidad del defensor mas cercano es ambigua, es decir, si el segundo
-   defensor mas cercano esta dentro del margen de error del primero.
+1. Validation: the distance recomputed from tracking against the published one.
+2. Whether the distance falls below its own combined error.
+3. Whether the identity of the closest defender is ambiguous, i.e. whether
+   the second closest defender is within the margin of error of the first.
 
-Uso: python scripts/shot_contest_uncertainty.py
+Usage: python scripts/shot_contest_uncertainty.py
 """
 
 from __future__ import annotations
 
-import json
 import math
 import sys
 from pathlib import Path
@@ -84,7 +83,7 @@ def shot_rows_for_game(dataset: Dataset, game_id: int) -> list[dict]:
             (d1, e1, id1), (d2, e2, _id2) = ranked[0], ranked[1]
 
             err1 = math.hypot(s_err, e1)
-            # Margen para decidir si el 2o defensor podria ser en realidad el 1o.
+            # Margin to decide whether the 2nd defender could actually be the 1st.
             gap_err = math.hypot(e1, e2)
 
             rows.append({
@@ -121,37 +120,44 @@ def main() -> int:
     for i, game_id in enumerate(dataset.game_ids, start=1):
         rows = shot_rows_for_game(dataset, game_id)
         all_rows.extend(rows)
-        print(f"[{i}/10] {game_id}: {len(rows)} tiros emparejados con tracking", flush=True)
+        print(f"[{i}/10] {game_id}: {len(rows)} shots matched with tracking", flush=True)
 
     df = pd.DataFrame(all_rows)
     df.to_csv(REPORTS / "shot_contest_uncertainty.csv", index=False)
 
-    print("\n=== VALIDACION CONTRA EL CAMPO PUBLICADO ===")
+    print("\n=== VALIDATION AGAINST THE PUBLISHED FIELD ===")
     ok = df["reported_dist"].notna() & df["recomputed_dist"].notna()
     diff = (df.loc[ok, "recomputed_dist"] - df.loc[ok, "reported_dist"]).abs()
-    print(f"tiros emparejados: {len(df)}")
-    print(f"diferencia media con closestDefDist: {diff.mean():.3f} ft  mediana: {diff.median():.3f} ft")
-    print(f"dentro de 0,5 ft: {(diff < 0.5).mean():.1%}   dentro de 1 ft: {(diff < 1.0).mean():.1%}")
+    print(f"matched shots: {len(df)}")
+    print(
+        f"mean difference vs closestDefDist: {diff.mean():.3f} ft  "
+        f"median: {diff.median():.3f} ft"
+    )
+    print(
+        f"within 0.5 ft: {(diff < 0.5).mean():.1%}   "
+        f"within 1 ft: {(diff < 1.0).mean():.1%}"
+    )
     same_id = (df["reported_defId"] == df["recomputed_defId"]).mean()
-    print(f"mismo defensor mas cercano identificado: {same_id:.1%}")
+    print(f"same closest defender identified: {same_id:.1%}")
 
-    print("\n=== LA DISTANCIA CONTRA SU PROPIO ERROR ===")
-    print(f"closestDefDist mediana: {df['recomputed_dist'].median():.2f} ft")
-    print(f"error combinado medio:  {df['combined_error'].mean():.2f} ft")
-    print(f"tiros donde la distancia es MENOR que su error: {df['dist_inside_noise'].mean():.1%}")
+    print("\n=== DISTANCE AGAINST ITS OWN ERROR ===")
+    print(f"closestDefDist median: {df['recomputed_dist'].median():.2f} ft")
+    print(f"mean combined error:   {df['combined_error'].mean():.2f} ft")
+    print(f"shots where the distance is SMALLER than its error: "
+          f"{df['dist_inside_noise'].mean():.1%}")
 
-    print("\n=== AMBIGUEDAD DEL DEFENSOR MAS CERCANO ===")
-    print(f"tiros donde el 2o defensor esta dentro del margen de error del 1o: "
+    print("\n=== CLOSEST DEFENDER AMBIGUITY ===")
+    print(f"shots where the 2nd defender is within the margin of error of the 1st: "
           f"{df['identity_ambiguous'].mean():.1%}")
 
-    print("\n=== POR NIVEL DE CONTESTACION ===")
+    print("\n=== BY CONTEST LEVEL ===")
     by_level = df.groupby("contestLevel").agg(
-        tiros=("shotId", "size"),
-        dist_mediana=("recomputed_dist", "median"),
-        error_medio=("combined_error", "mean"),
-        dentro_del_ruido=("dist_inside_noise", "mean"),
-        identidad_ambigua=("identity_ambiguous", "mean"),
-    ).sort_values("dist_mediana")
+        shots=("shotId", "size"),
+        median_dist=("recomputed_dist", "median"),
+        mean_error=("combined_error", "mean"),
+        inside_noise=("dist_inside_noise", "mean"),
+        ambiguous_identity=("identity_ambiguous", "mean"),
+    ).sort_values("median_dist")
     print(by_level.to_string())
 
     return 0
