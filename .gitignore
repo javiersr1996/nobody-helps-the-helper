@@ -1,0 +1,21 @@
+# Datos crudos: se descargan con scripts/fetch_data.py, nunca se versionan
+data/raw/
+data/interim/
+data/processed/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Salidas
+reports/figures/
+*.log
