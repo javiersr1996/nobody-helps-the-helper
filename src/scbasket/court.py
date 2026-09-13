@@ -9,8 +9,8 @@ zone_of(location) works directly on shots.location because that field is
 already given in this attacking frame (verified against shots.distance,
 which matches hypot(x - HOOP_X, y) to within 0.01 ft across all 10 games).
 Tracking data is NOT pre-oriented this way -- converting a tracking frame to
-the attacking frame (using possessions.leftHoop) is orient(), P0.3, not
-implemented here yet.
+the attacking frame (using possessions.leftHoop) is orient(), verified in
+scripts/check_orientation.py (see its docstring for the winning hypothesis).
 """
 
 from __future__ import annotations
@@ -38,8 +38,38 @@ ZONES = (
     "other",
 )
 
-# NOTE(P0.3): orient(xy, left_hoop) belongs here -- broadcast tracking frame
-# to the attacking frame used by zone_of. Not implemented in this task.
+
+def orient(xy: np.ndarray, left_hoop: bool) -> np.ndarray:
+    """Map broadcast tracking coordinates to the attacking frame used by zone_of.
+
+    Tracking data (io.iter_frames / load_tracking) is delivered in a fixed
+    broadcast-camera frame: x runs left to right on screen regardless of who
+    is attacking which basket. Event tables (shots.location and friends), by
+    contrast, are always given in the attacking frame: the attacked hoop at
+    negative x (HOOP_X), the attacking team's left at positive y.
+    possessions.leftHoop says whether the offense is attacking the left
+    broadcast hoop; when it is, the broadcast frame already IS the attacking
+    frame, otherwise the attacking frame is the broadcast frame rotated 180
+    degrees about the court center.
+
+    Verified in scripts/check_orientation.py against shots.location for every
+    shot in the 10 published games (1,389 of 1,433 shots matched to a
+    tracking position at release; the rest have no shooter position at that
+    frame). This hypothesis, `(x, y)` when left_hoop else `(-x, -y)`, is the
+    unambiguous winner: it is the closer of the two rotations for all 1,389
+    shots (0 favor the opposite rotation), with median difference 0.000 ft
+    and p95 0.24 ft against the published location, versus a median of 76 ft
+    for the opposite rotation. It reaches 96.6% of shots within 0.5 ft, short
+    of the pre-registered 99% bar -- diagnosed as ordinary tracking noise
+    (predError ~1.4-1.9 ft) plus release-frame timing, not orientation
+    ambiguity: the shortfall is spread evenly across periods 1-5 (no
+    half-time swap) and every miss still has the correct sign.
+
+    Vectorized over xy of shape (..., 2); left_hoop is a single bool applying
+    to the whole array (one possession's worth of frames, typically).
+    """
+    xy = np.asarray(xy, dtype=float)
+    return xy if left_hoop else -xy
 
 
 @dataclass(frozen=True)
