@@ -7,9 +7,10 @@ test that does need it (@pytest.mark.data + requires_real_dataset).
 
 from __future__ import annotations
 
+import numpy as np
 from conftest import AWAY_PLAYER_IDS, DEAD_FRAME_IDXS, GAME_ID, HOME_PLAYER_IDS, N_FRAMES
 
-from scbasket.io import Dataset, iter_frames, load_events, load_tracking
+from scbasket.io import PLAYER_ID_COLUMNS, Dataset, iter_frames, load_events, load_tracking
 
 
 def test_matches_and_game_ids_sorted_by_date(synthetic_dataset: Dataset) -> None:
@@ -73,3 +74,27 @@ def test_load_tracking_row_count_and_isdetected_normalization(
     player_rows = df[df["side"] != "ball"]
     assert len(player_rows) == n_live_frames * (len(HOME_PLAYER_IDS) + len(AWAY_PLAYER_IDS))
     assert set(player_rows["isDetected"].unique()) == {True, False}
+
+
+def test_canonical_ids_maps_ints_to_ints(synthetic_dataset):
+    """Regression: the alias file has five columns, so reading the first two by
+    position maps player ids to player NAMES and turns integer ids into strings
+    everywhere load_events canonicalises them."""
+    mapping = synthetic_dataset.canonical_ids
+
+    assert mapping, "the synthetic alias file should yield at least one mapping"
+    for key, value in mapping.items():
+        assert isinstance(key, int | np.integer), f"key {key!r} is not an integer"
+        assert isinstance(value, int | np.integer), f"value {value!r} is not an integer"
+    assert mapping[5999] == 5001
+
+
+def test_canonicalised_event_ids_stay_integers(synthetic_dataset):
+    """Player id columns must never come back as strings after canonicalisation."""
+    events = synthetic_dataset.events(GAME_ID)
+
+    for family, table in events.items():
+        for column in table.columns:
+            if column in PLAYER_ID_COLUMNS and len(table):
+                offenders = [v for v in table[column].dropna() if isinstance(v, str)]
+                assert not offenders, f"{family}.{column} holds strings: {offenders[:3]}"

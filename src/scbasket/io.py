@@ -194,9 +194,17 @@ class Dataset:
 
     @property
     def canonical_ids(self) -> dict[int, int]:
-        """player_id -> canonical id, for duplicated players."""
+        """player_id -> canonical id, for duplicated players.
+
+        Read the columns by name. The file carries five of them (player_id,
+        player_name, canonical_player_id, canonical_player_name, acb_player_id),
+        so taking the first two by position maps ids to NAMES and silently turns
+        integer player ids into strings downstream.
+        """
         aliases = pd.read_csv(self.root / "data" / "player_id_aliases.csv")
-        return dict(zip(aliases.iloc[:, 0], aliases.iloc[:, 1], strict=True))
+        return dict(
+            zip(aliases["player_id"], aliases["canonical_player_id"], strict=True)
+        )
 
     def _game_dir(self, game_id: int) -> Path:
         return self.root / "data" / "matches" / str(game_id)

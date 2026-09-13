@@ -355,8 +355,15 @@ def synthetic_root(tmp_path: Path) -> Path:
     ]
     (data / "matches.json").write_text(json.dumps(matches), encoding="utf-8")
 
+    # Mirror the real five-column schema. A two-column stand-in would let code that
+    # reads the first two columns by position pass, and that code maps ids to names.
     aliases = data / "player_id_aliases.csv"
-    aliases.write_text("player_id,canonical_player_id\n5999,5001\n", encoding="utf-8")
+    aliases.write_text(
+        "player_id,player_name,canonical_player_id,canonical_player_name,acb_player_id\n"
+        "5999,Alias Spelling,5001,Canonical Spelling,90001\n"
+        "5001,Canonical Spelling,5001,Canonical Spelling,90001\n",
+        encoding="utf-8",
+    )
 
     game_dir = data / "matches" / str(GAME_ID)
     game_dir.mkdir(parents=True)

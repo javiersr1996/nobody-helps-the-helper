@@ -376,7 +376,7 @@ provider's labels, and the league value surface written to `reports/`.
     `attempts` of the same rows with deviation < 1%; unit test with synthetic
     aggregates (including a `total` row that must NOT be counted) and test that the
     smoothed surface integrates the same as the stepped one (< 1e-6 relative).
-- [ ] P0.5 Per-game arrays with cache `[PLANNER]`
+- [x] P0.5 Per-game arrays with cache `[PLANNER]`
   - Does: full `frames.py` (`build_game_frames`, D10 velocities, ball handler from
     `touches` with fallback to the attacker closest to the ball at < 3 ft, `matchup` from
     `matchups` by interval, D12 filters) and `scripts/build_frame_cache.py` which leaves
@@ -389,6 +389,27 @@ provider's labels, and the league value surface written to `reports/`.
     game and load ≤ 2 s; unit tests on the synthetic: orientation per
     possession, velocity of a player in a straight line (error < 1%), ball handler,
     `subsample` and `at_frames`.
+
+  - **Result, with three findings that change what comes next.**
+    1. D12 is far more aggressive than expected: of 92,188 live frames in 114086 only
+       **51,496 survive (55.9%)**, and across the 10 games 537k of 830k. The bulk of the
+       loss is frames outside any chance (33,498, of which 32,758 have the clock stopped:
+       players standing on the floor during free throws and timeouts), then non-usable
+       chances (3,656) and null `shotClock` (3,538, the first 1.6 to 5.5 s of a chance
+       before the clock is set). Zero frames fail the 5+5 test. The filter is right, but
+       every later sample size must be quoted against 537k, not against a million.
+    2. **Matchup coverage is 69.8% (64% to 71% across the games), under the 80% bar, and
+       the reason is structural, not a bug**: the provider only assigns matchups from
+       `frontcourtFrame` onward (94.6% after it, 4.0% before). The documented fallback
+       (nearest defender) covers the rest. Any conclusion that leans on assignment must
+       either restrict itself to frontcourt frames or declare it uses the fallback.
+    3. **The provider's `speed` is NOT an independent check on our velocity estimate.**
+       Pearson is 0.99995 (n=476,734, MAE 0.025 ft/s): it is the same smoothed derivative.
+       D10 treated it as a cross-check; it is a reproduction. The velocity estimate is
+       therefore unvalidated against anything external, and P1.4 should not count this
+       agreement as evidence.
+  - Performance is comfortable: build 4 to 13 s per game (budget 3 min), `.npz` 14.7 to
+    17.6 MB (budget 50 MB), load 0.03 to 0.06 s (budget 2 s), peak memory 208 MB.
 
 ### F1. Control field and validation at release (weeks 3-6)
 Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 against
