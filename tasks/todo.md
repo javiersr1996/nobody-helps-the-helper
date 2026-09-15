@@ -623,7 +623,7 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
       It touches held-out data but computes no metric and no label, so nothing from those
       games could have influenced the frozen parameters. The spirit of D11 holds and the
       test was deliberately left in place.
-- [ ] P1.5 Validation on the 5 held-out games `[PLANNER]`
+- [x] P1.5 Validation on the 5 held-out games `[PLANNER]`
   - Does: `scripts/validate_release.py` with the frozen parameters. Writes
     `reports/validation_release.csv` (one row per metric and model: control,
     Voronoi, `closestDefDist`) and prints the table of medians by `contestLevel`.
@@ -642,6 +642,50 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     the field contributes information that the distance to the closest defender does not have
     (velocities and second defender). If a threshold fails: it is written as is in the
     report and work STOPS to replan before F2.
+
+  - **Result. ALL FOUR pre-registered criteria FAIL out of sample, including the partial
+    Spearman that held on calibration. Nothing was adjusted: no threshold, no feature, no
+    objective. Gate green: ruff clean, 145 tests, 9 with the `data` marker. Held-out
+    games only: 719 shot events, 671 matched to the D12 cache, 663 with every field.
+    Every figure below was reproduced independently by the team lead.**
+
+    | Criterion | Calibration | Held out | Bar | Verdict |
+    |---|---|---|---|---|
+    | AUC(open vs contested) of `p_off_shooter` | 0.7727 | 0.7828 | >= 0.80 | FAIL |
+    | Margin `p_off_disk` - `voronoi_disk` | -0.0105 | -0.0121 | >= +0.03 | FAIL |
+    | Monotone medians across the 5 levels | - | 3 of 4 pairs | 4 of 4 | FAIL |
+    | Spearman with `shotQuality` | 0.1884 | 0.1313 | >= 0.30 | FAIL |
+    | Partial Spearman given `closestDefDist` | +0.1830 (p 0.0005) | **+0.0129 (p 0.3748)** | rho > 0, p < 0.01 | FAIL |
+
+    - **The ceiling is CONFIRMED out of sample, and it is the project's most solid
+      finding.** The provider's own `closestDefDist` alone reaches AUC 0.7970 on the
+      held-out games (0.8010 recomputed from the cache; 0.7727 to 0.7753 on calibration).
+      The 0.80 bar sits at or above the ceiling of the very variable the label derives
+      from, on both halves of the split. Per game, `p_off_shooter`'s AUC is within 0.03 of
+      `closestDefDist`'s on all 10 games. On the calibration games the two AUCs agree to
+      four decimals (0.7727 and 0.7727): **the model is reproducing the distance, not
+      adding to it.**
+    - **The partial Spearman did not replicate, and the failure mode matters more than the
+      failure.** Per game, `p_off_shooter` given `closestDefDist`: calibration +0.167,
+      +0.164, +0.162, +0.124, +0.271, positive in all five; held out +0.179, -0.099,
+      -0.052, -0.012, +0.155, at zero or NEGATIVE in three of five. It is not one outlier
+      game and it is not small-sample noise: it is a game-dependent effect that pooling
+      676 shots dressed up as p = 0.0005. **The F1 claim that `P_off` at a point carries
+      multi-player-geometry information about `shotQuality` beyond distance is DEAD and
+      must not appear in the README.** The replan's "3 failures plus 1 pass" is now
+      4 failures and 0 passes.
+    - Criterion 3's inverted pair is `light`/`average`, and the provider's own
+      `closestDefDist` has the SAME inversion on these games (light 4.43 ft, average
+      4.66 ft): the label is not monotone in its own source variable there, so no model
+      built on spatial geometry could have satisfied it.
+    - `epc_share` behaves on held-out exactly as on calibration: 0.2961 (p 0.0005) given
+      distance, collapsing to 0.0032 (p 0.47) once location is controlled. Its information
+      is location. It says WHERE the shot is, never how contested, and selling it as
+      contest information would be wrong on both halves of the split.
+    - Composition differs between the halves and it is real, not a bug (`hoop_dist` agrees
+      with the provider's own `distance` column to 0.01 ft on all 708 located shots):
+      held-out shots are farther (median 12.83 ft vs 9.78) and more often threes (39.5% vs
+      35.0%). Worth stating whenever the two halves are compared.
 
 ### F1 replan, decided by the user on 2026-09-15 after P1.4
 D13 fired: three pre-registered thresholds failed, so F1 replans before F2 opens.
