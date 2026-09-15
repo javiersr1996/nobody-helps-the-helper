@@ -478,14 +478,49 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     is < 0.02 away from the deterministic field on the synthetic; same seed, same
     result. The report prints what fraction of `plus` and `blocked` shots has
     `p_off_std` greater than the distance to the median of the neighboring level.
-- [ ] P1.3 Release features and rank metrics `[sonnet]`
+- [x] P1.3 Release features and rank metrics `[sonnet]`
   - Does: `release_features` (P_off at the shooter's position, mean over a 3 ft
     disk, `epc_share`, Voronoi at the shooter, recomputed `closestDefDist`, plus the
     required `shots` columns), `rank_auc`, `spearman`, `partial_spearman`
     (rank residuals), `permutation_pvalue`.
   - Split in two for scheduling: the four rank metrics were built first because they
-    depend on nothing (done, `validation.py`, 27 tests); `release_features` follows,
-    since it needs `control.py`.
+    depend on nothing (`validation.py`, 27 tests); `release_features` followed.
+  - `epc_share` was pulled forward from P2.1 into `epc.py` because `release_features`
+    needs it and duplicating it inline would be worse. `epc_by_zone` stays in P2.1.
+
+  - **Result, with two findings. Gate green: ruff clean, 107 tests, 7 with the `data`
+    marker.**
+    1. **The matched-shot count is 1,360, not the 1,414 this task asked for, and the
+       criterion was measuring the wrong thing.** It meant "no shots lost to a matching
+       bug", and zero are: once a release frame is found the shooter is in `off_ids`
+       100% of the time across the 10 games. The divergence is structural.
+       `scripts/shot_contest_uncertainty.py` matched against the raw tracking stream and
+       bypassed D12; `release_features` consumes `GameFrames`, so it can only reach
+       shots whose release frame survived D12. Of the 99 shots that do not,
+       **93 sit in a chance with `usable == False` and 6 have a null `shotClock`**.
+       Verified independently by set membership against the cached `frame_idx`:
+       1,459 - 99 = 1,360. Excluding shots the provider itself marks unusable improves
+       the sample rather than shrinking it, and D12 is what makes the control field
+       well-defined at a frame, so D12 was not weakened to chase the old number.
+       **A FOURTH denominator now exists: 1,459 events, 1,433 with valid `location` and
+       `region`, 1,414 matched against the raw stream, 1,360 matched against the D12
+       cache. F1 and everything after it use 1,360.**
+    2. **The Voronoi baseline of P1.5 was degenerate by construction and has been
+       replaced (user decision of 2026-09-15).** Voronoi evaluated at the shooter's own
+       position is exactly 1.0 for every shot, always, because a player is their own
+       nearest player: AUC 0.5 by construction, measured and confirmed. The baseline is
+       now `voronoi_disk`, the mean Voronoi occupancy over the same 3 ft disk as
+       `p_off_disk`, so the comparison isolates the model instead of the support it is
+       measured on. `voronoi_shooter` stays in the table, documented as constant and
+       never to be reported, as the visible evidence for the amendment.
+       **This raises the bar sharply and honestly.** On three CALIBRATION games (never
+       the held-out five), with uncalibrated defaults on a 2 ft grid: `voronoi_disk`
+       reaches AUC 0.7535 while `p_off_shooter` is at 0.7213 and `p_off_disk` at 0.7318.
+       The baseline currently BEATS the model. Under the old criterion P1.5 would have
+       passed trivially against 0.5. P1.4 may close the gap, since nothing is tuned yet,
+       but the risk that the pre-registered thresholds fail is now real. D13 governs:
+       if they fail it is reported as a finding and F1 replans. The threshold is not
+       touched, and this paragraph was written BEFORE running P1.4.
   - Accepts: 1,414 matched shots (same number as the prior script); tests:
     `rank_auc` gives 1.0 with perfect separation and 0.5 ± 0.05 with random labels
     (n = 2,000, fixed seed); `spearman` matches pandas (< 1e-12);
@@ -507,7 +542,10 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     `reports/validation_release.csv` (one row per metric and model: control,
     Voronoi, `closestDefDist`) and prints the table of medians by `contestLevel`.
   - Accepts (pre-registered thresholds, D13): AUC(open vs contested) of `P_off` at
-    the shooter ≥ 0.80 and ≥ Voronoi AUC + 0.03; monotone medians across the 5 levels
+    the shooter ≥ 0.80 and ≥ `voronoi_disk` AUC + 0.03, the margin measured with
+    `p_off_disk` against `voronoi_disk` so both models sit on identical geometry
+    (amended in P1.3 because the original `voronoi_shooter` is constant by
+    construction; the 0.80 and the +0.03 are untouched); monotone medians across the 5 levels
     open > light > average > plus > blocked; Spearman with `shotQuality` ≥ 0.30;
     partial Spearman with `shotQuality` controlling for `closestDefDist` > 0 with p < 0.01
     by permutation (2,000 shuffles). The latter is the Methodology argument:
@@ -519,7 +557,8 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 
 - [ ] P2.1 EPC and decomposition by zone `[sonnet]`
-  - Does: `epc.py` with `epc_share` and `epc_by_zone`.
+  - Does: `epc.py` with `epc_share` and `epc_by_zone`. `epc_share` is already done and
+    tested, pulled forward in P1.3; only `epc_by_zone` remains.
   - Accepts: tests: `P_off = 1` gives share 1 and `P_off = 0` gives 0; the zones sum to the
     total (< 1e-9); on a real game the mean share over live frames falls in
     [0.3, 0.7] (printed, sanity).

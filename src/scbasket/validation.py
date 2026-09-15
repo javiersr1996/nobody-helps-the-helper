@@ -5,12 +5,12 @@ Pure numpy, no sklearn/scipy: the model is graded against ground truth
 principles, because the acceptance criteria in the project plan (P1.5, P2.3)
 need exact control over tie handling and the permutation scheme.
 
-This module currently holds the four statistics helpers below (`rank_auc`,
-`spearman`, `partial_spearman`, `permutation_pvalue`). `release_features`,
-`calibrate`, `pick_windows` and `break_points` -- the release-feature
-extraction and calibration/validation pipeline built on top of
-`control.py` -- are appended below them by a later change; nothing in this
-module imports from `control.py`.
+This module holds the four statistics helpers below (`rank_auc`, `spearman`,
+`partial_spearman`, `permutation_pvalue`), which depend on nothing, plus
+`release_features`, appended after them, which does depend on `control.py`
+and `epc.py`. `calibrate`, `pick_windows` and `break_points` -- the
+calibration/validation pipeline built on top of `release_features` -- are
+appended below by a later change (P1.4/P1.5).
 """
 
 from __future__ import annotations
@@ -18,6 +18,13 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 import numpy as np
+import pandas as pd
+
+from scbasket.control import ControlParams, control_at_points, control_field
+from scbasket.court import Grid
+from scbasket.epc import epc_share
+from scbasket.frames import N_SIDE, GameFrames, at_frames
+from scbasket.value import ValueSurface
 
 
 def _midranks(x: np.ndarray) -> np.ndarray:
@@ -232,3 +239,168 @@ def permutation_pvalue(
 
     exceed = int(np.sum(null >= observed))
     return float((exceed + 1) / (null.shape[0] + 1))
+
+
+# --------------------------------------------------------------------------- release_features
+
+DISK_RADIUS_FT = 3.0  # p_off_disk radius around the shooter (plan spec)
+_DISK_CELL_FT = 1.0  # disk sampling lattice, matching D4's 1 ft grid resolution
+
+# shots columns copied through verbatim (provider's names): the ground truth the later
+# calibration/validation tasks (P1.4, P1.5) grade the model against, plus enough context
+# (region, shotClock, startFrame) to slice the results without rejoining shots.
+_SHOT_COLUMNS = (
+    "contestLevel", "shotQuality", "closestDefDist", "outcome", "three", "shotClock", "region",
+    "startFrame",
+)
+
+
+def _disk_offsets(radius_ft: float = DISK_RADIUS_FT, cell_ft: float = _DISK_CELL_FT) -> np.ndarray:
+    """(K, 2) offsets tiling a disk of the given radius on a regular cell_ft lattice."""
+    n = int(np.ceil(radius_ft / cell_ft))
+    xs = np.arange(-n, n + 1, dtype=np.float64) * cell_ft
+    xx, yy = np.meshgrid(xs, xs, indexing="ij")
+    offsets = np.column_stack([xx.ravel(), yy.ravel()])
+    return offsets[np.hypot(offsets[:, 0], offsets[:, 1]) <= radius_ft]
+
+
+_DISK_OFFSETS = _disk_offsets()
+
+
+def _disk_mean(frames: GameFrames, centers: np.ndarray, params: ControlParams) -> np.ndarray:
+    """Mean P_off over a small disk of points (DISK_RADIUS_FT) around one centre per frame.
+
+    control_at_points takes one point per frame, so the disk is swept with one call per
+    offset (a fixed, small count, not one per frame) and averaged; every call is fully
+    vectorized over frames, so this stays inside the "no Python loop per frame" rule.
+    """
+    samples = np.stack(
+        [control_at_points(frames, centers + offset, params) for offset in _DISK_OFFSETS], axis=1
+    )
+    return samples.mean(axis=1)
+
+
+def _voronoi_at_points(frames: GameFrames, points: np.ndarray) -> np.ndarray:
+    """Nearest-player Voronoi baseline (scbasket.control.voronoi_field) at one point per frame.
+
+    control.py only evaluates Voronoi over a shared grid (voronoi_field); this is the same
+    definition (1.0 where the nearest of the 10 players is an attacker, 0.0 a defender, 0.5
+    on an exact tie) at an arbitrary per-frame point instead, which release_features needs
+    for voronoi_shooter and control.py has no reason to carry for a single point.
+    """
+    diff = frames.xy.astype(np.float64) - points[:, None, :]
+    d2 = (diff * diff).sum(axis=-1)  # (N, 10)
+    d_off = d2[:, :N_SIDE].min(axis=1)
+    d_def = d2[:, N_SIDE:].min(axis=1)
+    return np.where(d_off < d_def, 1.0, np.where(d_off > d_def, 0.0, 0.5))
+
+
+def _voronoi_disk_mean(frames: GameFrames, centers: np.ndarray) -> np.ndarray:
+    """Mean Voronoi occupancy over the same disk _disk_mean uses for P_off.
+
+    This is the baseline P1.5 compares the control field against. It samples the disk
+    rather than the centre because Voronoi AT a player's own position is constant by
+    construction (see voronoi_shooter), which makes it worthless as a comparator. Sharing
+    _DISK_OFFSETS with p_off_disk keeps the two models on identical geometry, so the
+    comparison isolates the model and not the support it is measured on.
+    """
+    samples = np.stack(
+        [_voronoi_at_points(frames, centers + offset) for offset in _DISK_OFFSETS], axis=1
+    )
+    return samples.mean(axis=1)
+
+
+def _match_shots_to_release(
+    frames: GameFrames, shots: pd.DataFrame
+) -> tuple[pd.DataFrame, GameFrames, np.ndarray]:
+    """Shots matched to a release frame in `frames`, that frame, and the shooter's (N, 2) xy.
+
+    A shot is DROPPED, never padded with NaN, when: its startFrame is null; the exact frame
+    is absent from `frames` (by far the most common cause -- D12 already dropped it before
+    caching, typically because the shot's chance has usable == False, occasionally a null
+    shotClock; see the release_features docstring for the measured breakdown); or the
+    shooterId is not among that frame's five offensive slots (0 cases measured on the 10
+    published games, kept here only as a safety net, e.g. against a data revision).
+    """
+    shots = shots[shots["startFrame"].notna()]
+    start_frame = shots["startFrame"].to_numpy(dtype=np.int64)
+    found = np.isin(start_frame, frames.frame_idx)
+    shots, start_frame = shots[found], start_frame[found]
+
+    release = at_frames(frames, start_frame)
+    is_shooter = release.off_ids == shots["shooterId"].to_numpy()[:, None]
+    has_shooter = is_shooter.any(axis=1)
+    shooter_slot = is_shooter[has_shooter].argmax(axis=1)
+    shots, release = shots[has_shooter], release.take(has_shooter)
+
+    shooter_xy = release.xy[np.arange(len(release)), shooter_slot].astype(np.float64)
+    return shots.reset_index(drop=True), release, shooter_xy
+
+
+def release_features(
+    frames: GameFrames,
+    shots: pd.DataFrame,
+    grid: Grid,
+    params: ControlParams,
+    surface: ValueSurface,
+) -> pd.DataFrame:
+    """One row per shot of `shots` (one game) matched to its release frame in `frames`.
+
+    `frames` and `shots` are one game's worth (e.g. `get_or_build(dataset, game_id, cache_dir)`
+    and `dataset.events(game_id)["shots"]`); callers loop over games and concatenate. Columns:
+
+    - `p_off_shooter`: P_off (control.control_at_points) at the shooter's tracked position
+      at release.
+    - `p_off_disk`: mean P_off over a DISK_RADIUS_FT = 3 ft disk around that position.
+    - `epc_share`: the whole-frame share of court value under offensive control (epc.py),
+      evaluated on `grid`/`surface` at the release frame.
+    - `voronoi_shooter`: Voronoi at the shooter's own position. It is exactly 1.0 for
+      every shot, always: a player is their own nearest player, so this carries no
+      information and its AUC is 0.5 by construction. Kept only as the visible evidence
+      for why the P1.5 baseline is `voronoi_disk`; never report it as a baseline.
+    - `voronoi_disk`: mean Voronoi occupancy over the same 3 ft disk as `p_off_disk`.
+      This is the P1.5 baseline, on geometry identical to the control feature it is
+      compared against (user decision of 2026-09-15).
+    - `closest_def_dist`: shooter-to-nearest-defender distance, recomputed from `frames.xy`
+      at the release frame -- independently of the provider's own `closestDefDist` column,
+      which is carried through unchanged alongside it for comparison. Two distances agreeing
+      is a reproduction of the provider's arithmetic (same tracking, same formula), not
+      evidence the *model* works; only p_off_shooter / p_off_disk / epc_share are validated
+      against ground truth (contestLevel, shotQuality) in P1.4/P1.5.
+    - the columns named in _SHOT_COLUMNS, copied through from `shots` unchanged, plus
+      `game_id` (from `frames.game_id`).
+
+    A `p_off_std` column (Monte Carlo uncertainty over predError) is P1.2's addition, not
+    this function's: it is deliberately absent here.
+
+    Matching and its yield: of the 1,459 shot events across the 10 published games, 1,433
+    carry both a `location` and a `region` (a different, unrelated denominator: P0.2/P0.3's
+    zone-agreement checks). This function's own denominator is how many get a release frame
+    with both lineups on the floor. `scripts/shot_contest_uncertainty.py` (P1.2's starting
+    point) matches shots directly against the raw tracking stream -- any frame carrying the
+    shooter and at least two defenders at the exact startFrame, independent of D12 -- and
+    reaches 1,414. This function instead matches against `frames`, the D12-filtered
+    GameFrames cache that control_at_points/control_field require (oriented positions,
+    velocity, shot clock: none of that exists for a frame D12 already dropped), so it can
+    only ever match a subset of those 1,414. Measured on the 10 published games: 1,360.
+    The 54-shot gap is not a matching bug -- 0 shots fail on a missing shooter once their
+    frame is found -- it is exactly D12's model-readiness filters removing frames that the
+    raw stream still has: of the 99 shots (of 1,459) whose startFrame never survives into
+    `frames`, 93 sit in a chance with usable == False and 6 have a null shotClock; both are
+    frames the control model cannot evaluate (no resolved chance, or no shot-clock horizon
+    to project velocity over), not shots the matching logic failed to find.
+    """
+    shots_matched, release, shooter_xy = _match_shots_to_release(frames, shots)
+
+    field = control_field(release, grid, params)
+    out = pd.DataFrame({"game_id": np.full(len(shots_matched), frames.game_id, dtype=np.int64)})
+    out["p_off_shooter"] = control_at_points(release, shooter_xy, params)
+    out["p_off_disk"] = _disk_mean(release, shooter_xy, params)
+    out["epc_share"] = epc_share(field, surface)
+    out["voronoi_shooter"] = _voronoi_at_points(release, shooter_xy)
+    out["voronoi_disk"] = _voronoi_disk_mean(release, shooter_xy)
+    def_xy = release.xy[:, N_SIDE:].astype(np.float64)
+    out["closest_def_dist"] = np.linalg.norm(def_xy - shooter_xy[:, None, :], axis=-1).min(axis=1)
+    for column in _SHOT_COLUMNS:
+        out[column] = shots_matched[column].to_numpy()
+    return out

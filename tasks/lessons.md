@@ -18,13 +18,14 @@ answer is nothing, it is one computation run twice. Say so instead of banking it
 mixed which rotation is correct with how precise the tracking is. On the question it meant
 to settle the separation was absolute: 1,389 of 1,389 shots. P1.1 hit this twice more.
 **How to apply:** re-specify to the quantity it meant to test and record the rewrite with
-its reasoning. Never rewrite a criterion pre-registered for validation (D13): report and replan.
+its reasoning. Never rewrite a pre-registered criterion (D13): report the miss and replan.
 
-## A rank metric cannot calibrate a parameter that only rescales the score
-**Why:** P1.4 was going to fit `slope` over a 144-cell grid against AUC and Spearman. But
-`P_off = sigmoid(slope * score)` is monotone, so all three slopes give bit-identical
-rankings: the grid had 48 real cells and 96 ties, and the "optimum not on the edge" check
-was inverifiable in that dimension. Nothing in F1 can see `slope` at all.
-**How to apply:** before putting a parameter in a grid, ask whether the objective can
-distinguish its values. If the objective only sees ranks, any monotone reparameterisation
-is invisible; fix the parameter, say why, and report its effect as a sensitivity band.
+## Check a quantity can actually vary before building a criterion on it
+**Why:** twice in F1 a criterion rested on something that could not move. `slope` was to
+be fitted over a 144-cell grid against AUC and Spearman, but `sigmoid(slope * score)` is
+monotone: all three values gave identical rankings, 48 real cells and 96 ties. And the
+Voronoi baseline read at the shooter's own position is 1.0 for every shot ever, because a
+player is their own nearest player, so the model was to be compared against 0.5.
+**How to apply:** ask what makes the number differ across cases. A monotone
+reparameterisation is invisible to ranks; a reference point that is the subject itself is
+a constant. Fix it BEFORE the run, never after.

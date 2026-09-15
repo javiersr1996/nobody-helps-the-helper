@@ -1,12 +1,31 @@
-"""Tests for scbasket.validation: rank_auc, spearman, partial_spearman, permutation_pvalue."""
+"""Tests for scbasket.validation: rank_auc, spearman, partial_spearman, permutation_pvalue,
+release_features.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import REAL_DATASET_ROOT, requires_real_dataset
 
-from scbasket.validation import partial_spearman, permutation_pvalue, rank_auc, spearman
+from scbasket.control import ControlParams, control_at_points, control_field
+from scbasket.court import ZONES, make_grid
+from scbasket.epc import epc_share
+from scbasket.frames import GameFrames, get_or_build
+from scbasket.io import Dataset
+from scbasket.validation import (
+    partial_spearman,
+    permutation_pvalue,
+    rank_auc,
+    release_features,
+    spearman,
+)
+from scbasket.value import ValueSurface, league_zone_values, surface_from_zones
+
+CACHE_DIR = REAL_DATASET_ROOT.parents[1] / "interim"
+OFF_IDS = np.array([5001, 5002, 5003, 5004, 5005], dtype=np.int32)
+DEF_IDS = np.array([6001, 6002, 6003, 6004, 6005], dtype=np.int32)
 
 
 def _brute_force_auc(score: np.ndarray, label: np.ndarray) -> float:
@@ -243,3 +262,164 @@ def test_permutation_pvalue_precomputed_mode_returns_nan_with_a_short_null():
 
 def test_permutation_pvalue_returns_nan_when_observed_statistic_is_nan():
     assert np.isnan(permutation_pvalue(float("nan"), np.array([1.0, 2.0, 3.0])))
+
+
+# --------------------------------------------------------------------------- release_features
+
+
+def _release_frames(xy, ball=None, shot_clock=24.0) -> GameFrames:
+    """A minimal n-row GameFrames for release_features tests: fixed 5+5 ids, no velocity.
+
+    frame_idx is 10, 20, 30, ... so tests can target a specific row by startFrame.
+    """
+    xy = np.asarray(xy, dtype=np.float32)
+    n = len(xy)
+    ball = np.zeros((n, 3), np.float32) if ball is None else np.asarray(ball, dtype=np.float32)
+    return GameFrames(
+        game_id=900001,
+        frame_idx=np.arange(10, 10 * (n + 1), 10, dtype=np.int32),
+        wall_clock=np.arange(n, dtype=np.int64) * 40,
+        shot_clock=np.broadcast_to(np.asarray(shot_clock, np.float32), (n,)).copy(),
+        period=np.ones(n, np.int8),
+        possession_idx=np.zeros(n, np.int32),
+        chance_idx=np.zeros(n, np.int32),
+        off_ids=np.tile(OFF_IDS, (n, 1)),
+        def_ids=np.tile(DEF_IDS, (n, 1)),
+        xy=xy,
+        v=np.zeros_like(xy),
+        pred_error=np.ones((n, 10), np.float32),
+        detected=np.ones((n, 10), bool),
+        ball=ball,
+        ball_holder=np.zeros(n, np.int8),
+        matchup=np.full((n, 5), -1, np.int8),
+    )
+
+
+def _shot_row(start_frame, shooter_id, **overrides) -> dict:
+    """A shots.itertuples()-shaped row with sane defaults, one field overridable at a time."""
+    row = {
+        "startFrame": start_frame,
+        "shooterId": shooter_id,
+        "contestLevel": "open",
+        "shotQuality": 50.0,
+        "closestDefDist": 5.0,
+        "outcome": True,
+        "three": False,
+        "shotClock": 15.0,
+        "region": "ra",
+    }
+    row.update(overrides)
+    return row
+
+
+def _flat_surface(grid, value: float = 1.0) -> ValueSurface:
+    """A ValueSurface worth `value` everywhere (no zero-value zones, no smoothing)."""
+    return surface_from_zones(grid, dict.fromkeys(ZONES, value), smooth_ft=0.0)
+
+
+def test_release_features_happy_path_matches_and_computes_every_column():
+    xy = np.zeros((1, 10, 2), dtype=np.float32)
+    xy[0, :5] = [(-30.0, 5.0), (-25.0, -3.0), (-10.0, 10.0), (-10.0, -10.0), (0.0, 0.0)]
+    xy[0, 5:] = [(-33.0, 5.0), (-40.0, 20.0), (-40.0, -20.0), (10.0, 10.0), (10.0, -10.0)]
+    frames = _release_frames(xy, ball=np.array([[-30.0, 5.0, 4.0]], dtype=np.float32))
+    shots = pd.DataFrame([_shot_row(10, OFF_IDS[0])])
+    grid = make_grid(4.0)
+    params = ControlParams()
+    surface = _flat_surface(grid)
+
+    out = release_features(frames, shots, grid, params, surface)
+
+    required = {
+        "game_id", "p_off_shooter", "p_off_disk", "epc_share", "voronoi_shooter",
+        "voronoi_disk",
+        "closest_def_dist", "contestLevel", "shotQuality", "closestDefDist", "outcome",
+        "three", "shotClock", "region", "startFrame",
+    }
+    assert required <= set(out.columns)
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert row["game_id"] == frames.game_id
+    assert row["startFrame"] == 10
+
+    shooter_xy = xy[0, 0].astype(np.float64)
+    assert row["p_off_shooter"] == control_at_points(frames, shooter_xy[None], params)[0]
+    assert row["epc_share"] == epc_share(control_field(frames, grid, params), surface)[0]
+    # The shooter is at distance 0 from themself, so they are always their own nearest
+    # player: the Voronoi baseline at the shooter's own position is not a coincidence.
+    assert row["voronoi_shooter"] == 1.0
+    # ... which is why the P1.5 baseline samples the disk instead: with a defender 3 ft
+    # away the disk is genuinely contested, so voronoi_disk can discriminate and
+    # voronoi_shooter cannot.
+    assert 0.0 < row["voronoi_disk"] < 1.0
+    expected_dist = np.linalg.norm(xy[0, 5:].astype(np.float64) - shooter_xy, axis=1).min()
+    assert row["closest_def_dist"] == pytest.approx(expected_dist)
+    assert row["closest_def_dist"] == pytest.approx(3.0)  # hand-placed nearest defender
+    assert 0.0 < row["p_off_disk"] < 1.0
+
+
+def test_release_features_drops_a_shot_whose_release_frame_is_missing_from_the_cache():
+    xy = np.zeros((2, 10, 2), dtype=np.float32)
+    xy[:, 0] = (-30.0, 5.0)
+    xy[:, 5] = (-35.0, 5.0)
+    frames = _release_frames(xy)  # frame_idx 10, 20 -- 999 is never in the cache
+    shots = pd.DataFrame([
+        _shot_row(10, OFF_IDS[0], shotQuality=10.0),
+        _shot_row(999, OFF_IDS[0], shotQuality=90.0),
+    ])
+    grid = make_grid(4.0)
+
+    out = release_features(frames, shots, grid, ControlParams(), _flat_surface(grid))
+
+    assert len(out) == 1  # dropped, not padded to 2 rows with a NaN
+    assert out["startFrame"].iloc[0] == 10
+    assert out["shotQuality"].iloc[0] == 10.0
+    assert not out.isna().any().any()
+
+
+def test_release_features_disk_mean_equals_point_value_on_a_uniform_field():
+    """Every defender mirrors its attacker's position exactly, so the influence surplus
+    cancels term by term and P_off(p) == 0.5 for ANY p (the same construction
+    test_control.py's stock-synthetic-game test uses for a field that is uniform
+    everywhere, not just locally). p_off_disk, the mean over several such points, must
+    then equal p_off_shooter exactly, not just approximately.
+    """
+    xy = np.zeros((1, 10, 2), dtype=np.float32)
+    xy[0, :5] = [(-30.0, 5.0), (-20.0, -5.0), (-15.0, 8.0), (-8.0, -8.0), (-2.0, 2.0)]
+    xy[0, 5:] = xy[0, :5]
+    frames = _release_frames(xy, ball=np.array([[-15.0, 0.0, 4.0]], dtype=np.float32))
+    shots = pd.DataFrame([_shot_row(10, OFF_IDS[0])])
+    grid = make_grid(4.0)
+
+    out = release_features(frames, shots, grid, ControlParams(), _flat_surface(grid))
+
+    assert out["p_off_shooter"].iloc[0] == pytest.approx(0.5, abs=1e-12)
+    assert out["p_off_disk"].iloc[0] == pytest.approx(0.5, abs=1e-12)
+    assert out["p_off_disk"].iloc[0] == out["p_off_shooter"].iloc[0]
+
+
+@pytest.mark.data
+@requires_real_dataset
+def test_release_features_matched_yield_on_the_10_published_games():
+    """Matched-shot yield against the D12-filtered cache; see release_features' docstring
+    for why this differs from the 1,414 the raw-stream script
+    (scripts/shot_contest_uncertainty.py) reaches: 93 of the 99 unmatched shots sit in a
+    chance with usable == False and 6 have a null shotClock, frames the control model
+    cannot evaluate at all, not a failure of the matching itself (0 shooter-not-found
+    cases across all 10 games).
+    """
+    dataset = Dataset(REAL_DATASET_ROOT)
+    grid = make_grid(2.0)
+    params = ControlParams()
+    surface = surface_from_zones(grid, league_zone_values(dataset.aggregates("shots")))
+
+    total_shots = 0
+    total_matched = 0
+    for game_id in dataset.game_ids:
+        frames = get_or_build(dataset, game_id, CACHE_DIR)
+        shots = dataset.events(game_id)["shots"]
+        total_shots += len(shots)
+        total_matched += len(release_features(frames, shots, grid, params, surface))
+
+    print(f"\n{total_matched} of {total_shots} shots matched to a release frame")
+    assert total_shots == 1459
+    assert total_matched == 1360
