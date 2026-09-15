@@ -1,0 +1,4 @@
+level,neighbour,n_level,n_neighbour,fraction_ambiguous,old_heuristic_inside_noise
+plus,average,549,374,0.24043715846994534,0.262350936967632
+plus,blocked,549,47,0.22404371584699453,0.262350936967632
+blocked,plus,47,549,0.23404255319148937,0.43137254901960786

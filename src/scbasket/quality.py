@@ -189,3 +189,24 @@ def distance_with_error(
     a, b = a.iloc[0], b.iloc[0]
     dist = math.hypot(a["x"] - b["x"], a["y"] - b["y"])
     return dist, distance_error(a["predError"], b["predError"])
+
+
+# 90% quantile of a Rayleigh(sigma) distribution, in units of sigma: sqrt(-2 ln(0.1)).
+RAYLEIGH_90_FACTOR = 2.146
+
+
+def sigma_from_pred_error(pred_error: np.ndarray) -> np.ndarray:
+    """Isotropic Gaussian sigma (ft) implied by predError, for the Monte Carlo of P1.2 (D8).
+
+    predError is the provider's 90% quantile of the position error radius (see the module
+    docstring). Modelling the error on each axis as an independent, zero-mean Gaussian of
+    standard deviation sigma makes the radius sqrt(dx^2 + dy^2) Rayleigh-distributed with
+    that same sigma, and a Rayleigh's 90% quantile is sigma * sqrt(-2 ln(0.1)) = 2.146 sigma,
+    hence sigma = predError / 2.146.
+
+    Used by scbasket.control.control_with_uncertainty and
+    control_at_points_with_uncertainty to perturb tracked positions by their own
+    measurement error; nothing else in this module propagates predError, it only
+    summarizes it (profile_game, profile_dataset).
+    """
+    return np.asarray(pred_error, dtype=np.float64) / RAYLEIGH_90_FACTOR

@@ -20,7 +20,12 @@ from collections.abc import Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from scbasket.control import ControlParams, control_at_points, control_field
+from scbasket.control import (
+    ControlParams,
+    control_at_points,
+    control_at_points_with_uncertainty,
+    control_field,
+)
 from scbasket.court import Grid
 from scbasket.epc import epc_share
 from scbasket.frames import N_SIDE, GameFrames, at_frames
@@ -245,6 +250,10 @@ def permutation_pvalue(
 
 DISK_RADIUS_FT = 3.0  # p_off_disk radius around the shooter (plan spec)
 _DISK_CELL_FT = 1.0  # disk sampling lattice, matching D4's 1 ft grid resolution
+_MC_SAMPLES = 20  # D8: K = 20 Monte Carlo draws per event frame
+_MC_SEED = 0  # release_features takes no rng parameter (SPEC), so p_off_std is derived from
+# a fresh, fixed-seed Generator on every call: reproducible, and it never touches global
+# numpy random state, without changing the function's public signature.
 
 # shots columns copied through verbatim (provider's names): the ground truth the later
 # calibration/validation tasks (P1.4, P1.5) grade the model against, plus enough context
@@ -310,7 +319,7 @@ def _voronoi_disk_mean(frames: GameFrames, centers: np.ndarray) -> np.ndarray:
     return samples.mean(axis=1)
 
 
-def _match_shots_to_release(
+def match_shots_to_release(
     frames: GameFrames, shots: pd.DataFrame
 ) -> tuple[pd.DataFrame, GameFrames, np.ndarray]:
     """Shots matched to a release frame in `frames`, that frame, and the shooter's (N, 2) xy.
@@ -321,6 +330,11 @@ def _match_shots_to_release(
     shotClock; see the release_features docstring for the measured breakdown); or the
     shooterId is not among that frame's five offensive slots (0 cases measured on the 10
     published games, kept here only as a safety net, e.g. against a data revision).
+
+    Public (not `_`-prefixed) because release_features and
+    scripts/shot_contest_uncertainty.py (P1.2) both need it: the script computes
+    p_off_mean/p_off_std at the shooter's position over the same matched release frames,
+    and duplicating this matching would risk the two silently diverging.
     """
     shots = shots[shots["startFrame"].notna()]
     start_frame = shots["startFrame"].to_numpy(dtype=np.int64)
@@ -367,11 +381,18 @@ def release_features(
       is a reproduction of the provider's arithmetic (same tracking, same formula), not
       evidence the *model* works; only p_off_shooter / p_off_disk / epc_share are validated
       against ground truth (contestLevel, shotQuality) in P1.4/P1.5.
+    - `p_off_std`: standard deviation of P_off at the shooter's position over D8's Monte
+      Carlo perturbation (control.control_at_points_with_uncertainty, K = `_MC_SAMPLES`
+      = 20 draws, each player displaced by its own quality.sigma_from_pred_error(predError)).
+      This is P1.2's principled replacement for the heuristic ambiguity bound of
+      `scripts/shot_contest_uncertainty.py` ("is closestDefDist smaller than its own
+      measurement error"): it propagates the same predError through the model itself
+      instead of through a hand-built margin. release_features has no `rng` parameter
+      (fixed by the SPEC), so the draws use a fresh, fixed-seed Generator private to this
+      call (`_MC_SEED`) -- deterministic and reproducible without touching global numpy
+      random state or widening this function's signature.
     - the columns named in _SHOT_COLUMNS, copied through from `shots` unchanged, plus
       `game_id` (from `frames.game_id`).
-
-    A `p_off_std` column (Monte Carlo uncertainty over predError) is P1.2's addition, not
-    this function's: it is deliberately absent here.
 
     Matching and its yield: of the 1,459 shot events across the 10 published games, 1,433
     carry both a `location` and a `region` (a different, unrelated denominator: P0.2/P0.3's
@@ -379,18 +400,20 @@ def release_features(
     with both lineups on the floor. `scripts/shot_contest_uncertainty.py` (P1.2's starting
     point) matches shots directly against the raw tracking stream -- any frame carrying the
     shooter and at least two defenders at the exact startFrame, independent of D12 -- and
-    reaches 1,414. This function instead matches against `frames`, the D12-filtered
+    reaches 1,445 (an earlier count of 1,414 for this same raw-stream match does not
+    reproduce and must not be cited: confirmed under three independent matching criteria,
+    see tasks/todo.md). This function instead matches against `frames`, the D12-filtered
     GameFrames cache that control_at_points/control_field require (oriented positions,
     velocity, shot clock: none of that exists for a frame D12 already dropped), so it can
-    only ever match a subset of those 1,414. Measured on the 10 published games: 1,360.
-    The 54-shot gap is not a matching bug -- 0 shots fail on a missing shooter once their
-    frame is found -- it is exactly D12's model-readiness filters removing frames that the
-    raw stream still has: of the 99 shots (of 1,459) whose startFrame never survives into
-    `frames`, 93 sit in a chance with usable == False and 6 have a null shotClock; both are
-    frames the control model cannot evaluate (no resolved chance, or no shot-clock horizon
-    to project velocity over), not shots the matching logic failed to find.
+    only ever match a subset of the full 1,459. Measured on the 10 published games: 1,360.
+    The 99-shot gap from 1,459 is not a matching bug -- 0 shots fail on a missing shooter
+    once their frame is found -- it is exactly D12's model-readiness filters removing frames
+    that the raw stream still has: 93 shots sit in a chance with usable == False and 6 have
+    a null shotClock; both are frames the control model cannot evaluate (no resolved chance,
+    or no shot-clock horizon to project velocity over), not shots the matching logic failed
+    to find.
     """
-    shots_matched, release, shooter_xy = _match_shots_to_release(frames, shots)
+    shots_matched, release, shooter_xy = match_shots_to_release(frames, shots)
 
     field = control_field(release, grid, params)
     out = pd.DataFrame({"game_id": np.full(len(shots_matched), frames.game_id, dtype=np.int64)})
@@ -401,6 +424,9 @@ def release_features(
     out["voronoi_disk"] = _voronoi_disk_mean(release, shooter_xy)
     def_xy = release.xy[:, N_SIDE:].astype(np.float64)
     out["closest_def_dist"] = np.linalg.norm(def_xy - shooter_xy[:, None, :], axis=-1).min(axis=1)
+    _, out["p_off_std"] = control_at_points_with_uncertainty(
+        release, shooter_xy, params, samples=_MC_SAMPLES, rng=np.random.default_rng(_MC_SEED)
+    )
     for column in _SHOT_COLUMNS:
         out[column] = shots_matched[column].to_numpy()
     return out

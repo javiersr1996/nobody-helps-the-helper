@@ -51,7 +51,8 @@ in P1.4, never by eye):
 
 Extrapolated positions (``detected == False``) enter as they are: they are the
 provider's best estimate, and their error is propagated by the Monte Carlo of
-P1.2 (``control_with_uncertainty``), not by this module.
+P1.2 (``control_with_uncertainty``, ``control_at_points_with_uncertainty``), not
+by this module.
 """
 
 from __future__ import annotations
@@ -62,6 +63,7 @@ import numpy as np
 
 from scbasket.court import Grid
 from scbasket.frames import N_SIDE, GameFrames
+from scbasket.quality import sigma_from_pred_error
 
 SIGMA_FLOOR_FT = 1e-3  # floor on the across-track standard deviation (see the module docstring)
 REMOVED_XY_FT = 1e6  # where remove_players parks a player: its influence underflows to exactly 0
@@ -186,6 +188,60 @@ def control_field(
     return out
 
 
+def _perturb(frames: GameFrames, rng: np.random.Generator) -> GameFrames:
+    """One Monte Carlo draw (D8): a copy of frames with every position displaced by an
+    isotropic Gaussian of its own sigma_from_pred_error(frames.pred_error) -- an
+    extrapolated position (larger predError) is perturbed more than a detected one.
+    Shared by control_with_uncertainty and control_at_points_with_uncertainty; ball,
+    velocity, shot_clock and every id are left untouched, exactly like remove_players.
+    """
+    sigma = sigma_from_pred_error(frames.pred_error).astype(np.float64)  # (N, 10)
+    noise = rng.normal(size=(*sigma.shape, 2)) * sigma[..., None]
+    xy = (frames.xy.astype(np.float64) + noise).astype(np.float32)
+    return replace(frames, xy=xy)
+
+
+def control_with_uncertainty(
+    frames: GameFrames,
+    grid: Grid,
+    params: ControlParams,
+    samples: int = 20,
+    rng: np.random.Generator | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Mean and standard deviation of control_field over D8's Monte Carlo position error.
+
+    Draws ``samples`` independent perturbations of ``frames`` (see _perturb), evaluates
+    control_field on each, and returns (mean, std) over the draws: two (N, G) float64
+    arrays, same shape as control_field's output. With predError == 0 everywhere the
+    perturbation is exactly zero on every draw, so std is exactly 0 and mean equals
+    control_field(frames, grid, params) bit for bit.
+
+    Budget (D8): affordable only on a small number of frames (release, picks) -- this
+    costs ``samples`` times control_field's own cost, never the full ~537k D12-filtered
+    cache. Callers select event frames first (e.g. scbasket.frames.at_frames) and pass
+    only those in.
+
+    Reproducibility: pass an explicit ``rng`` (a numpy.random.Generator); the same seed
+    gives the same (mean, std). Without one, a fresh, unseeded generator is used. Global
+    numpy random state is never touched.
+
+    The returned std is not uniform over the field: it is largest exactly at cells near a
+    sign change of the offense-defense influence surplus, where the sigmoid is steepest --
+    the same cells contestLevel calls close. A small position perturbation flips such a
+    cell between offense and defense; a cell deep in someone's territory barely moves. This
+    is not model noise to average away: it is P1.2's finding, and the same reason
+    ``epc_share``/``p_off_shooter`` around a shot's release carry the widest error bars
+    exactly where the shot itself is most contested (see scripts/shot_contest_uncertainty.py).
+    """
+    if samples < 1:
+        raise ValueError("samples must be >= 1")
+    rng = np.random.default_rng() if rng is None else rng
+    fields = np.empty((samples, len(frames), len(grid.centers)), dtype=np.float64)
+    for s in range(samples):
+        fields[s] = control_field(_perturb(frames, rng), grid, params)
+    return fields.mean(axis=0), fields.std(axis=0)
+
+
 def control_at_points(frames: GameFrames, points: np.ndarray, params: ControlParams) -> np.ndarray:
     """P_off at one location per frame (points is (N, 2), e.g. the shooter at release): (N,).
 
@@ -194,6 +250,31 @@ def control_at_points(frames: GameFrames, points: np.ndarray, params: ControlPar
     pts = np.asarray(points, dtype=np.float64).reshape(len(frames), 1, 2)
     score = _score(frames.xy, frames.v, frames.ball, frames.shot_clock, pts, params)
     return _sigmoid(params.slope * score[:, 0])
+
+
+def control_at_points_with_uncertainty(
+    frames: GameFrames,
+    points: np.ndarray,
+    params: ControlParams,
+    samples: int = 20,
+    rng: np.random.Generator | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Mean and standard deviation of control_at_points over D8's Monte Carlo position error.
+
+    The point analogue of control_with_uncertainty, for callers that need a scalar per
+    frame rather than a field -- validation.release_features's p_off_std and
+    scripts/shot_contest_uncertainty.py's p_off_mean/p_off_std both evaluate P_off at a
+    single tracked location (the shooter) per frame, so a (samples, N, G) field would
+    compute and discard G - 1 values it never uses. Same perturbation (_perturb), same
+    reproducibility guarantees, as control_with_uncertainty.
+    """
+    if samples < 1:
+        raise ValueError("samples must be >= 1")
+    rng = np.random.default_rng() if rng is None else rng
+    values = np.empty((samples, len(frames)), dtype=np.float64)
+    for s in range(samples):
+        values[s] = control_at_points(_perturb(frames, rng), points, params)
+    return values.mean(axis=0), values.std(axis=0)
 
 
 def voronoi_field(frames: GameFrames, grid: Grid, batch: int = 64) -> np.ndarray:

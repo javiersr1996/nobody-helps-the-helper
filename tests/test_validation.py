@@ -9,7 +9,12 @@ import pandas as pd
 import pytest
 from conftest import REAL_DATASET_ROOT, requires_real_dataset
 
-from scbasket.control import ControlParams, control_at_points, control_field
+from scbasket.control import (
+    ControlParams,
+    control_at_points,
+    control_at_points_with_uncertainty,
+    control_field,
+)
 from scbasket.court import ZONES, make_grid
 from scbasket.epc import epc_share
 from scbasket.frames import GameFrames, get_or_build
@@ -267,14 +272,19 @@ def test_permutation_pvalue_returns_nan_when_observed_statistic_is_nan():
 # --------------------------------------------------------------------------- release_features
 
 
-def _release_frames(xy, ball=None, shot_clock=24.0) -> GameFrames:
+def _release_frames(xy, ball=None, shot_clock=24.0, pred_error=None) -> GameFrames:
     """A minimal n-row GameFrames for release_features tests: fixed 5+5 ids, no velocity.
 
     frame_idx is 10, 20, 30, ... so tests can target a specific row by startFrame.
+    pred_error defaults to 1.0 ft everywhere; pass an override for the p_off_std tests.
     """
     xy = np.asarray(xy, dtype=np.float32)
     n = len(xy)
     ball = np.zeros((n, 3), np.float32) if ball is None else np.asarray(ball, dtype=np.float32)
+    if pred_error is None:
+        pred_error = np.ones((n, 10), np.float32)
+    else:
+        pred_error = np.broadcast_to(np.asarray(pred_error, np.float32), (n, 10)).copy()
     return GameFrames(
         game_id=900001,
         frame_idx=np.arange(10, 10 * (n + 1), 10, dtype=np.int32),
@@ -287,7 +297,7 @@ def _release_frames(xy, ball=None, shot_clock=24.0) -> GameFrames:
         def_ids=np.tile(DEF_IDS, (n, 1)),
         xy=xy,
         v=np.zeros_like(xy),
-        pred_error=np.ones((n, 10), np.float32),
+        pred_error=pred_error,
         detected=np.ones((n, 10), bool),
         ball=ball,
         ball_holder=np.zeros(n, np.int8),
@@ -331,7 +341,7 @@ def test_release_features_happy_path_matches_and_computes_every_column():
 
     required = {
         "game_id", "p_off_shooter", "p_off_disk", "epc_share", "voronoi_shooter",
-        "voronoi_disk",
+        "voronoi_disk", "p_off_std",
         "closest_def_dist", "contestLevel", "shotQuality", "closestDefDist", "outcome",
         "three", "shotClock", "region", "startFrame",
     }
@@ -397,11 +407,68 @@ def test_release_features_disk_mean_equals_point_value_on_a_uniform_field():
     assert out["p_off_disk"].iloc[0] == out["p_off_shooter"].iloc[0]
 
 
+def _p_off_std_fixture(pred_error) -> tuple[GameFrames, pd.DataFrame]:
+    """Two shots with distinct, hand-placed geometry, for the p_off_std (D8/P1.2) tests."""
+    xy = np.zeros((2, 10, 2), dtype=np.float32)
+    xy[:, :5] = [(-30.0, 5.0), (-25.0, -3.0), (-10.0, 10.0), (-10.0, -10.0), (0.0, 0.0)]
+    xy[:, 5:] = [(-33.0, 5.0), (-40.0, 20.0), (-40.0, -20.0), (10.0, 10.0), (10.0, -10.0)]
+    xy[1, :5, 0] -= 5.0  # second shot: same shape, shifted, so it is a distinct release frame
+    frames = _release_frames(xy, pred_error=pred_error)
+    shots = pd.DataFrame([_shot_row(10, OFF_IDS[0]), _shot_row(20, OFF_IDS[0])])
+    return frames, shots
+
+
+def test_release_features_p_off_std_is_zero_when_pred_error_is_zero():
+    """D8/P1.2 acceptance: predError = 0 gives p_off_std 0, to float64 machine precision.
+    See test_control.py's control_with_uncertainty zero-predError test for why the
+    tolerance is float64 epsilon rather than a literal ``== 0.0``: numpy's std of several
+    bit-identical draws is not guaranteed to round to exactly 0.0.
+    """
+    frames, shots = _p_off_std_fixture(pred_error=0.0)
+    grid = make_grid(4.0)
+
+    out = release_features(frames, shots, grid, ControlParams(), _flat_surface(grid))
+
+    np.testing.assert_allclose(out["p_off_std"].to_numpy(), 0.0, atol=1e-9)
+
+
+def test_release_features_p_off_std_is_bounded_and_matches_a_direct_monte_carlo_call():
+    """p_off_std must be a real per-shot number, not a placeholder, and must agree with
+    calling control_at_points_with_uncertainty directly on the same matched release frame
+    and shooter position (the same computation release_features does internally)."""
+    frames, shots = _p_off_std_fixture(pred_error=1.5)
+    grid = make_grid(4.0)
+    params = ControlParams()
+
+    out = release_features(frames, shots, grid, params, _flat_surface(grid))
+
+    assert (out["p_off_std"] > 0.0).all()
+    assert (out["p_off_std"] <= 0.5).all()  # std of a variable bounded in [0, 1]
+    shooter_xy = frames.xy[:, 0].astype(np.float64)
+    _, expected_std = control_at_points_with_uncertainty(
+        frames, shooter_xy, params, samples=20, rng=np.random.default_rng(0)
+    )
+    np.testing.assert_array_equal(out["p_off_std"].to_numpy(), expected_std)
+
+
+def test_release_features_p_off_std_is_reproducible_across_calls():
+    """release_features takes no rng parameter, so it must be a pure function of its
+    arguments: calling it twice on identical inputs gives identical p_off_std."""
+    frames, shots = _p_off_std_fixture(pred_error=2.0)
+    grid = make_grid(4.0)
+    params = ControlParams()
+
+    first = release_features(frames, shots, grid, params, _flat_surface(grid))
+    second = release_features(frames, shots, grid, params, _flat_surface(grid))
+
+    np.testing.assert_array_equal(first["p_off_std"].to_numpy(), second["p_off_std"].to_numpy())
+
+
 @pytest.mark.data
 @requires_real_dataset
 def test_release_features_matched_yield_on_the_10_published_games():
     """Matched-shot yield against the D12-filtered cache; see release_features' docstring
-    for why this differs from the 1,414 the raw-stream script
+    for why this differs from the 1,445 the raw-stream script
     (scripts/shot_contest_uncertainty.py) reaches: 93 of the 99 unmatched shots sit in a
     chance with usable == False and 6 have a null shotClock, frames the control model
     cannot evaluate at all, not a failure of the matching itself (0 shooter-not-found

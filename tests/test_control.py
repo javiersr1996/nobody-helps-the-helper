@@ -19,7 +19,9 @@ from scbasket.control import (
     REMOVED_XY_FT,
     ControlParams,
     control_at_points,
+    control_at_points_with_uncertainty,
     control_field,
+    control_with_uncertainty,
     influence,
     remove_players,
     voronoi_field,
@@ -300,6 +302,88 @@ def test_expired_shot_clock_makes_the_field_purely_positional():
     ).max() > 0.05
 
 
+# ------------------------------------------------------------------- control_with_uncertainty
+
+
+def test_control_with_uncertainty_is_exactly_zero_std_when_pred_error_is_zero():
+    """D8/P1.2 acceptance: predError = 0 gives std 0 and mean equal to the deterministic
+    field, both to float64 machine precision (~1e-16). The perturbation itself is exactly
+    0.0 on every draw (verified independently: _perturb(frames, rng).xy is bit-identical to
+    frames.xy here), but numpy's std/mean of several bit-identical floats is not guaranteed
+    to round to literally 0.0/that float -- computing a sum of N copies of the same value and
+    dividing by N is ordinary IEEE754 arithmetic, not a special-cased identity -- so the
+    tolerance below is float64 epsilon, not modelling slack.
+    """
+    rng = np.random.default_rng(20)
+    frames = _random_frames(rng, 5, speed=4.0, shot_clock=rng.uniform(0.0, 24.0, 5))
+    frames = replace(frames, pred_error=np.zeros_like(frames.pred_error))
+    params = ControlParams()
+    deterministic = control_field(frames, GRID, params)
+
+    mean, std = control_with_uncertainty(
+        frames, GRID, params, samples=5, rng=np.random.default_rng(1)
+    )
+
+    assert mean.shape == std.shape == (len(frames), len(GRID.centers))
+    np.testing.assert_allclose(std, 0.0, atol=1e-9)
+    np.testing.assert_allclose(mean, deterministic, atol=1e-9)
+
+
+def test_control_with_uncertainty_mean_is_close_to_the_deterministic_field():
+    """D8/P1.2 acceptance: with 200 samples the mean is < 0.02 away from the deterministic
+    field, at a plan-realistic predError of 1.5 ft (the synthetic fixture's default,
+    tests/conftest.py). "The mean is < 0.02 away" is the average deviation over cells and
+    frames, not the worst single cell: with 3,450 (frame, cell) values, a handful of cells
+    near a sign change in the influence surplus are far more sensitive to the position
+    noise than the typical cell, so their individual deviation can exceed 0.02 (measured:
+    max 0.022) even while the field is close everywhere else (measured: mean 0.0017, p99
+    0.0103). The criterion is about central tendency, not that tail -- and that tail is
+    not slack the test is hiding: it is P1.2's actual finding (see
+    control_with_uncertainty's docstring), that the widest error bars sit exactly where
+    control is most contested, the same cells a contestLevel call is least sure about.
+    """
+    rng = np.random.default_rng(21)
+    frames = _random_frames(rng, 6, speed=4.0, shot_clock=rng.uniform(4.0, 24.0, 6))
+    frames = replace(frames, pred_error=np.full_like(frames.pred_error, 1.5))
+    params = ControlParams()
+    deterministic = control_field(frames, GRID, params)
+
+    mean, std = control_with_uncertainty(
+        frames, GRID, params, samples=200, rng=np.random.default_rng(2)
+    )
+
+    assert np.abs(mean - deterministic).mean() < 0.02
+    assert np.all(std >= 0.0)
+
+
+def test_control_with_uncertainty_same_seed_same_result_and_global_state_untouched():
+    """D8/P1.2 acceptance: same seed, same result; passing an explicit Generator must never
+    touch numpy's legacy global random state (np.random.seed/get_state)."""
+    rng = np.random.default_rng(22)
+    frames = _random_frames(rng, 4, speed=4.0, shot_clock=rng.uniform(0.0, 24.0, 4))
+    params = ControlParams()
+    before = np.random.get_state()
+
+    mean1, std1 = control_with_uncertainty(
+        frames, GRID, params, samples=10, rng=np.random.default_rng(3)
+    )
+    mean2, std2 = control_with_uncertainty(
+        frames, GRID, params, samples=10, rng=np.random.default_rng(3)
+    )
+
+    np.testing.assert_array_equal(mean1, mean2)
+    np.testing.assert_array_equal(std1, std2)
+    after = np.random.get_state()
+    assert before[0] == after[0]
+    np.testing.assert_array_equal(before[1], after[1])
+
+
+def test_control_with_uncertainty_rejects_non_positive_samples():
+    frames = _random_frames(np.random.default_rng(23), 3)
+    with pytest.raises(ValueError):
+        control_with_uncertainty(frames, GRID, ControlParams(), samples=0)
+
+
 # --------------------------------------------------------------------------- control_at_points
 
 
@@ -327,6 +411,98 @@ def test_control_at_points_is_half_beyond_everyone_and_accepts_empty_input():
     empty = frames.take(np.empty(0, np.int64))
     assert control_at_points(empty, np.empty((0, 2)), params).shape == (0,)
     assert control_field(empty, GRID, params).shape == (0, len(GRID.centers))
+
+
+# ------------------------------------------------------- control_at_points_with_uncertainty
+
+
+def test_control_at_points_with_uncertainty_is_exactly_zero_std_when_pred_error_is_zero():
+    """See the grid version's docstring above for why the tolerance is float64 epsilon
+    rather than a literal ``== 0.0``."""
+    rng = np.random.default_rng(24)
+    n = 5
+    frames = _random_frames(rng, n, speed=4.0, shot_clock=rng.uniform(0.0, 24.0, n))
+    frames = replace(frames, pred_error=np.zeros_like(frames.pred_error))
+    params = ControlParams()
+    points = rng.uniform(-40.0, 0.0, (n, 2))
+    deterministic = control_at_points(frames, points, params)
+
+    mean, std = control_at_points_with_uncertainty(
+        frames, points, params, samples=5, rng=np.random.default_rng(1)
+    )
+
+    assert mean.shape == std.shape == (n,)
+    np.testing.assert_allclose(std, 0.0, atol=1e-9)
+    np.testing.assert_allclose(mean, deterministic, atol=1e-9)
+
+
+def test_control_at_points_with_uncertainty_mean_is_close_to_the_deterministic_value():
+    """Average, not worst-of-n, deviation -- see the grid version's docstring above."""
+    rng = np.random.default_rng(25)
+    n = 8
+    frames = _random_frames(rng, n, speed=4.0, shot_clock=rng.uniform(4.0, 24.0, n))
+    frames = replace(frames, pred_error=np.full_like(frames.pred_error, 1.5))
+    params = ControlParams()
+    points = rng.uniform(-40.0, 0.0, (n, 2))
+    deterministic = control_at_points(frames, points, params)
+
+    mean, std = control_at_points_with_uncertainty(
+        frames, points, params, samples=200, rng=np.random.default_rng(2)
+    )
+
+    assert np.abs(mean - deterministic).mean() < 0.02
+    assert np.all(std >= 0.0)
+
+
+def test_control_at_points_with_uncertainty_same_seed_same_result():
+    rng = np.random.default_rng(26)
+    n = 4
+    frames = _random_frames(rng, n, speed=4.0, shot_clock=rng.uniform(0.0, 24.0, n))
+    params = ControlParams()
+    points = rng.uniform(-40.0, 0.0, (n, 2))
+
+    mean1, std1 = control_at_points_with_uncertainty(
+        frames, points, params, samples=10, rng=np.random.default_rng(3)
+    )
+    mean2, std2 = control_at_points_with_uncertainty(
+        frames, points, params, samples=10, rng=np.random.default_rng(3)
+    )
+
+    np.testing.assert_array_equal(mean1, mean2)
+    np.testing.assert_array_equal(std1, std2)
+
+
+def test_control_at_points_with_uncertainty_rejects_non_positive_samples():
+    frames = _random_frames(np.random.default_rng(27), 3)
+    with pytest.raises(ValueError):
+        control_at_points_with_uncertainty(frames, np.zeros((3, 2)), ControlParams(), samples=0)
+
+
+def test_control_at_points_with_uncertainty_matches_control_with_uncertainty_at_a_grid_centre():
+    """The point analogue must agree with the grid analogue at a shared location, exactly
+    the way control_at_points already agrees with control_field (test above): same
+    perturbation draws (same seed), same underlying arithmetic once points collapse to
+    one grid cell.
+    """
+    from scbasket.court import Grid
+
+    rng = np.random.default_rng(28)
+    n = 6
+    frames = _random_frames(rng, n, speed=4.0, shot_clock=rng.uniform(4.0, 24.0, n))
+    frames = replace(frames, pred_error=np.full_like(frames.pred_error, 2.0))
+    params = ControlParams()
+    points = rng.uniform(-40.0, 0.0, (n, 2))
+    one_cell_grid = Grid(cell_ft=1.0, centers=points[:1], zone=np.array(["other"]))
+
+    field_mean, field_std = control_with_uncertainty(
+        frames, one_cell_grid, params, samples=30, rng=np.random.default_rng(9)
+    )
+    point_mean, point_std = control_at_points_with_uncertainty(
+        frames, np.tile(points[:1], (n, 1)), params, samples=30, rng=np.random.default_rng(9)
+    )
+
+    np.testing.assert_array_equal(field_mean[:, 0], point_mean)
+    np.testing.assert_array_equal(field_std[:, 0], point_std)
 
 
 # --------------------------------------------------------------------------- voronoi_field
