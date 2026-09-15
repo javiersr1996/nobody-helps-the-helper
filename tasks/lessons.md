@@ -1,30 +1,34 @@
 # Lessons
 
-## A fixture must copy the real file's schema, never the code's assumption
-**Why:** `canonical_ids` read the alias CSV by position; the real file has five columns
-and column 1 is a NAME, so ids silently became strings. The suite could not catch it: the
-fixture had two columns because it shared the code's wrong assumption, so it tested the bug.
-**How to apply:** open the real file and copy its header before writing a fixture. When a
-bug slips through, fix the fixture too and prove the test fails against the old code.
+## Never report a pooled number where a per-unit split is possible
+**Why:** F1's one surviving criterion was a partial Spearman of 0.183 at p = 0.0005 over
+676 shots. Split by game it was five separate effects, and on the held-out five it was
+0.013 at p = 0.37, negative in three of them. The pooling did not weaken the result, it
+manufactured it. Four of four pre-registered criteria then failed out of sample.
+**How to apply:** split by the unit you will generalise across (here the game, never the
+shot) and print every value before quoting any average. If the per-unit values straddle
+the baseline, the pooled figure is an artefact and must be reported as one.
 
-## A correlation near 1 with a provider's own field is a reproduction, not a validation
-**Why:** the estimated velocity correlated 0.99995 with the provider's `speed`. That reads
-as external validation but both compute the same smoothed derivative, so nothing was checked.
-**How to apply:** ask what would have to be true for the two numbers to disagree. If the
-answer is nothing, it is one computation run twice. Say so instead of banking it.
-
-## When a criterion is missed, check what it measured before lowering or failing it
-**Why:** P0.3 asked for 99% of shots within 0.5 ft and got 96.6%, because the criterion
-mixed which rotation is correct with how precise the tracking is. On the question it meant
-to settle the separation was absolute: 1,389 of 1,389 shots. P1.1 hit this twice more.
-**How to apply:** re-specify to the quantity it meant to test and record the rewrite with
-its reasoning. Never rewrite a pre-registered criterion (D13): report it and replan.
+## A correlation with a variable the label derives from is a reproduction, not a validation
+**Why:** twice. The estimated velocity correlated 0.99995 with the provider's `speed`:
+the same smoothed derivative computed twice. And the control field's AUC matched
+`closestDefDist`'s to four decimals on the calibration games, against a label derived
+from that distance, so the model was recovering it rather than adding to it.
+**How to apply:** ask what the label is built from and what would have to be true for the
+two numbers to disagree. If the answer is nothing, it is one computation run twice.
 
 ## Check a quantity can actually vary before building a criterion on it
-**Why:** twice in F1 a criterion rested on something that could not move. `slope` was to
-be fitted over 144 grid cells against AUC and Spearman, but `sigmoid(slope * score)` is
-monotone, so all three values ranked identically: 48 real cells, 96 ties. And Voronoi read
-at the shooter's own position is 1.0 always, so the baseline was a constant 0.5 AUC.
+**Why:** three times in F1. `slope` was to be fitted over 144 cells against rank metrics,
+but `sigmoid(slope * score)` is monotone, so all values ranked identically. Voronoi read
+at the shooter's own position is 1.0 always, a constant 0.5 AUC baseline. And the
+calibration surface was flat in both radii, 7 cells within 0.01 of the best.
 **How to apply:** ask what makes the number differ across cases. Ranks cannot see a
-monotone reparameterisation, and a reference point that is the subject itself is a
-constant. Fix it BEFORE the run, never after.
+monotone reparameterisation, and a reference point that is the subject itself is constant.
+
+## When a criterion is missed, check what it measured before lowering or failing it
+**Why:** P0.3 asked for 99% of shots within 0.5 ft and got 96.6%, mixing which rotation is
+correct with how precise the tracking is. P1.5 asked a space model to beat `closestDefDist`
+at recovering a distance-derived label, above that variable's own 0.775 ceiling.
+**How to apply:** re-specify to the quantity it meant and record the rewrite. Never
+rewrite a pre-registered criterion (D13): report the miss and replan. Older entries are in
+[[lessons-archive]].
