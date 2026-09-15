@@ -18,14 +18,13 @@ answer is nothing, it is one computation run twice. Say so instead of banking it
 mixed which rotation is correct with how precise the tracking is. On the question it meant
 to settle the separation was absolute: 1,389 of 1,389 shots. P1.1 hit this twice more.
 **How to apply:** re-specify to the quantity it meant to test and record the rewrite with
-its reasoning. Never rewrite a pre-registered criterion (D13): report the miss and replan.
+its reasoning. Never rewrite a pre-registered criterion (D13): report it and replan.
 
 ## Check a quantity can actually vary before building a criterion on it
 **Why:** twice in F1 a criterion rested on something that could not move. `slope` was to
-be fitted over a 144-cell grid against AUC and Spearman, but `sigmoid(slope * score)` is
-monotone: all three values gave identical rankings, 48 real cells and 96 ties. And the
-Voronoi baseline read at the shooter's own position is 1.0 for every shot ever, because a
-player is their own nearest player, so the model was to be compared against 0.5.
-**How to apply:** ask what makes the number differ across cases. A monotone
-reparameterisation is invisible to ranks; a reference point that is the subject itself is
-a constant. Fix it BEFORE the run, never after.
+be fitted over 144 grid cells against AUC and Spearman, but `sigmoid(slope * score)` is
+monotone, so all three values ranked identically: 48 real cells, 96 ties. And Voronoi read
+at the shooter's own position is 1.0 always, so the baseline was a constant 0.5 AUC.
+**How to apply:** ask what makes the number differ across cases. Ranks cannot see a
+monotone reparameterisation, and a reference point that is the subject itself is a
+constant. Fix it BEFORE the run, never after.
