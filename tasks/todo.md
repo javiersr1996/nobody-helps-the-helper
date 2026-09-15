@@ -487,7 +487,7 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
       keeps the 5+5 layout and makes the counterfactual exactly monotone cell by cell,
       which is what `denied_k >= 0` needs in P2.2; undetected positions enter as they
       are, since their error is P1.2's job.
-- [ ] P1.2 Monte Carlo uncertainty `[sonnet]`
+- [x] P1.2 Monte Carlo uncertainty `[sonnet]`
   - Does: `sigma_from_pred_error` in `quality.py`; `control_with_uncertainty`;
     `p_off_std` column in the release features. Replaces the heuristic bound of
     `scripts/shot_contest_uncertainty.py` with the perturbation (the script now also
@@ -497,6 +497,27 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     is < 0.02 away from the deterministic field on the synthetic; same seed, same
     result. The report prints what fraction of `plus` and `blocked` shots has
     `p_off_std` greater than the distance to the median of the neighboring level.
+
+  - **Result. Gate green: ruff clean, 122 tests, 7 with the `data` marker.** The
+    Rayleigh factor was verified independently: `sqrt(2 ln 10)` = 2.146 exactly.
+    `control_at_points_with_uncertainty` was added next to `control_at_points`, since
+    the release features need a scalar per shot and not a field.
+    - **The deliverable, in `reports/shot_contest_neighbour_ambiguity.csv`.** "Neighbouring
+      level" was read as every ADJACENT pair, not just one: `plus` has two neighbours and
+      `average` carries the sample. Fraction whose `p_off_std` exceeds the gap to the
+      neighbour's median: `plus` vs `average` **24.0%** of 549 shots (neighbour median from
+      374), `plus` vs `blocked` **22.4%**, `blocked` vs `plus` **23.4%** of 47. Against the
+      old heuristic's 26.2% and 43.1%: below it at both levels and about half at `blocked`.
+      The figure is stable across both of `plus`'s neighbours, so it is not an artefact of
+      the rare tail, and the propagated geometry resolves ambiguity that a raw
+      distance-against-error comparison could not see. This is the table the README cites.
+    - Two criteria hold to precision rather than to the letter, both recorded in the test
+      docstrings. With `predError = 0` the std is 5e-17, not literal 0: the perturbation
+      IS bit-exact zero on every draw, and the residual is `np.std` over identical float64
+      values, ordinary IEEE754. The "< 0.02 from the deterministic field" holds on the mean
+      (0.0017, p99 0.0103) with a 0.0223 maximum. **That tail is the finding, not a
+      stretched tolerance**: the std is widest at cells near a sign change of the influence
+      surplus, which are the same cells `contestLevel` itself is least sure about.
 - [x] P1.3 Release features and rank metrics `[sonnet]`
   - Does: `release_features` (P_off at the shooter's position, mean over a 3 ft
     disk, `epc_share`, Voronoi at the shooter, recomputed `closestDefDist`, plus the
