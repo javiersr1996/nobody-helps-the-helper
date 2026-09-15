@@ -229,6 +229,13 @@ def break_points(series, shots, actions) -> pd.DataFrame
   baseline to beat), full Spearman with time to intercept (requires
   accelerations, and differentiating positions twice with 4.5 ft of error is noise), learned
   models (no ground truth for "control", and with 10 games there is no sample).
+  **Amended after P1.1 (user decision of 2026-09-15): `slope` is a READOUT SCALE
+  parameter, not a geometric one.** Because `P_off = sigmoid(slope * score)` is monotone
+  in the score, every rank metric in F1 (the AUC and both Spearman figures of P1.4 and
+  P1.5) is exactly invariant to it: slopes 0.5, 1 and 2 give identical rankings. F1
+  therefore cannot identify it and must not pretend to. It is fixed at 1, only the three
+  geometric parameters are calibrated, and its effect on the reported `epc_share` values
+  is shown in F2 as a sensitivity band over {0.5, 1, 2} rather than as a fitted number.
 - D2. Radii in feet, not meters: `r_near` = 4 ft next to the ball, `r_far` = 10 ft at
   30 ft or more from the ball, linear interpolation. Rationale: football uses 4-10 m; the
   court is 3.6 times shorter and everyone is within help distance. The values
@@ -415,7 +422,7 @@ provider's labels, and the league value surface written to `reports/`.
 Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 against
 `contestLevel` and `shotQuality`, with error bars. First demo of the project.
 
-- [ ] P1.1 Control model `[PLANNER]`
+- [x] P1.1 Control model `[PLANNER]`
   - Does: `control.py` with `influence` (analytic 2x2 quadratic form, no
     `np.linalg`), batched `control_field`, `control_at_points`, `voronoi_field`,
     `remove_players`.
@@ -425,6 +432,42 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     64 give identical arrays; with `shotClock = 0` the result does not depend on `v`.
     Performance: one game at 5 Hz with a 1 ft grid ≤ 2 min on the `.npz`
     (time printed by a `data` test).
+
+  - **Result. Gate green (ruff clean, 99 tests, 6 with the `data` marker). Performance
+    comfortable: 10,305 frames at 5 Hz x 2,254 cells in 19.1 s against a 120 s budget;
+    Voronoi 7.9 s. On 114086 the field has mean `P_off` 0.494 and range [0.047, 0.898],
+    and agrees with the Voronoi side on 87.8% of cells. Two acceptance criteria could
+    not be met literally and were re-specified to the quantity they meant; one finding
+    changes P1.4.**
+    1. "Radii → 0 matches Voronoi in ≥ 99% of cells" fails at every radius for a
+       float64 reason, not a modelling one: `sigmoid(score)` rounds to exactly 0.5 once
+       every player is farther than 8.5 sigma from the cell, so the smaller the radius
+       the more cells are undecided (at r = 1 ft only 20.6% are decided). The quantity
+       meant is the SIGN of the influence surplus, so agreement is now measured on
+       decided cells and the mismatch rate is required not to rise as r shrinks:
+       99.86% at r = 4 ft, 100.0% at 2 ft and at 1 ft. An exact companion property was
+       added: with a uniform radius the dominant player of every cell equals the
+       nearest player on 100% of cells, no tolerance. The 99% threshold was not touched.
+    2. "A lone attacker gives `P > 0.99` at their position" is unreachable under D1 at
+       the default slope, and not because of the implementation: the influence is
+       normalised to 1 at its centre, so a single player's ceiling is
+       `sigmoid(slope)` = 0.731 at slope 1, and `P > 0.99` would need slope > 4.6.
+       Verified independently. The test now asserts `P == sigmoid(slope)` to 1e-12,
+       that it is the field maximum, that no cell falls below 0.5 with nobody
+       defending, and the literal `> 0.99` at slope 5.
+    3. **`slope` is unidentifiable by every metric in F1, which rewrites P1.4.** See the
+       amendment to D1 and to P1.4 below. Measured on real frames: slopes 0.5, 1 and 2
+       give bit-identical rankings of `P_off` at a per-frame point, changing only the
+       spread (range [0.33, 0.74] against [0.06, 0.99]).
+    - Design choices where the plan left latitude, all recorded in the module:
+      D3's horizon `h = clip(shot_clock, 0, t_h)` scales the projection AND the
+      elongation, so with the clock expired the field is purely positional as D3
+      requires (3.5% of kept rows); at `|v| >= v_max` the perpendicular axis is floored
+      at 1e-3 ft (149 of 5.37M positions, a numerical guard, not a parameter);
+      `remove_players` parks the player at 1e6 ft rather than dropping the row, which
+      keeps the 5+5 layout and makes the counterfactual exactly monotone cell by cell,
+      which is what `denied_k >= 0` needs in P2.2; undetected positions enter as they
+      are, since their error is P1.2's job.
 - [ ] P1.2 Monte Carlo uncertainty `[sonnet]`
   - Does: `sigma_from_pred_error` in `quality.py`; `control_with_uncertainty`;
     `p_off_std` column in the release features. Replaces the heuristic bound of
@@ -440,20 +483,25 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     disk, `epc_share`, Voronoi at the shooter, recomputed `closestDefDist`, plus the
     required `shots` columns), `rank_auc`, `spearman`, `partial_spearman`
     (rank residuals), `permutation_pvalue`.
+  - Split in two for scheduling: the four rank metrics were built first because they
+    depend on nothing (done, `validation.py`, 27 tests); `release_features` follows,
+    since it needs `control.py`.
   - Accepts: 1,414 matched shots (same number as the prior script); tests:
     `rank_auc` gives 1.0 with perfect separation and 0.5 ± 0.05 with random labels
     (n = 2,000, fixed seed); `spearman` matches pandas (< 1e-12);
     `partial_spearman(y, x, z)` is 0 (± 0.05) when `y` depends only on `z`.
 - [ ] P1.4 Calibration on the 5 oldest games `[PLANNER]`
   - Does: `calibrate` and `scripts/calibrate_control.py`: grid `r_near` ∈ {3,4,5,6},
-    `r_far` ∈ {8,10,12,14}, `slope` ∈ {0.5, 1, 2}, `t_h` ∈ {0, 0.3, 0.6} (144
-    combinations) over the release frames of the calibration games;
+    `r_far` ∈ {8,10,12,14}, `t_h` ∈ {0, 0.3, 0.6} (**48** combinations, `slope` fixed
+    at 1 per the D1 amendment) over the release frames of the calibration games;
     objective = AUC(open vs contested) + Spearman(shotQuality) of `P_off` at the
     shooter. The chosen parameters are frozen in `reports/control_params.json`
     with the commit hash.
-  - Accepts: `reports/calibration_grid.csv` with 144 rows; the optimum is not on the
+  - Accepts: `reports/calibration_grid.csv` with 48 rows; the optimum is not on the
     edge of the grid in any dimension (if it is, the grid is extended and rerun);
-    commit of the json BEFORE running anything on the validation games.
+    commit of the json BEFORE running anything on the validation games. The report
+    states that `slope` was not calibrated and why, so the README can say it plainly.
+    Note `t_h = 0` is a clean ablation: the model then ignores velocity entirely.
 - [ ] P1.5 Validation on the 5 held-out games `[PLANNER]`
   - Does: `scripts/validate_release.py` with the frozen parameters. Writes
     `reports/validation_release.csv` (one row per metric and model: control,
