@@ -1,5 +1,5 @@
 """Tests for scbasket.validation: rank_auc, spearman, partial_spearman, permutation_pvalue,
-release_features, calibrate.
+release_features, calibrate, release_metrics.
 """
 
 from __future__ import annotations
@@ -25,20 +25,32 @@ from scbasket.frames import GameFrames, get_or_build
 from scbasket.io import Dataset
 from scbasket.validation import (
     CALIBRATION_GAMES,
+    CONTEST_LEVELS,
+    RELEASE_COLUMNS,
+    RELEASE_MODELS,
+    RELEASE_PARTIAL_CONTROLS,
+    RELEASE_PARTIAL_PREDICTORS,
+    RELEASE_THRESHOLDS,
+    VALIDATION_GAMES,
     best_cell,
     calibrate,
     edge_dimensions,
+    hoop_distance,
+    level_medians,
+    monotone_pairs,
     partial_spearman,
     partial_spearman_table,
     permutation_pvalue,
     rank_auc,
     release_features,
+    release_metrics,
     spearman,
 )
 from scbasket.value import ValueSurface, league_zone_values, surface_from_zones
 
 CACHE_DIR = REAL_DATASET_ROOT.parents[1] / "interim"
 CONTROL_PARAMS_JSON = REAL_DATASET_ROOT.parents[2] / "reports" / "control_params.json"
+VALIDATION_RELEASE_CSV = REAL_DATASET_ROOT.parents[2] / "reports" / "validation_release.csv"
 OFF_IDS = np.array([5001, 5002, 5003, 5004, 5005], dtype=np.int32)
 DEF_IDS = np.array([6001, 6002, 6003, 6004, 6005], dtype=np.int32)
 
@@ -376,6 +388,7 @@ def _shot_row(start_frame, shooter_id, **overrides) -> dict:
         "three": False,
         "shotClock": 15.0,
         "region": "ra",
+        "location": [-35.0, 0.0],  # the real field: a [x, y] list, null for a few shots
     }
     row.update(overrides)
     return row
@@ -523,6 +536,35 @@ def test_release_features_p_off_std_is_reproducible_across_calls():
     np.testing.assert_array_equal(first["p_off_std"].to_numpy(), second["p_off_std"].to_numpy())
 
 
+def test_hoop_distance_from_location_and_nan_where_it_is_null():
+    location = pd.Series([[-40.76, 0.0], [-37.76, 4.0], None, np.nan, [0.0, 0.0]])
+
+    out = hoop_distance(location)
+
+    np.testing.assert_allclose(out[[0, 1, 4]], [0.0, 5.0, 40.76])
+    assert np.isnan(out[2]) and np.isnan(out[3])
+    assert np.isnan(hoop_distance(pd.Series([None, None]))).all()
+    assert hoop_distance(pd.Series([], dtype=object)).shape == (0,)
+
+
+def test_release_features_hoop_dist_comes_from_the_shot_location():
+    xy = np.zeros((2, 10, 2), dtype=np.float32)
+    xy[:, 0] = (-30.0, 5.0)
+    xy[:, 5] = (-35.0, 5.0)
+    frames = _release_frames(xy)
+    shots = pd.DataFrame([
+        _shot_row(10, OFF_IDS[0], location=[-30.76, 5.0]),
+        _shot_row(20, OFF_IDS[0], location=None),
+    ])
+    grid = make_grid(4.0)
+
+    out = release_features(frames, shots, grid, ControlParams(), _flat_surface(grid))
+
+    assert out["hoop_dist"].iloc[0] == pytest.approx(np.hypot(10.0, 5.0))
+    assert np.isnan(out["hoop_dist"].iloc[1])  # a null location keeps the shot, not the control
+    assert len(out) == 2
+
+
 @pytest.mark.data
 @requires_real_dataset
 def test_release_features_matched_yield_on_the_10_published_games():
@@ -553,7 +595,6 @@ def test_release_features_matched_yield_on_the_10_published_games():
 
 # --------------------------------------------------------------------------- calibrate
 
-CONTEST_LEVELS = ("open", "light", "average", "plus", "blocked")
 SMALL_GRID = {"r_near": [3.0, 4.0], "r_far": [8.0, 10.0], "t_h": [0.0, 0.3]}
 
 
@@ -759,3 +800,233 @@ def test_frozen_params_reproduce_the_recorded_objective_on_the_calibration_games
         )
         assert r.rho == pytest.approx(rec["rho"], abs=1e-9)
         assert r.p_value == pytest.approx(rec["p_value"], abs=1e-9)
+
+
+# --------------------------------------------------------------------------- release_metrics
+
+
+def _metrics_features(quality: list[float] | None = None) -> pd.DataFrame:
+    """Ten hand-placed shots, two per contest level, shaped like a release_features table.
+
+    p_off_shooter separates open from the rest perfectly and its medians fall strictly from
+    open to blocked, so criteria 1 and 3 hold by construction; shotQuality defaults to the
+    reverse order of p_off_shooter, so criterion 4a fails by construction.
+    """
+    shooter = [0.9, 0.85, 0.7, 0.75, 0.6, 0.55, 0.4, 0.45, 0.2, 0.25]
+    return pd.DataFrame({
+        "contestLevel": [level for level in CONTEST_LEVELS for _ in range(2)],
+        "p_off_shooter": shooter,
+        "p_off_disk": [v - 0.05 for v in shooter],
+        "epc_share": [0.5, 0.45, 0.4, 0.42, 0.38, 0.36, 0.3, 0.33, 0.25, 0.28],
+        "voronoi_disk": [0.6, 0.7, 0.5, 0.6, 0.5, 0.4, 0.5, 0.4, 0.3, 0.5],
+        "closestDefDist": [8.0, 7.0, 4.0, 4.5, 3.0, 3.5, 2.0, 2.5, 1.0, 1.5],
+        "closest_def_dist": [8.01, 7.01, 4.01, 4.51, 3.01, 3.51, 2.01, 2.51, 1.01, 1.51],
+        "shotQuality": [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0]
+        if quality is None else quality,
+        "three": [False, True] * 5,
+        "hoop_dist": [25.0, 10.0, 22.0, 8.0, 15.0, 5.0, 12.0, 4.0, 3.0, 6.0],
+    })
+
+
+def test_validation_games_are_the_other_five():
+    assert len(VALIDATION_GAMES) == 5 and len(set(VALIDATION_GAMES)) == 5
+    assert set(VALIDATION_GAMES).isdisjoint(CALIBRATION_GAMES)
+    assert len(set(VALIDATION_GAMES) | set(CALIBRATION_GAMES)) == 10
+
+
+def test_monotone_pairs_counts_strict_decreases_and_never_a_nan():
+    assert monotone_pairs([5.0, 4.0, 3.0, 2.0, 1.0]) == 4
+    assert monotone_pairs([5.0, 5.0, 3.0, 2.0, 1.0]) == 3
+    assert monotone_pairs([1.0, 2.0, 3.0, 4.0, 5.0]) == 0
+    assert monotone_pairs([5.0, 4.0, np.nan, 2.0, 1.0]) == 2
+    assert monotone_pairs([np.nan] * 5) == 0
+
+
+def test_level_medians_follows_contest_level_order_and_counts_missing_levels():
+    features = pd.DataFrame({
+        "contestLevel": ["plus", "open", "open", None, "light"],
+        "p_off_shooter": [0.2, 0.9, 0.7, 0.5, 0.6],
+        "closestDefDist": [1.0, 5.0, np.nan, 2.0, 3.0],
+    })
+
+    table = level_medians(features, columns=("p_off_shooter", "closestDefDist"))
+
+    assert list(table.index) == list(CONTEST_LEVELS)
+    assert list(table.columns) == ["n_shots", "p_off_shooter", "closestDefDist"]
+    assert table["n_shots"].tolist() == [2, 1, 0, 1, 0]  # the unlabelled shot counts nowhere
+    assert table.loc["open", "p_off_shooter"] == pytest.approx(0.8)
+    assert table.loc["open", "closestDefDist"] == 5.0  # the NaN value is skipped, not counted
+    assert np.isnan(table.loc["average", "p_off_shooter"])
+
+
+def test_release_metrics_rows_reproduce_the_underlying_statistics():
+    features = _metrics_features()
+
+    table = release_metrics(features, n=200, seed=3)
+
+    assert list(table.columns) == list(RELEASE_COLUMNS)
+    assert (table["surface"] == "league").all()
+    per_feature = 2 + len(CONTEST_LEVELS) + 1  # auc, spearman, five medians, monotone
+    n_partial = len(RELEASE_PARTIAL_PREDICTORS) * len(RELEASE_PARTIAL_CONTROLS)
+    assert len(table) == per_feature * len(RELEASE_MODELS) + 2 + n_partial
+    assert dict(zip(table["feature"], table["model"], strict=True)) == RELEASE_MODELS
+
+    label = (features["contestLevel"] == "open").to_numpy(dtype=float)
+    medians = level_medians(features)
+
+    def row(metric, feature, controls=""):
+        at = (
+            (table["metric"] == metric) & (table["feature"] == feature)
+            & (table["controls"] == controls)
+        )
+        assert at.sum() == 1, (metric, feature, controls)
+        return table[at].iloc[0]
+
+    for feature in RELEASE_MODELS:
+        score = features[feature].to_numpy(dtype=float)
+        assert row("auc_open", feature)["value"] == rank_auc(score, label)
+        assert row("auc_open", feature)["n_shots"] == 10
+        assert row("spearman_quality", feature)["value"] == spearman(
+            score, features["shotQuality"]
+        )
+        for level in CONTEST_LEVELS:
+            assert row(f"median_{level}", feature)["value"] == medians.loc[level, feature]
+            assert row(f"median_{level}", feature)["n_shots"] == 2
+        assert row("monotone_pairs", feature)["value"] == monotone_pairs(
+            medians[feature].to_numpy()
+        )
+    for feature in ("p_off_shooter", "p_off_disk"):
+        assert row("auc_margin_vs_voronoi_disk", feature)["value"] == pytest.approx(
+            row("auc_open", feature)["value"] - row("auc_open", "voronoi_disk")["value"]
+        )
+    for predictor in RELEASE_PARTIAL_PREDICTORS:
+        for controls in RELEASE_PARTIAL_CONTROLS:
+            partial = row("partial_spearman_quality", predictor, "+".join(controls))
+            assert partial["value"] == partial_spearman(
+                features["shotQuality"], features[predictor],
+                features[list(controls)].to_numpy(dtype=float),
+            )
+            assert 0.0 < partial["p_value"] <= 1.0
+            assert partial["n_shots"] == 10
+    assert table.loc[table["controls"] == "", "p_value"].isna().all()
+
+
+def test_release_metrics_grades_exactly_the_five_pre_registered_criteria():
+    table = release_metrics(_metrics_features(), n=200, seed=3)
+    graded = table[table["criterion"] != ""]
+
+    assert len(graded) == 5
+    assert graded["passed"].map(type).eq(bool).all()
+    assert table.loc[table["criterion"] == "", "passed"].isna().all()
+    by_metric = graded.set_index("metric")
+    assert list(by_metric.index) == [
+        "auc_open", "spearman_quality", "monotone_pairs", "auc_margin_vs_voronoi_disk",
+        "partial_spearman_quality",
+    ]
+    assert (by_metric["feature"] == ["p_off_shooter", "p_off_shooter", "p_off_shooter",
+                                     "p_off_disk", "p_off_shooter"]).all()
+    assert by_metric.loc["partial_spearman_quality", "controls"] == "closestDefDist"
+    # By construction: open separates perfectly and the medians fall strictly ...
+    assert by_metric.loc["auc_open", "value"] == 1.0
+    assert by_metric.loc["auc_open", "passed"] is True
+    assert by_metric.loc["monotone_pairs", "value"] == RELEASE_THRESHOLDS["monotone_pairs"]
+    assert by_metric.loc["monotone_pairs", "passed"] is True
+    # ... while shotQuality runs the other way, so 4a and 4b fail.
+    assert by_metric.loc["spearman_quality", "value"] < 0
+    assert by_metric.loc["spearman_quality", "passed"] is False
+    assert by_metric.loc["partial_spearman_quality", "passed"] is False
+    margin = by_metric.loc["auc_margin_vs_voronoi_disk"]
+    assert margin["passed"] is (bool(margin["value"] >= RELEASE_THRESHOLDS["auc_margin"]))
+    partial = by_metric.loc["partial_spearman_quality"]
+    assert partial["passed"] is bool(
+        partial["value"] > 0 and partial["p_value"] < RELEASE_THRESHOLDS["partial_p_value"]
+    )
+
+
+def test_release_metrics_passes_4a_when_quality_follows_the_field():
+    features = _metrics_features(quality=[100.0 * v for v in _metrics_features()["p_off_shooter"]])
+
+    table = release_metrics(features, n=200, seed=3)
+    table = table[table["controls"] == ""].set_index(["metric", "feature"])
+
+    assert table.loc[("spearman_quality", "p_off_shooter"), "value"] == pytest.approx(1.0)
+    assert table.loc[("spearman_quality", "p_off_shooter"), "passed"] is True
+
+
+def test_release_metrics_fails_the_order_criterion_when_a_level_is_absent():
+    features = _metrics_features()
+    features = features[features["contestLevel"] != "blocked"].reset_index(drop=True)
+
+    table = release_metrics(features, n=200, seed=3)
+    table = table[table["controls"] == ""].set_index(["metric", "feature"]).sort_index()
+
+    assert table.loc[("median_blocked", "p_off_shooter"), "n_shots"] == 0
+    assert np.isnan(table.loc[("median_blocked", "p_off_shooter"), "value"])
+    assert table.loc[("monotone_pairs", "p_off_shooter"), "value"] == 3
+    assert table.loc[("monotone_pairs", "p_off_shooter"), "passed"] is False
+
+
+def test_release_metrics_survives_a_csv_round_trip(tmp_path):
+    table = release_metrics(_metrics_features(), n=200, seed=3)
+    path = tmp_path / "validation_release.csv"
+    table.to_csv(path, index=False)
+
+    back = pd.read_csv(path)
+
+    assert list(back.columns) == list(RELEASE_COLUMNS)
+    assert back["controls"].fillna("").tolist() == table["controls"].tolist()
+    assert back["criterion"].fillna("").tolist() == table["criterion"].tolist()
+    assert back["passed"].map(lambda v: None if pd.isna(v) else bool(v)).tolist() == \
+        table["passed"].tolist()
+    np.testing.assert_allclose(back["value"], table["value"], equal_nan=True)
+    np.testing.assert_allclose(back["p_value"], table["p_value"], equal_nan=True)
+
+
+@pytest.mark.data
+@requires_real_dataset
+@pytest.mark.skipif(not CONTROL_PARAMS_JSON.exists(), reason="run scripts/calibrate_control.py")
+@pytest.mark.skipif(not VALIDATION_RELEASE_CSV.exists(), reason="run scripts/validate_release.py")
+def test_validation_release_csv_reproduces_from_the_frozen_params_on_the_held_out_games():
+    """reports/validation_release.csv is P1.5's deliverable: it must come back, row for row,
+    from the frozen parameters applied to the five held-out games (the newest by date, D11).
+    The denominators follow from the established ones: 1,459 shot events across the 10
+    games with 740 on the calibration five, and 1,360 matched to the D12 cache with 689
+    there. The verdicts are printed, never asserted: pass or fail, they are the finding."""
+    dataset = Dataset(REAL_DATASET_ROOT)
+    assert dataset.game_ids[5:] == list(VALIDATION_GAMES)
+    assert set(VALIDATION_GAMES).isdisjoint(CALIBRATION_GAMES)
+    frozen = json.loads(CONTROL_PARAMS_JSON.read_text(encoding="utf-8"))
+    assert frozen["calibration_games"] == list(CALIBRATION_GAMES)
+    params = ControlParams(**frozen["params"])
+    grid = make_grid(1.0)
+    surface = surface_from_zones(grid, league_zone_values(dataset.aggregates("shots")))
+
+    n_events = 0
+    features = []
+    for game_id in VALIDATION_GAMES:
+        shots = dataset.events(game_id)["shots"]
+        n_events += len(shots)
+        features.append(release_features(
+            get_or_build(dataset, game_id, CACHE_DIR), shots, grid, params, surface
+        ))
+    features = pd.concat(features, ignore_index=True)
+    assert n_events == 1459 - 740
+    assert len(features) == 1360 - 689
+
+    table = release_metrics(features)
+    written = pd.read_csv(VALIDATION_RELEASE_CSV)
+    assert len(written) == len(table)
+    for column in ("surface", "metric", "model", "feature"):
+        assert written[column].tolist() == table[column].tolist(), column
+    assert written["controls"].fillna("").tolist() == table["controls"].tolist()
+    assert written["criterion"].fillna("").tolist() == table["criterion"].tolist()
+    assert written["n_shots"].tolist() == table["n_shots"].tolist()
+    np.testing.assert_allclose(written["value"], table["value"], atol=1e-9, equal_nan=True)
+    np.testing.assert_allclose(written["p_value"], table["p_value"], atol=1e-9, equal_nan=True)
+    assert written["passed"].map(lambda v: None if pd.isna(v) else bool(v)).tolist() == \
+        table["passed"].tolist()
+    graded = table[table["criterion"] != ""]
+    print("\n" + "\n".join(
+        f"{r.criterion}: {r.value:.4f} -> {'PASS' if r.passed else 'FAIL'}"
+        for r in graded.itertuples()
+    ))

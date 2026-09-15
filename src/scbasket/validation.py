@@ -8,9 +8,11 @@ need exact control over tie handling and the permutation scheme.
 This module holds the four statistics helpers below (`rank_auc`, `spearman`,
 `partial_spearman`, `permutation_pvalue`), which depend on nothing, plus
 `release_features`, appended after them, which does depend on `control.py`
-and `epc.py`, and `calibrate` (P1.4), the grid search over the control
-parameters on the release frames of the calibration games. `pick_windows`
-and `break_points` are appended below by a later change (P1.5).
+and `epc.py`, `calibrate` (P1.4), the grid search over the control
+parameters on the release frames of the calibration games, and
+`release_metrics` (P1.5), the table that grades the frozen parameters on the
+held-out games against the pre-registered criteria. `pick_windows` and
+`break_points` are appended below by a later change (F3).
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from scbasket.control import (
     control_at_points_with_uncertainty,
     control_field,
 )
-from scbasket.court import Grid
+from scbasket.court import HOOP_X, Grid
 from scbasket.epc import epc_share
 from scbasket.frames import N_SIDE, GameFrames, at_frames
 from scbasket.value import ValueSurface
@@ -340,6 +342,22 @@ def _voronoi_disk_mean(frames: GameFrames, centers: np.ndarray) -> np.ndarray:
     return samples.mean(axis=1)
 
 
+def hoop_distance(location: pd.Series) -> np.ndarray:
+    """Distance in feet from each shots.location to the attacked hoop; NaN where it is null.
+
+    shots.location is already in the attacking frame (court.py), so this is
+    hypot(x - HOOP_X, y) with no orientation step. It is the continuous location control
+    P1.5 adds to the partial Spearman (closestDefDist + three + hoop_dist), because
+    shotQuality is mostly location and `three` alone is a coarse proxy for it.
+    """
+    out = np.full(len(location), np.nan)
+    valid = location.notna().to_numpy()
+    if valid.any():
+        xy = np.array(location[valid].tolist(), dtype=float)
+        out[valid] = np.hypot(xy[:, 0] - HOOP_X, xy[:, 1])
+    return out
+
+
 def match_shots_to_release(
     frames: GameFrames, shots: pd.DataFrame
 ) -> tuple[pd.DataFrame, GameFrames, np.ndarray]:
@@ -412,6 +430,9 @@ def release_features(
       (fixed by the SPEC), so the draws use a fresh, fixed-seed Generator private to this
       call (`_MC_SEED`) -- deterministic and reproducible without touching global numpy
       random state or widening this function's signature.
+    - `hoop_dist`: distance from the provider's `location` to the attacked hoop
+      (hoop_distance), NaN for the few shots whose location is null. A location control for
+      P1.5's partial Spearman, not a model feature.
     - the columns named in _SHOT_COLUMNS, copied through from `shots` unchanged, plus
       `game_id` (from `frames.game_id`).
 
@@ -448,6 +469,7 @@ def release_features(
     _, out["p_off_std"] = control_at_points_with_uncertainty(
         release, shooter_xy, params, samples=_MC_SAMPLES, rng=np.random.default_rng(_MC_SEED)
     )
+    out["hoop_dist"] = hoop_distance(shots_matched["location"])
     for column in _SHOT_COLUMNS:
         out[column] = shots_matched[column].to_numpy()
     return out
@@ -461,6 +483,10 @@ def release_features(
 # the code and cannot drift with the dataset; scripts/calibrate_control.py checks them
 # against matches.json's dates before running anything.
 CALIBRATION_GAMES = (114243, 114234, 114169, 114099, 114086)
+# The other five, the newest by date, held out for P1.5. Opened exactly once, by
+# scripts/validate_release.py, after control_params.json was committed; every number the
+# README cites comes from them (D11).
+VALIDATION_GAMES = (178442, 179612, 184439, 188630, 191313)
 
 # The AUC's positive class: the objective grades `open` against the four other contest
 # levels (light, average, plus, blocked). This is the reading P1.3's figures used and the
@@ -658,3 +684,165 @@ def partial_spearman_table(
                 ),
             })
     return pd.DataFrame(rows)
+
+
+# ------------------------------------------------------------------- release_metrics
+
+# The five contest levels, most to least open: the order criterion 3 requires of the medians.
+CONTEST_LEVELS = ("open", "light", "average", "plus", "blocked")
+
+# P1.5's pre-registered thresholds (D13), written in tasks/todo.md before P1.4 ran and never
+# adjusted to a result: a miss is reported with its number, not re-specified. Criterion 1 is
+# the AUC of p_off_shooter, 2 the AUC margin of p_off_disk over voronoi_disk (identical
+# geometry), 3 the strict order of p_off_shooter's medians over CONTEST_LEVELS, 4a the plain
+# Spearman with shotQuality and 4b its partial controlling for closestDefDist.
+RELEASE_THRESHOLDS = {
+    "auc_open": 0.80,
+    "auc_margin": 0.03,
+    "monotone_pairs": len(CONTEST_LEVELS) - 1,
+    "spearman_quality": 0.30,
+    "partial_p_value": 0.01,
+}
+
+# The features the table grades, each under the model it belongs to. Every one reads
+# "higher = more open", so the same open-vs-contested AUC applies to all. closestDefDist is
+# the provider's own field and closest_def_dist the same distance recomputed from the cache
+# (release_features): they agree to a median of 0.000 ft, so the second is a reproduction
+# that shows the ceiling is not an artefact of the provider's arithmetic, not a fourth model.
+RELEASE_MODELS = {
+    "p_off_shooter": "control",
+    "p_off_disk": "control",
+    "epc_share": "control",
+    "voronoi_disk": "voronoi",
+    "closestDefDist": "closestDefDist",
+    "closest_def_dist": "closestDefDist",
+}
+# Predictors of the partial Spearman (a distance cannot be graded beyond itself) and the
+# control sets: the pre-registered one first, then the two stronger location controls that
+# made the calibration result convincing (P1.4).
+RELEASE_PARTIAL_PREDICTORS = ("p_off_shooter", "p_off_disk", "epc_share", "voronoi_disk")
+RELEASE_PARTIAL_CONTROLS = (
+    ("closestDefDist",),
+    ("closestDefDist", "three"),
+    ("closestDefDist", "three", "hoop_dist"),
+)
+RELEASE_COLUMNS = (
+    "surface", "metric", "model", "feature", "controls", "n_shots", "value", "p_value",
+    "criterion", "passed",
+)
+
+
+def monotone_pairs(values: Sequence[float]) -> int:
+    """How many adjacent pairs of `values` strictly decrease; a NaN never counts."""
+    values = np.asarray(values, dtype=float)
+    return int(np.sum(values[:-1] > values[1:]))
+
+
+def level_medians(
+    features: pd.DataFrame, columns: Sequence[str] = tuple(RELEASE_MODELS)
+) -> pd.DataFrame:
+    """Median of each column by contestLevel, one row per CONTEST_LEVELS entry, plus n_shots.
+
+    The table P1.5 prints. `n_shots` counts the shots labelled with that level (0 if none);
+    each median skips NaN values of its own column. Shots with a null contestLevel belong to
+    no level and are left out.
+    """
+    grouped = features.groupby("contestLevel")
+    table = grouped[list(columns)].median().reindex(CONTEST_LEVELS)
+    table.insert(0, "n_shots", grouped.size().reindex(CONTEST_LEVELS).fillna(0).astype(int))
+    table.index.name = "contestLevel"
+    return table
+
+
+def release_metrics(
+    features: pd.DataFrame,
+    surface: str = "league",
+    n: int = PARTIAL_SHUFFLES,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """P1.5's table: one row per metric and model feature over a release_features table.
+
+    `features` is release_features over any games concatenated (the held-out ones, in the
+    script). Columns RELEASE_COLUMNS; `surface` names the value surface the features were
+    built on ("league" now; P2.4 appends "player" rows to the same file). Per feature of
+    RELEASE_MODELS:
+
+    - `auc_open`: rank_auc, open against every other level (open_label), on the shots with
+      both a level and a value.
+    - `spearman_quality`: spearman with shotQuality, on the shots with both.
+    - `median_<level>` for each CONTEST_LEVELS entry (as level_medians) and
+      `monotone_pairs`, how many of the four adjacent medians strictly decrease from open
+      to blocked.
+    - `auc_margin_vs_voronoi_disk` for the two P_off point features: their AUC minus
+      voronoi_disk's.
+
+    Then `partial_spearman_quality`, one row per RELEASE_PARTIAL_PREDICTORS x
+    RELEASE_PARTIAL_CONTROLS from partial_spearman_table (`n` shuffles, `seed`): `value` is
+    the rho and `p_value` its one-sided permutation p-value; `controls` is empty elsewhere.
+
+    The five rows that carry a pre-registered criterion (RELEASE_THRESHOLDS) name it in
+    `criterion` and grade it in `passed`; every other row leaves both empty. A NaN metric
+    cannot pass. Nothing in here changes with the result: this is D13's reporting side.
+    """
+    label = open_label(features["contestLevel"])
+    quality = features["shotQuality"].to_numpy(dtype=float)
+    by_level = features.groupby("contestLevel")
+    rows: list[dict] = []
+
+    def add(metric, feature, n_shots, value, p_value=np.nan, controls=""):
+        rows.append({
+            "surface": surface, "metric": metric, "model": RELEASE_MODELS[feature],
+            "feature": feature, "controls": controls, "n_shots": int(n_shots),
+            "value": float(value), "p_value": float(p_value), "criterion": "", "passed": None,
+        })
+
+    auc = {}
+    for feature in RELEASE_MODELS:
+        score = features[feature].to_numpy(dtype=float)
+        auc[feature] = rank_auc(score, label)
+        add("auc_open", feature, np.sum(~np.isnan(score) & ~np.isnan(label)), auc[feature])
+        n_pairs = np.sum(~np.isnan(score) & ~np.isnan(quality))
+        add("spearman_quality", feature, n_pairs, spearman(score, quality))
+        medians = by_level[feature].median().reindex(CONTEST_LEVELS)
+        counts = by_level[feature].count().reindex(CONTEST_LEVELS).fillna(0)
+        for level in CONTEST_LEVELS:
+            add(f"median_{level}", feature, counts[level], medians[level])
+        add("monotone_pairs", feature, counts.sum(), monotone_pairs(medians.to_numpy()))
+    for feature in ("p_off_shooter", "p_off_disk"):
+        score = features[feature].to_numpy(dtype=float)
+        n_pairs = np.sum(~np.isnan(score) & ~np.isnan(label))
+        add("auc_margin_vs_voronoi_disk", feature, n_pairs, auc[feature] - auc["voronoi_disk"])
+    partial = partial_spearman_table(
+        features, RELEASE_PARTIAL_PREDICTORS, RELEASE_PARTIAL_CONTROLS, n=n, seed=seed
+    )
+    for r in partial.itertuples():
+        add("partial_spearman_quality", r.predictor, r.n_shots, r.rho, r.p_value, r.controls)
+
+    table = pd.DataFrame(rows, columns=list(RELEASE_COLUMNS))
+    bars = RELEASE_THRESHOLDS
+    criteria = (
+        ("auc_open", "p_off_shooter", "",
+         f"1: AUC(open vs contested) >= {bars['auc_open']}",
+         lambda v, p: v >= bars["auc_open"]),
+        ("auc_margin_vs_voronoi_disk", "p_off_disk", "",
+         f"2: p_off_disk AUC >= voronoi_disk AUC + {bars['auc_margin']}",
+         lambda v, p: v >= bars["auc_margin"]),
+        ("monotone_pairs", "p_off_shooter", "",
+         "3: medians " + " > ".join(CONTEST_LEVELS),
+         lambda v, p: v == bars["monotone_pairs"]),
+        ("spearman_quality", "p_off_shooter", "",
+         f"4a: Spearman(shotQuality) >= {bars['spearman_quality']}",
+         lambda v, p: v >= bars["spearman_quality"]),
+        ("partial_spearman_quality", "p_off_shooter", "closestDefDist",
+         f"4b: partial rho > 0 with permutation p < {bars['partial_p_value']}",
+         lambda v, p: v > 0 and p < bars["partial_p_value"]),
+    )
+    for metric, feature, controls, text, holds in criteria:
+        at = (
+            (table["metric"] == metric) & (table["feature"] == feature)
+            & (table["controls"] == controls)
+        )
+        i = table.index[at][0]
+        table.loc[i, "criterion"] = text
+        table.loc[i, "passed"] = bool(holds(table.loc[i, "value"], table.loc[i, "p_value"]))
+    return table
