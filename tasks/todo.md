@@ -565,7 +565,7 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     `rank_auc` gives 1.0 with perfect separation and 0.5 ± 0.05 with random labels
     (n = 2,000, fixed seed); `spearman` matches pandas (< 1e-12);
     `partial_spearman(y, x, z)` is 0 (± 0.05) when `y` depends only on `z`.
-- [ ] P1.4 Calibration on the 5 oldest games `[PLANNER]`
+- [x] P1.4 Calibration on the 5 oldest games `[PLANNER]`
   - Does: `calibrate` and `scripts/calibrate_control.py`: grid `r_near` ∈ {3,4,5,6},
     `r_far` ∈ {8,10,12,14}, `t_h` ∈ {0, 0.3, 0.6} (**48** combinations, `slope` fixed
     at 1 per the D1 amendment) over the release frames of the calibration games;
@@ -577,10 +577,60 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     commit of the json BEFORE running anything on the validation games. The report
     states that `slope` was not calibrated and why, so the README can say it plainly.
     Note `t_h = 0` is a clean ablation: the model then ignores velocity entirely.
+
+  - **Result. Gate green: ruff clean, 134 tests, 8 with the `data` marker. Frozen in
+    `reports/control_params.json` at commit `77253a9`, whose json records `code_commit
+    a7891b7` with `working_tree_dirty: false`, so the D11 provenance chain is clean and
+    the V row can verify it with `git log`. Calibration games only: 740 shot events, 689
+    matched to the D12 cache, 676 with a `shotQuality`.**
+    - **The frozen cell: `r_near` 2 ft, `r_far` 8 ft, `t_h` 0 s, `slope` 1.** The planned
+      48-cell grid put the optimum on the edge of all three dimensions, so it was extended
+      to 108 cells as the plan prescribes; the optimum is then interior in both radii and
+      sits on `t_h = 0`, a hard bound rather than an extendable edge.
+    - **Three of the four pre-registered thresholds cannot be met, for a structural reason
+      that is a finding in its own right.** Objective 0.9611 = AUC 0.7727 + Spearman
+      0.1884. Against the thresholds: AUC 0.77 vs 0.80, margin -0.0105 vs +0.03, Spearman
+      0.19 vs 0.30. **The provider's own `closestDefDist` reaches AUC 0.7753 on these
+      games, verified independently, so the 0.80 bar was set ABOVE the ceiling of the
+      variable the label derives from.** The medians say why: `light` 4.07 ft and
+      `average` 4.24 ft are indistinguishable by distance and `open` spans 1.25 to 35 ft.
+      And `shotQuality` is location-driven (Spearman -0.2877 with `three`, only 0.1215
+      with distance) while `P_off` at a point carries no location. Nothing was adjusted:
+      no threshold, no objective, no feature. This is what D13 exists to produce.
+    - **The fourth criterion holds, and it is the one that tests what the model claims.**
+      Partial Spearman of `shotQuality` on `p_off_shooter`: rho 0.1830 (p 0.0005)
+      controlling for `closestDefDist`, and **rho 0.1269 (p 0.0010) controlling for
+      `closestDefDist`, `three` AND a continuous distance to the hoop**, a harder location
+      control than the plan asked for, added and verified independently. Since the frozen
+      cell has `t_h = 0` the velocity is switched off, so this information is the
+      MULTI-PLAYER GEOMETRY (second defender, teammate spacing), not velocity. By
+      contrast the `epc_share` information beyond distance is entirely location (0.1862
+      against distance alone, -0.0374 once location is controlled): it says where the shot
+      is, not how contested, and must not be sold as contest information.
+    - **Velocity as modelled HURTS at release.** `t_h` dominates the whole surface (mean
+      objective 0.917 at 0, 0.630 at 0.3, 0.536 at 0.6). Diagnosed cause, consistent with
+      the data but not proven: the shooter's own Gaussian is projected forward by `v*t_h`
+      while the field is evaluated at their TRACKED point, which is inconsistent for the
+      shooter themself; at the 9.3 ft/s median of blocked shots that is about 2 sigma.
+      A model defect worth fixing, not a parameter to tune. Recorded in "Open decisions".
+    - **Inside the `t_h = 0` slab the surface is flat**: 7 of 108 cells within 0.01 of the
+      best, top three within 0.003, well under what 676 shots resolve (AUC s.e. ~0.02).
+      The radii are barely identified. Same lesson as `slope` and the Voronoi baseline,
+      for the third time in this phase.
+    - D11 note for reviewers, disclosed rather than hidden: the P1.3 data test
+      `test_release_features_matched_yield_on_the_10_published_games` computes
+      `release_features` at DEFAULT parameters on all 10 games to assert the 1,360 count.
+      It touches held-out data but computes no metric and no label, so nothing from those
+      games could have influenced the frozen parameters. The spirit of D11 holds and the
+      test was deliberately left in place.
 - [ ] P1.5 Validation on the 5 held-out games `[PLANNER]`
   - Does: `scripts/validate_release.py` with the frozen parameters. Writes
     `reports/validation_release.csv` (one row per metric and model: control,
     Voronoi, `closestDefDist`) and prints the table of medians by `contestLevel`.
+  - **Run as pre-registered, per the F1 replan above. Report every criterion as it
+    falls, pass or fail, and adjust nothing. Three are expected to fail on the
+    calibration evidence; reporting them honestly with the ceiling diagnosis IS the
+    deliverable, together with the fourth holding out of sample.**
   - Accepts (pre-registered thresholds, D13): AUC(open vs contested) of `P_off` at
     the shooter ≥ 0.80 and ≥ `voronoi_disk` AUC + 0.03, the margin measured with
     `p_off_disk` against `voronoi_disk` so both models sit on identical geometry
@@ -592,6 +642,24 @@ Closed objective: the model calibrated on 5 games and VALIDATED on the other 5 a
     the field contributes information that the distance to the closest defender does not have
     (velocities and second defender). If a threshold fails: it is written as is in the
     report and work STOPS to replan before F2.
+
+### F1 replan, decided by the user on 2026-09-15 after P1.4
+D13 fired: three pre-registered thresholds failed, so F1 replans before F2 opens.
+**Decision: run P1.5 exactly as pre-registered, change nothing, and report 3 failures
+with their diagnosis plus 1 pass out of sample. The primary external validation of the
+project moves to the pick coverages of P3.4.** Rationale, in order:
+- Nothing needs re-pre-registering, because the criterion that survives was already one
+  of the four. Rewriting the thresholds now would pay a credibility cost for nothing.
+- The three failures are not a weak model, they are the wrong question: P1.5 asked a
+  value-weighted SPACE control model, evaluated at a single point, to recover a
+  DISTANCE-derived contest label. That cannot beat the label's own source variable.
+- `bhrDefType` and `scrDefType` are labels about how a space is defended, not about how
+  many feet away a defender stands, so P3.4 is where this model can actually be tested
+  against ground truth. The cost is accepted: the headline validation arrives in week 10
+  instead of week 6, and the README leads with three failed thresholds and their cause.
+- The alternative of fixing the shooter-projection defect first was considered and
+  deferred: it cannot lift the AUC, because the 0.775 ceiling does not depend on the
+  model. It stays as a candidate for the reserve weeks.
 
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
@@ -758,6 +826,10 @@ Closed objective: reproducible public repo, README within limits, video script.
 - Public package name. Working name `scbasket`. Decided in P4.5.
 - Solo or pair: the plan assumes solo; if a partner joins, F2 and F3 are parallelized.
 - Figure 2 (P4.1): chosen with the numbers in hand, not before.
+- The shooter-projection defect found in P1.4: the shooter's own Gaussian is projected
+  forward by `v*t_h` while the field is read at their tracked point. Candidate for the
+  reserve weeks; it cannot change the AUC ceiling, but it would decide whether velocity
+  is usable at all in F2 and F3, where it is not evaluated at the moving player's point.
 
 ## Warnings
 - The parent repo `data_engineer` has 119 uncommitted deletions: the previous project
