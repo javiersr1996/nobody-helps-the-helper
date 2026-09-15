@@ -103,6 +103,25 @@ frame could be matched to in the tracking with both lineups on the floor: that i
 denominator for the contest analysis below. Every reported figure must say which one it
 uses.
 
+**Amended on 2026-09-15: the 1,414 figure is NOT REPRODUCIBLE and must never be cited
+again.** Re-measured from the current code, the raw-stream match yields **1,445**: all
+1,459 shots carry a `startFrame` and exactly 14 have the shooter absent from the
+offensive lineup at that frame. Three candidate explanations for the old 1,414 were
+tested and all fail: the P0.5 id canonicalization changes only 13 shooterIds across the
+10 games, far too few for a 31-shot gap; requiring a full 5+5 lineup instead of shooter
+plus two defenders gives 1,445 as well, identically, because live frames always carry 10
+players; and intersecting with valid `location` and `region` gives 1,420, still 6 off.
+The search was stopped there rather than dug deeper, because the raw-stream count is only
+the legacy comparison section and nothing downstream rests on it.
+
+**The denominators that stand, each verified twice:** 1,459 shot events; 1,433 with valid
+`location` and `region`; 1,445 matched against the raw tracking stream; **1,360 matched
+against the D12 cache, which is the denominator for F1 and everything after it.** The
+prior-work percentages below were computed on the old 1,414 match; the two that P1.2
+re-measured on 1,445 barely moved (`plus` 26.3% to 26.2%, `blocked` 43.1% unchanged), so
+they are sound as orders of magnitude, but any figure that reaches the README must be
+recomputed on a denominator from this list.
+
 ### Prior work on shot contest (verified with data, 1,414 shots)
 "Shot Quality" relies on `closestDefDist`, the shooter-defender distance at release,
 computed from two positions that carry their own error. Measured:
