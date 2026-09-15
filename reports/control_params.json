@@ -1,0 +1,136 @@
+{
+  "params": {
+    "r_near": 2.0,
+    "r_far": 8.0,
+    "d_far": 30.0,
+    "v_max": 25.0,
+    "t_h": 0.0,
+    "slope": 1.0
+  },
+  "slope_calibrated": false,
+  "slope_note": "fixed at 1: P_off = sigmoid(slope * score) is monotone in the score, so every rank metric in F1 is invariant to it (D1 amendment)",
+  "objective": 0.9611167828938687,
+  "auc_open": 0.7727152317880794,
+  "spearman_quality": 0.18840155110578927,
+  "p_off_disk_auc": 0.7436140018921475,
+  "voronoi_disk_auc": 0.754077578051088,
+  "closest_def_dist_auc": 0.7751371807000946,
+  "closest_def_dist_spearman": 0.1380435983867412,
+  "denominators": {
+    "n_shots": 689,
+    "n_open": 151,
+    "n_other": 525,
+    "n_quality": 676
+  },
+  "calibration_games": [
+    114243,
+    114234,
+    114169,
+    114099,
+    114086
+  ],
+  "grid_name": "calibration_grid_extended",
+  "grid": {
+    "r_near": [
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0,
+      6.0
+    ],
+    "r_far": [
+      4.0,
+      6.0,
+      8.0,
+      10.0,
+      12.0,
+      14.0
+    ],
+    "t_h": [
+      0.0,
+      0.3,
+      0.6
+    ]
+  },
+  "on_grid_edge": [
+    "t_h"
+  ],
+  "planned_grid": {
+    "r_near": [
+      3.0,
+      4.0,
+      5.0,
+      6.0
+    ],
+    "r_far": [
+      8.0,
+      10.0,
+      12.0,
+      14.0
+    ],
+    "t_h": [
+      0.0,
+      0.3,
+      0.6
+    ]
+  },
+  "planned_grid_optimum_on_edge": [
+    "r_near",
+    "r_far",
+    "t_h"
+  ],
+  "partial_spearman_shot_quality": {
+    "scope": "calibration games only, at the frozen cell; P1.5's fourth criterion is decided on the held-out games, never here",
+    "criterion": "rho > 0 with one-sided permutation p < 0.01, 2000 shuffles, seed 0",
+    "grid_ft": 1.0,
+    "rows": [
+      {
+        "predictor": "p_off_shooter",
+        "controls": "closestDefDist",
+        "n_shots": 676,
+        "rho": 0.18301243762559344,
+        "p_value": 0.0004997501249375312
+      },
+      {
+        "predictor": "p_off_shooter",
+        "controls": "closestDefDist+three",
+        "n_shots": 676,
+        "rho": 0.14931085936499394,
+        "p_value": 0.0004997501249375312
+      },
+      {
+        "predictor": "p_off_disk",
+        "controls": "closestDefDist",
+        "n_shots": 676,
+        "rho": 0.09751900448944043,
+        "p_value": 0.0074962518740629685
+      },
+      {
+        "predictor": "p_off_disk",
+        "controls": "closestDefDist+three",
+        "n_shots": 676,
+        "rho": 0.033650356045047965,
+        "p_value": 0.18640679660169915
+      },
+      {
+        "predictor": "epc_share",
+        "controls": "closestDefDist",
+        "n_shots": 676,
+        "rho": 0.18615101731043357,
+        "p_value": 0.0004997501249375312
+      },
+      {
+        "predictor": "epc_share",
+        "controls": "closestDefDist+three",
+        "n_shots": 676,
+        "rho": -0.01113417301833259,
+        "p_value": 0.6116941529235382
+      }
+    ]
+  },
+  "sweep_seconds": 4.9,
+  "code_commit": "a7891b78d4573b36344644143c56bfa4fa15ee5d",
+  "working_tree_dirty": false,
+  "generated_at": "2026-09-15T18:34:19+00:00"
+}
