@@ -705,6 +705,33 @@ project moves to the pick coverages of P3.4.** Rationale, in order:
   deferred: it cannot lift the AUC, because the 0.775 ceiling does not depend on the
   model. It stays as a candidate for the reserve weeks.
 
+### P3.4 feasibility pilot, run 2026-09-15 on the calibration games only
+**Verdict: the control field does NOT validate against the coverage labels either.** It
+adds nothing over a trivial baseline of pick location plus raw inter-player distances, so
+P3.4 as designed cannot be the project's external validation. 651 labelled picks with a
+cached frame across the 5 calibration games (about 1,300 projected over the 10, above the
+plan's 1,000 bar), so sample size is not the constraint. Only three classes actually
+occur per label: over/switch/under and show/soft/switch, not the five or six P3.4 assumed.
+
+Leave-one-game-out accuracy, every fold inspected, never a pooled figure:
+
+| Features | `bhrDefType` (majority 0.674) | `scrDefType` (majority 0.373) |
+|---|---|---|
+| control field only | 0.568, worse than majority, 0 of 5 folds | 0.481, beats majority 5 of 5 |
+| location + distances | **0.789**, beats majority 5 of 5 | **0.675**, beats majority 5 of 5 |
+| field + location + distances | 0.759, WORSE than without the field | 0.673, identical without it |
+
+The field is not empty: its centroid gaps are significant for `over` and `under`
+(p around 0.001) and on `scrDefType` it beats the majority in all five folds. But it is
+entirely subsumed by the trivial baseline, which was the question. Same failure mode as
+F1: the field reproduces geometry the label already encodes.
+
+Consequence: F2 and F3 are ON HOLD. The project has no validated tactical metric, and
+both candidate external validations have now failed for the same reason. The direction
+decision is the user's and is pending. `scripts/pilot_pick_signatures.py` and
+`reports/pilot_pick_signatures.csv` hold the evidence; nothing was added to the package,
+deliberately, so no design is committed to before the direction is settled.
+
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 
