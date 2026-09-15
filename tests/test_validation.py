@@ -1,8 +1,12 @@
 """Tests for scbasket.validation: rank_auc, spearman, partial_spearman, permutation_pvalue,
-release_features.
+release_features, calibrate.
 """
 
 from __future__ import annotations
+
+import itertools
+import json
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -20,7 +24,12 @@ from scbasket.epc import epc_share
 from scbasket.frames import GameFrames, get_or_build
 from scbasket.io import Dataset
 from scbasket.validation import (
+    CALIBRATION_GAMES,
+    best_cell,
+    calibrate,
+    edge_dimensions,
     partial_spearman,
+    partial_spearman_table,
     permutation_pvalue,
     rank_auc,
     release_features,
@@ -29,6 +38,7 @@ from scbasket.validation import (
 from scbasket.value import ValueSurface, league_zone_values, surface_from_zones
 
 CACHE_DIR = REAL_DATASET_ROOT.parents[1] / "interim"
+CONTROL_PARAMS_JSON = REAL_DATASET_ROOT.parents[2] / "reports" / "control_params.json"
 OFF_IDS = np.array([5001, 5002, 5003, 5004, 5005], dtype=np.int32)
 DEF_IDS = np.array([6001, 6002, 6003, 6004, 6005], dtype=np.int32)
 
@@ -202,6 +212,55 @@ def test_partial_spearman_returns_nan_for_constant_y():
     x = np.arange(20.0)
     z = np.arange(20.0)[::-1]
     assert np.isnan(partial_spearman(y, x, z))
+
+
+def test_partial_spearman_with_one_column_z_matches_the_one_dimensional_path():
+    rng = np.random.default_rng(6)
+    y, x, z = rng.standard_normal((3, 200))
+    assert partial_spearman(y, x, z[:, None]) == pytest.approx(partial_spearman(y, x, z), abs=1e-12)
+
+
+def test_partial_spearman_with_two_controls_removes_what_both_explain():
+    rng = np.random.default_rng(8)
+    z1 = rng.standard_normal(3000)
+    z2 = rng.standard_normal(3000)
+    x = rng.standard_normal(3000)
+    y_from_controls = 2 * z1 - 3 * z2 + 0.1 * rng.standard_normal(3000)
+    y_with_x = y_from_controls + 3 * x
+    controls = np.column_stack([z1, z2])
+
+    assert abs(partial_spearman(y_from_controls, x, controls)) <= 0.05
+    assert partial_spearman(y_with_x, x, controls) > 0.3
+    # Controlling for z1 alone leaves z2's share in the residual: the joint fit is not
+    # the one-control fit, which is the whole point of accepting several controls.
+    joint = partial_spearman(y_with_x, x, controls)
+    assert joint != partial_spearman(y_with_x, x, z1)
+
+
+def test_partial_spearman_ignores_a_constant_or_duplicated_control_column():
+    rng = np.random.default_rng(9)
+    z = rng.standard_normal(300)
+    x = rng.standard_normal(300)
+    y = 2 * z + x + 0.1 * rng.standard_normal(300)
+    single = partial_spearman(y, x, z)
+
+    assert partial_spearman(y, x, np.column_stack([z, np.full(300, 4.0)])) == pytest.approx(
+        single, abs=1e-9
+    )
+    assert partial_spearman(y, x, np.column_stack([z, z])) == pytest.approx(single, abs=1e-9)
+
+
+def test_partial_spearman_drops_rows_with_a_nan_in_any_control_column():
+    rng = np.random.default_rng(10)
+    y, x, z1, z2 = rng.standard_normal((4, 50))
+    z = np.column_stack([z1, z2])
+    z_holed = z.copy()
+    z_holed[3, 1] = np.nan
+    z_holed[7, 0] = np.nan
+    keep = np.ones(50, dtype=bool)
+    keep[[3, 7]] = False
+
+    assert partial_spearman(y, x, z_holed) == partial_spearman(y[keep], x[keep], z[keep])
 
 
 # ------------------------------------------------------------------- permutation_pvalue
@@ -490,3 +549,213 @@ def test_release_features_matched_yield_on_the_10_published_games():
     print(f"\n{total_matched} of {total_shots} shots matched to a release frame")
     assert total_shots == 1459
     assert total_matched == 1360
+
+
+# --------------------------------------------------------------------------- calibrate
+
+CONTEST_LEVELS = ("open", "light", "average", "plus", "blocked")
+SMALL_GRID = {"r_near": [3.0, 4.0], "r_far": [8.0, 10.0], "t_h": [0.0, 0.3]}
+
+
+def _calibration_games(seed: int = 11) -> tuple[dict[int, GameFrames], dict[int, pd.DataFrame]]:
+    """Two synthetic games (12 and 10 shots) with random geometry, moving players and every
+    contest level, keyed by game id the way calibrate expects them."""
+    rng = np.random.default_rng(seed)
+    frames_by_game: dict[int, GameFrames] = {}
+    shots_by_game: dict[int, pd.DataFrame] = {}
+    for game_id, n in ((900001, 12), (900002, 10)):
+        xy = np.empty((n, 10, 2), dtype=np.float32)
+        xy[..., 0] = rng.uniform(-40.0, 0.0, size=(n, 10))
+        xy[..., 1] = rng.uniform(-20.0, 20.0, size=(n, 10))
+        frames = _release_frames(xy, ball=np.column_stack([xy[:, 0], np.full(n, 4.0)]))
+        v = rng.normal(0.0, 5.0, size=(n, 10, 2)).astype(np.float32)
+        frames_by_game[game_id] = replace(frames, game_id=game_id, v=v)
+        shots_by_game[game_id] = pd.DataFrame([
+            _shot_row(
+                10 * (i + 1), OFF_IDS[i % 5], contestLevel=CONTEST_LEVELS[i % 5],
+                shotQuality=float(rng.uniform(0.0, 100.0)),
+            )
+            for i in range(n)
+        ])
+    return frames_by_game, shots_by_game
+
+
+def test_calibrate_one_row_per_cell_in_product_order_with_slope_fixed():
+    frames_by_game, shots_by_game = _calibration_games()
+
+    table = calibrate(frames_by_game, shots_by_game, SMALL_GRID)
+
+    assert len(table) == 8
+    cells = list(zip(table["r_near"], table["r_far"], table["t_h"], strict=True))
+    assert cells == list(itertools.product(*SMALL_GRID.values()))
+    assert (table["slope"] == 1.0).all()
+    assert (table["n_shots"] == 22).all()
+    assert (table["n_open"] == 5).all() and (table["n_other"] == 17).all()
+    assert (table["n_quality"] == 22).all()
+    np.testing.assert_array_equal(
+        table["objective"], table["auc_open"] + table["spearman_quality"]
+    )
+    for reference in ("voronoi_disk_auc", "closest_def_dist_auc", "closest_def_dist_spearman"):
+        assert table[reference].nunique() == 1, reference  # parameter-free references
+    assert table["auc_open"].nunique() > 1  # the geometry actually moves the objective
+
+
+def test_calibrate_cell_agrees_with_release_features_bit_for_bit():
+    """The objective is graded on the same functions release_features uses, so a cell and
+    release_features at the same ControlParams must agree exactly, not approximately."""
+    frames_by_game, shots_by_game = _calibration_games()
+    cell = {"r_near": 4.0, "r_far": 10.0, "t_h": 0.3}
+    grid = make_grid(4.0)
+    features = pd.concat(
+        [
+            release_features(frames_by_game[g], shots_by_game[g], grid, ControlParams(**cell),
+                             _flat_surface(grid))
+            for g in frames_by_game
+        ],
+        ignore_index=True,
+    )
+    label = (features["contestLevel"] == "open").to_numpy(dtype=float)
+
+    row = calibrate(frames_by_game, shots_by_game, {k: [v] for k, v in cell.items()}).iloc[0]
+
+    assert row["auc_open"] == rank_auc(features["p_off_shooter"], label)
+    assert row["spearman_quality"] == spearman(features["p_off_shooter"], features["shotQuality"])
+    assert row["p_off_disk_auc"] == rank_auc(features["p_off_disk"], label)
+    assert row["voronoi_disk_auc"] == rank_auc(features["voronoi_disk"], label)
+    assert row["closest_def_dist_auc"] == rank_auc(features["closest_def_dist"], label)
+    assert row["closest_def_dist_spearman"] == spearman(
+        features["closest_def_dist"], features["shotQuality"]
+    )
+
+
+def test_calibrate_t_h_zero_is_a_velocity_ablation():
+    """At t_h = 0 the model ignores velocity entirely: the row must equal the one computed
+    on the same frames with every velocity zeroed, and differ from the t_h = 0.3 row."""
+    frames_by_game, shots_by_game = _calibration_games()
+    still = {g: replace(f, v=np.zeros_like(f.v)) for g, f in frames_by_game.items()}
+    grid = {"r_near": [4.0], "r_far": [10.0], "t_h": [0.0, 0.3]}
+
+    moving = calibrate(frames_by_game, shots_by_game, grid)
+    frozen = calibrate(still, shots_by_game, grid)
+
+    metrics = ["auc_open", "spearman_quality", "p_off_disk_auc"]
+    np.testing.assert_array_equal(moving.loc[0, metrics], frozen.loc[0, metrics])
+    assert moving.loc[1, "objective"] != frozen.loc[1, "objective"]
+
+
+def test_calibrate_drops_unlabelled_shots_from_the_metrics_but_not_from_n_shots():
+    frames_by_game, shots_by_game = _calibration_games()
+    shots = shots_by_game[900001]
+    shots.loc[0, "contestLevel"] = None
+    shots.loc[1, "shotQuality"] = np.nan
+    shots.loc[2, "contestLevel"] = None
+    shots.loc[2, "shotQuality"] = np.nan
+
+    row = calibrate(frames_by_game, shots_by_game, {"r_near": [4.0]}).iloc[0]
+
+    assert row["n_shots"] == 22
+    assert row["n_open"] + row["n_other"] == 20
+    assert row["n_quality"] == 20
+    assert np.isfinite(row["objective"])
+    assert row["r_near"] == 4.0 and row["slope"] == 1.0
+
+
+def test_calibrate_refuses_slope_as_a_dimension():
+    frames_by_game, shots_by_game = _calibration_games()
+    with pytest.raises(ValueError, match="monotone"):
+        calibrate(frames_by_game, shots_by_game, {"r_near": [4.0], "slope": [0.5, 1.0, 2.0]})
+
+
+def test_best_cell_ignores_nan_and_edge_dimensions_skips_single_value_dimensions():
+    grid = {"r_near": [3.0, 4.0, 5.0], "r_far": [10.0], "t_h": [0.0, 0.3, 0.6]}
+    table = pd.DataFrame({
+        "r_near": [3.0, 4.0, 4.0, 5.0],
+        "r_far": [10.0, 10.0, 10.0, 10.0],
+        "t_h": [0.3, 0.3, 0.6, 0.0],
+        "objective": [1.2, np.nan, 1.1, 0.9],
+    })
+
+    best = best_cell(table)
+
+    assert best["r_near"] == 3.0 and best["objective"] == 1.2
+    assert edge_dimensions(best, grid) == ["r_near"]
+    assert edge_dimensions(table.iloc[2], grid) == ["t_h"]
+    assert edge_dimensions({"r_near": 4.0, "r_far": 10.0, "t_h": 0.3}, grid) == []
+    assert edge_dimensions(table.iloc[3], grid) == ["r_near", "t_h"]
+    with pytest.raises(ValueError, match="NaN"):
+        best_cell(table.assign(objective=np.nan))
+
+
+def test_partial_spearman_table_one_row_per_predictor_and_control_set():
+    frames_by_game, shots_by_game = _calibration_games()
+    grid = make_grid(4.0)
+    features = pd.concat(
+        [release_features(frames_by_game[g], shots_by_game[g], grid, ControlParams(),
+                          _flat_surface(grid)) for g in frames_by_game],
+        ignore_index=True,
+    )
+    features.loc[0, "closestDefDist"] = np.nan  # one row must drop from every control set
+
+    table = partial_spearman_table(features, n=200, seed=3)
+    again = partial_spearman_table(features, n=200, seed=3)
+
+    assert list(table.columns) == ["predictor", "controls", "n_shots", "rho", "p_value"]
+    assert list(zip(table["predictor"], table["controls"], strict=True)) == [
+        ("p_off_shooter", "closestDefDist"), ("p_off_shooter", "closestDefDist+three"),
+        ("p_off_disk", "closestDefDist"), ("p_off_disk", "closestDefDist+three"),
+        ("epc_share", "closestDefDist"), ("epc_share", "closestDefDist+three"),
+    ]
+    assert (table["n_shots"] == 21).all()
+    assert ((table["p_value"] > 0.0) & (table["p_value"] <= 1.0)).all()
+    pd.testing.assert_frame_equal(table, again)  # seeded per row: reproducible
+    expected = partial_spearman(
+        features["shotQuality"], features["p_off_disk"],
+        features[["closestDefDist", "three"]].to_numpy(dtype=float),
+    )
+    assert table.loc[3, "rho"] == expected
+
+
+@pytest.mark.data
+@requires_real_dataset
+@pytest.mark.skipif(not CONTROL_PARAMS_JSON.exists(), reason="run scripts/calibrate_control.py")
+def test_frozen_params_reproduce_the_recorded_objective_on_the_calibration_games():
+    """reports/control_params.json is the pre-registration (D11): the frozen parameters must
+    give back the recorded objective on the five calibration games, and those five must be
+    the oldest by date. Only matches.json (dates) and the calibration games are read."""
+    dataset = Dataset(REAL_DATASET_ROOT)
+    assert dataset.game_ids[:5] == list(CALIBRATION_GAMES)
+    frozen = json.loads(CONTROL_PARAMS_JSON.read_text(encoding="utf-8"))
+    assert frozen["params"]["slope"] == 1.0 and frozen["slope_calibrated"] is False
+    assert frozen["calibration_games"] == list(CALIBRATION_GAMES)
+
+    frames_by_game = {g: get_or_build(dataset, g, CACHE_DIR) for g in CALIBRATION_GAMES}
+    shots_by_game = {g: dataset.events(g)["shots"] for g in CALIBRATION_GAMES}
+    params = frozen["params"]
+    row = calibrate(
+        frames_by_game, shots_by_game, {k: [params[k]] for k in ("r_near", "r_far", "t_h")}
+    ).iloc[0]
+
+    print(f"\nfrozen {params}: objective {row['objective']:.4f} on {row['n_shots']} shots")
+    assert row["objective"] == pytest.approx(frozen["objective"], abs=1e-9)
+    assert row["auc_open"] == pytest.approx(frozen["auc_open"], abs=1e-9)
+    assert row["spearman_quality"] == pytest.approx(frozen["spearman_quality"], abs=1e-9)
+    assert {k: int(row[k]) for k in frozen["denominators"]} == frozen["denominators"]
+
+    # The recorded partial Spearman rows (P1.5's fourth criterion, calibration games only)
+    # come back from release_features at the frozen cell plus the seeded permutation test.
+    recorded = frozen["partial_spearman_shot_quality"]
+    grid = make_grid(recorded["grid_ft"])
+    surface = surface_from_zones(grid, league_zone_values(dataset.aggregates("shots")))
+    control = ControlParams(**params)
+    features = pd.concat(
+        [release_features(frames_by_game[g], shots_by_game[g], grid, control, surface)
+         for g in CALIBRATION_GAMES],
+        ignore_index=True,
+    )
+    table = partial_spearman_table(features)
+    for r, rec in zip(table.itertuples(), recorded["rows"], strict=True):
+        assert (r.predictor, r.controls, r.n_shots) == (
+            rec["predictor"], rec["controls"], rec["n_shots"]
+        )
+        assert r.rho == pytest.approx(rec["rho"], abs=1e-9)
+        assert r.p_value == pytest.approx(rec["p_value"], abs=1e-9)

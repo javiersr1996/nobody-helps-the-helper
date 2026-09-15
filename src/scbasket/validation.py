@@ -8,14 +8,16 @@ need exact control over tie handling and the permutation scheme.
 This module holds the four statistics helpers below (`rank_auc`, `spearman`,
 `partial_spearman`, `permutation_pvalue`), which depend on nothing, plus
 `release_features`, appended after them, which does depend on `control.py`
-and `epc.py`. `calibrate`, `pick_windows` and `break_points` -- the
-calibration/validation pipeline built on top of `release_features` -- are
-appended below by a later change (P1.4/P1.5).
+and `epc.py`, and `calibrate` (P1.4), the grid search over the control
+parameters on the release frames of the calibration games. `pick_windows`
+and `break_points` are appended below by a later change (P1.5).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import functools
+import itertools
+from collections.abc import Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -61,12 +63,21 @@ def _pearson_corr(a: np.ndarray, b: np.ndarray) -> float:
 def _ols_residuals(z: np.ndarray, target: np.ndarray) -> np.ndarray:
     """Residuals of the OLS regression of `target` on `z` (with intercept).
 
-    If `z` is constant there is nothing to regress on: the residual is just
-    `target`'s deviation from its own mean, i.e. no control is applied.
+    `z` is (n,) for one control or (n, k) for several. If `z` is constant there
+    is nothing to regress on: the residual is just `target`'s deviation from
+    its own mean, i.e. no control is applied. With several controls the fit is
+    a least-squares solve on the centred columns (numpy.linalg.lstsq, minimum
+    norm), which stays defined when columns are constant or collinear: a
+    redundant control changes nothing. The one-control path is the closed form
+    and is untouched by the (n, k) case.
     """
+    target_centered = target - target.mean()
+    if z.ndim == 2:
+        z_centered = z - z.mean(axis=0)
+        beta = np.linalg.lstsq(z_centered, target_centered, rcond=None)[0]
+        return target_centered - z_centered @ beta
     z_centered = z - z.mean()
     var_z = (z_centered**2).sum()
-    target_centered = target - target.mean()
     if var_z == 0:
         return target_centered
     slope = (z_centered * target_centered).sum() / var_z
@@ -139,20 +150,29 @@ def partial_spearman(y: np.ndarray, x: np.ndarray, z: np.ndarray) -> float:
     and ranked `x` on ranked `z` by ordinary least squares, and correlate
     the two residuals (Pearson).
 
-    NaN policy: rows where any of `y`, `x`, `z` is NaN are dropped rowwise.
-    Returns NaN if fewer than 3 valid rows remain, or if `y` or `x` is
-    constant (nothing to correlate). A constant `z` is NOT a degenerate
-    case: `_ols_residuals` then applies no control and this reduces to
-    plain `spearman(y, x)`, which is the mathematically correct answer for
-    "controlling for a variable that never varies". If the residuals of `y`
-    or `x` end up constant (e.g. `y` is an exact monotonic function of `z`,
-    so ranking removes all of its variance), the correlation is undefined
-    and NaN is returned.
+    `z` is one control, shape (n,), or several at once, shape (n, k): each
+    column is ranked on its own and the two regressions use all of them
+    jointly (one least-squares fit with an intercept, not one control after
+    another, which would only agree if the controls were orthogonal). P1.5's
+    "controlling for closestDefDist" is the (n,) case; "controlling for
+    closestDefDist and three" the (n, 2) case. A (n, 1) `z` gives the (n,)
+    answer.
+
+    NaN policy: rows where any of `y`, `x`, `z` (any column) is NaN are
+    dropped rowwise. Returns NaN if fewer than 3 valid rows remain, or if
+    `y` or `x` is constant (nothing to correlate). A constant `z` is NOT a
+    degenerate case: `_ols_residuals` then applies no control and this
+    reduces to plain `spearman(y, x)`, which is the mathematically correct
+    answer for "controlling for a variable that never varies". If the
+    residuals of `y` or `x` end up constant (e.g. `y` is an exact monotonic
+    function of `z`, so ranking removes all of its variance), the
+    correlation is undefined and NaN is returned.
     """
     y = np.asarray(y, dtype=float)
     x = np.asarray(x, dtype=float)
     z = np.asarray(z, dtype=float)
-    valid = ~(np.isnan(y) | np.isnan(x) | np.isnan(z))
+    z_nan = np.isnan(z) if z.ndim == 1 else np.isnan(z).any(axis=1)
+    valid = ~(np.isnan(y) | np.isnan(x) | z_nan)
     y, x, z = y[valid], x[valid], z[valid]
 
     if y.shape[0] < 3:
@@ -160,7 +180,8 @@ def partial_spearman(y: np.ndarray, x: np.ndarray, z: np.ndarray) -> float:
     if np.all(y == y[0]) or np.all(x == x[0]):
         return float("nan")
 
-    ry, rx, rz = _midranks(y), _midranks(x), _midranks(z)
+    ry, rx = _midranks(y), _midranks(x)
+    rz = _midranks(z) if z.ndim == 1 else np.column_stack([_midranks(col) for col in z.T])
     resid_y = _ols_residuals(rz, ry)
     resid_x = _ols_residuals(rz, rx)
     return _pearson_corr(resid_y, resid_x)
@@ -430,3 +451,210 @@ def release_features(
     for column in _SHOT_COLUMNS:
         out[column] = shots_matched[column].to_numpy()
     return out
+
+
+# --------------------------------------------------------------------------- calibrate
+
+# D11: the five oldest games by date calibrate the control parameters; the other five are
+# held out for P1.5 and nothing on the calibration path may read them. The ids are written
+# out here rather than derived from Dataset.game_ids at run time so the split is visible in
+# the code and cannot drift with the dataset; scripts/calibrate_control.py checks them
+# against matches.json's dates before running anything.
+CALIBRATION_GAMES = (114243, 114234, 114169, 114099, 114086)
+
+# The AUC's positive class: the objective grades `open` against the four other contest
+# levels (light, average, plus, blocked). This is the reading P1.3's figures used and the
+# one the pre-registered P1.5 threshold refers to. It is NOT the provider's `contested`
+# boolean, which groups `light` with `open` (contested == contestLevel in {average, plus,
+# blocked}, exact on the five calibration games): that is a different question, and it was
+# fixed as "not the objective" before the sweep ran. A shot with a null contestLevel has no
+# ground truth and is dropped by rank_auc's NaN policy, not counted as contested (P1.3's
+# quoted 0.7213 counted 7 such shots as contested; dropping them gives 0.7221).
+OPEN_LEVEL = "open"
+
+
+def open_label(contest_level: pd.Series) -> np.ndarray:
+    """1.0 where contestLevel is OPEN_LEVEL, 0.0 for any other level, NaN where it is missing."""
+    label = (contest_level == OPEN_LEVEL).to_numpy(dtype=float)
+    label[contest_level.isna().to_numpy()] = np.nan
+    return label
+
+
+def _param_cells(param_grid: Mapping[str, Sequence[float]]) -> list[dict[str, float]]:
+    """Every cell of the Cartesian product of `param_grid`, in itertools.product order."""
+    if "slope" in param_grid:
+        raise ValueError(
+            "slope is not a calibration dimension: P_off = sigmoid(slope * score) is monotone "
+            "in the score, so every rank metric is invariant to it (D1 amendment)"
+        )
+    names = list(param_grid)
+    return [
+        dict(zip(names, values, strict=True))
+        for values in itertools.product(*(param_grid[name] for name in names))
+    ]
+
+
+def calibrate(
+    frames_by_game: Mapping[int, GameFrames],
+    shots_by_game: Mapping[int, pd.DataFrame],
+    param_grid: Mapping[str, Sequence[float]],
+) -> pd.DataFrame:
+    """Grid search of the control parameters on the release frames of the given games (P1.4).
+
+    One row per cell of the Cartesian product of `param_grid` (keys are ControlParams
+    field names, e.g. {"r_near": [3, 4], "r_far": [8, 10], "t_h": [0, 0.3]}; fields not
+    in the grid keep their ControlParams defaults), in itertools.product order. Per cell:
+
+    - `auc_open`: rank_auc of P_off at the shooter's tracked position (control_at_points,
+      the same call release_features makes for p_off_shooter), `open` against every other
+      contest level (OPEN_LEVEL).
+    - `spearman_quality`: spearman of that same P_off with the provider's shotQuality.
+    - `objective`: their sum, the quantity the plan maximises; NaN if either term is.
+    - `p_off_disk_auc`, `voronoi_disk_auc`: the same AUC for p_off_disk and for the P1.5
+      baseline (release_features' voronoi_disk), so the margin P1.5 pre-registers (p_off_disk
+      against voronoi_disk, identical geometry) can be read off the table. voronoi_disk does
+      not depend on the parameters, so its column is constant across cells.
+    - `closest_def_dist_auc`, `closest_def_dist_spearman`: the two objective terms for the
+      shooter-to-nearest-defender distance alone (release_features' closest_def_dist), the
+      third model of P1.5's table. Also parameter-free and constant across cells. It is the
+      reference that says whether a cell adds anything to plain distance, and it bounds what
+      contestLevel can reward: the provider derives that label from this same distance.
+    - `n_shots`, `n_open`, `n_other`, `n_quality`: the denominators. Matched shots (see
+      match_shots_to_release), shots labelled open, shots labelled any other level, shots
+      with a shotQuality. The AUC uses n_open + n_other, the Spearman n_quality.
+
+    Hoisted out of the cell loop: the release-frame matching and the shooter positions
+    (once per game), the labels, and voronoi_disk. Recomputed per cell is only what the
+    parameters change: P_off at the shooter and over the 3 ft disk. release_features is not
+    called, because its other columns (epc_share over the whole grid, the K = 20 Monte Carlo
+    p_off_std) are not part of the objective and dominate its cost; the two columns that ARE
+    used come from the same functions with the same arguments, so a cell here and
+    release_features at the same ControlParams agree bit for bit. This is also why calibrate
+    takes no grid or value surface: nothing in the objective depends on either (P_off is
+    evaluated at the shooter's exact tracked point, and the disk is a fixed 1 ft lattice),
+    so the sweep is exactly invariant to the grid resolution, verified at 1 ft and 2 ft.
+
+    `slope` is refused as a grid dimension (ValueError): both terms of the objective are
+    rank statistics and P_off = sigmoid(slope * score) is monotone in the score, so every
+    cell of a slope sweep would tie exactly (D1 amendment, measured in P1.1).
+    """
+    if not frames_by_game:
+        raise ValueError("frames_by_game is empty")
+    matched = [
+        match_shots_to_release(frames_by_game[game_id], shots_by_game[game_id])
+        for game_id in frames_by_game
+    ]
+    shots = pd.concat([m[0] for m in matched], ignore_index=True)
+    label = open_label(shots["contestLevel"])
+    quality = shots["shotQuality"].to_numpy(dtype=float)
+    voronoi_disk = np.concatenate([_voronoi_disk_mean(r, xy) for _, r, xy in matched])
+    closest = np.concatenate([
+        np.linalg.norm(r.xy[:, N_SIDE:].astype(np.float64) - xy[:, None, :], axis=-1).min(axis=1)
+        for _, r, xy in matched
+    ])
+    references = {
+        "voronoi_disk_auc": rank_auc(voronoi_disk, label),
+        "closest_def_dist_auc": rank_auc(closest, label),
+        "closest_def_dist_spearman": spearman(closest, quality),
+    }
+    denominators = {
+        "n_shots": len(shots),
+        "n_open": int(np.sum(label == 1.0)),
+        "n_other": int(np.sum(label == 0.0)),
+        "n_quality": int(np.sum(~np.isnan(quality))),
+    }
+
+    rows = []
+    for cell in _param_cells(param_grid):
+        params = ControlParams(**cell)
+        shooter = np.concatenate([control_at_points(r, xy, params) for _, r, xy in matched])
+        disk = np.concatenate([_disk_mean(r, xy, params) for _, r, xy in matched])
+        auc = rank_auc(shooter, label)
+        rho = spearman(shooter, quality)
+        rows.append({
+            **cell,
+            "slope": params.slope,
+            "auc_open": auc,
+            "spearman_quality": rho,
+            "objective": auc + rho,
+            "p_off_disk_auc": rank_auc(disk, label),
+            **references,
+            **denominators,
+        })
+    return pd.DataFrame(rows)
+
+
+def best_cell(table: pd.DataFrame) -> pd.Series:
+    """The row of a calibrate table with the highest objective; NaN objectives are ignored."""
+    if table["objective"].isna().all():
+        raise ValueError("every cell has a NaN objective: nothing to choose")
+    return table.loc[table["objective"].idxmax()]
+
+
+def edge_dimensions(
+    cell: Mapping[str, float], param_grid: Mapping[str, Sequence[float]]
+) -> list[str]:
+    """Grid dimensions on which `cell` sits at the smallest or largest value swept.
+
+    The plan (P1.4) requires the optimum to be interior in every dimension: on an edge, the
+    grid did not bracket it and must be extended on that side and rerun. A dimension with a
+    single value is not being calibrated and is never reported as an edge.
+    """
+    return [
+        name
+        for name, values in param_grid.items()
+        if len(values) > 1 and cell[name] in (min(values), max(values))
+    ]
+
+
+# ------------------------------------------------------------ partial_spearman_table
+
+# P1.5's fourth pre-registered criterion, "the field contributes information that the
+# distance to the closest defender does not have": partial Spearman of shotQuality with a
+# model feature, controlling for the provider's own closestDefDist (the column
+# release_features copies through, as pre-registered; not the recomputed closest_def_dist).
+# The three predictors are the model's shooter-level features; epc_share is the only one that
+# carries location. The second control set adds `three`, because shotQuality is mostly
+# location, so surviving it is the stronger claim.
+PARTIAL_PREDICTORS = ("p_off_shooter", "p_off_disk", "epc_share")
+PARTIAL_CONTROLS = (("closestDefDist",), ("closestDefDist", "three"))
+PARTIAL_SHUFFLES = 2000  # P1.5: p < 0.01 by permutation with 2,000 shuffles
+
+
+def partial_spearman_table(
+    features: pd.DataFrame,
+    predictors: Sequence[str] = PARTIAL_PREDICTORS,
+    controls: Sequence[Sequence[str]] = PARTIAL_CONTROLS,
+    n: int = PARTIAL_SHUFFLES,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """Does a model feature add information about shotQuality beyond the controls?
+
+    One row per (predictor, control set) over `features`, a release_features table (any
+    number of games concatenated): `rho` = partial_spearman(shotQuality, predictor,
+    controls), `p_value` = its one-sided permutation p-value (permutation_pvalue, `n`
+    shuffles of the predictor while shotQuality and the controls stay paired, with a fresh
+    numpy.random.default_rng(seed) per row so every row is reproducible on its own), and
+    `n_shots`, the rows where none of the three is NaN. `controls` is joined with "+".
+
+    `rho` is NaN, not 0, when the predictor is an exact function of the controls (its rank
+    residual is constant): report it as undefined, never as "no information".
+    """
+    y = features["shotQuality"].to_numpy(dtype=float)
+    rows = []
+    for predictor in predictors:
+        x = features[predictor].to_numpy(dtype=float)
+        for control in controls:
+            z = features[list(control)].to_numpy(dtype=float)
+            valid = ~(np.isnan(y) | np.isnan(x) | np.isnan(z).any(axis=1))
+            rows.append({
+                "predictor": predictor,
+                "controls": "+".join(control),
+                "n_shots": int(valid.sum()),
+                "rho": partial_spearman(y, x, z),
+                "p_value": permutation_pvalue(
+                    functools.partial(partial_spearman, y, z=z), groups=(x,), n=n,
+                    rng=np.random.default_rng(seed),
+                ),
+            })
+    return pd.DataFrame(rows)
