@@ -187,3 +187,89 @@ def release_frames_for(frames: GameFrames, shots: pd.DataFrame) -> tuple[GameFra
     release = at_frames(frames, wanted)
     matched = missed[missed["startFrame"].isin(release.frame_idx)].reset_index(drop=True)
     return release, matched
+
+
+# ------------------------------------------------------------------ construct validity (P5.1b)
+
+
+def _xy_of_players(frame: GameFrames, ids: np.ndarray) -> np.ndarray:
+    """(K, 2) position of each requested player id in a ONE-row GameFrames; NaN if absent.
+
+    Possession flips between the shot and the break, so a player who was in ``off_ids`` at
+    the release sits in ``def_ids`` afterwards. Everything here is keyed on the player id
+    and never on the slot, which is what makes the pairing survive the flip.
+    """
+    all_ids = np.concatenate([frame.off_ids[0], frame.def_ids[0]])
+    all_xy = frame.xy[0].astype(np.float64)
+    out = np.full((len(ids), 2), np.nan)
+    for k, pid in enumerate(ids):
+        slot = np.flatnonzero(all_ids == pid)
+        if slot.size:
+            out[k] = all_xy[slot[0]]
+    return out
+
+
+def retreat_pairs(release: GameFrames, shots: pd.DataFrame) -> list[np.ndarray]:
+    """Per shot, the (4, 2) array of (attacker id, their matched defender id) at the release.
+
+    These are the pairs tagging up claims to preserve into the retreat: the attacker who
+    tagged a defender should still be the one guarding them once the break arrives.
+    """
+    matchup = matchup_with_fallback(release).astype(np.int64)
+    shooter = shots["shooterId"].to_numpy()
+    pairs = []
+    for i in range(len(release)):
+        others = np.flatnonzero(release.off_ids[i] != shooter[i])
+        pairs.append(
+            np.column_stack([release.off_ids[i][others], release.def_ids[i][matchup[i][others]]])
+        )
+    return pairs
+
+
+def retreat_match_distance(
+    frames: GameFrames,
+    release: GameFrames,
+    shots: pd.DataFrame,
+    rebounds: pd.DataFrame,
+    chances: pd.DataFrame,
+) -> pd.DataFrame:
+    """Were the release-time pairs still together when the opponent reached the frontcourt?
+
+    This is P5.1b's discriminating check, and it is what separates tagging up from simply
+    retreating deep. Plain retreat puts you back in time; it does not put you back ATTACHED
+    to the man you were next to. So for every missed shot the other team rebounded, the
+    four release pairs are re-measured at that next chance's ``frontcourtFrame``.
+
+    Columns: `match_dist` (mean feet between the four pairs there, NaN if the frame or a
+    player is missing), `n_pairs_found`, and `secs_to_frontcourt` (rebound to frontcourt,
+    the speed of the break the retreat was facing).
+
+    It shares the matchup ASSIGNMENT with `tag_features` and nothing else: one is a signed
+    projection at the release, the other a distance seconds later, and a player can be high
+    side at the shot and 15 ft adrift by the time it matters.
+    """
+    by_shot = rebounds[rebounds["defensive"].astype(bool)].set_index("shotId")
+    chance_row = pd.Series(np.arange(len(chances)), index=chances["id"])
+    frontcourt = chances["frontcourtFrame"].to_numpy(dtype=float)
+    pairs = retreat_pairs(release, shots)
+
+    rows = []
+    for i, shot_id in enumerate(shots["id"].to_numpy()):
+        row = {"match_dist": np.nan, "n_pairs_found": 0, "secs_to_frontcourt": np.nan}
+        if shot_id in by_shot.index:
+            rebound = by_shot.loc[shot_id]
+            rebound = rebound.iloc[0] if isinstance(rebound, pd.DataFrame) else rebound
+            chance = chance_row.get(rebound["nextChanceId"], np.nan)
+            if not np.isnan(chance) and not np.isnan(frontcourt[int(chance)]):
+                target = int(frontcourt[int(chance)])
+                at = at_frames(frames, np.array([target]))
+                if len(at):
+                    xy = _xy_of_players(at, pairs[i].ravel()).reshape(-1, 2, 2)
+                    dist = np.linalg.norm(xy[:, 0] - xy[:, 1], axis=-1)
+                    found = np.isfinite(dist)
+                    row["n_pairs_found"] = int(found.sum())
+                    if found.any():
+                        row["match_dist"] = float(dist[found].mean())
+                    row["secs_to_frontcourt"] = (target - float(rebound["frame"])) / FPS
+        rows.append(row)
+    return pd.DataFrame(rows)

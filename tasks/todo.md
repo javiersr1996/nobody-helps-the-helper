@@ -973,8 +973,44 @@ contribution.
   - Denominator to carry forward: 36 of 44 defensive rebounds resolve a `break_area` on
     that game; the other 8 have no cached frame for the next chance (D12). Reported, never
     dropped in silence.
-- [ ] P5.1b Construct validity for the tag index, in place of the video ground truth we
-      cannot have `[PLANNER]`
+- [x] P5.1b Construct validity for the tag index `[PLANNER]`
+
+#### P5.1b RESULT: THE GATE FAILS. The index at the release is not tagging up.
+Calibration games only, 217 usable shots (missed, rebounded by the other team, and the
+break reached a cached `frontcourtFrame`). Check B expected a NEGATIVE partial correlation
+with `match_dist`: more high side at the shot, fewer feet adrift when the break arrives.
+
+| Feature | Pooled raw | Pooled given depth | Negative in |
+|---|---|---|---|
+| `tag_index` | +0.076 | **-0.000** | 2 of 5 games |
+| `high_side_mean` | +0.175 | **+0.115** | 1 of 5 |
+| `high_side_min` | +0.043 | +0.002 | 3 of 5 |
+| `high_side_max` | +0.231 | **+0.163** | 1 of 5 |
+
+Three of the four run the WRONG WAY and the fourth is zero. Per game the sign flips freely
+(`high_side_min` runs -0.412 to +0.347). Check C is worse for the premise: between-team
+variance of `tag_index` gives permutation p = 0.337 over 2,000 shuffles, team means from
+0.576 to 0.689. **A coached system would separate teams. This does not.**
+
+**The most likely cause is a specification error in P5.1, not a dead concept.** Tagging up
+is executed DURING THE SHOT FLIGHT: the attackers run at their defenders after the ball
+leaves. Measuring at the release instant captures the offensive shape the possession
+finished in, which is the state BEFORE the tag. Two secondary suspects: the provider
+matchup has 54 to 62% frame coverage so "your man" leans on the nearest-defender fallback,
+and ACB teams may simply not tag much (Iisalo's Paris is EuroLeague).
+
+**This is the first gate this project has failed BEFORE writing a criterion and before
+touching a held-out game.** It cost one script instead of a phase. That is the process
+working, and it is worth saying so in the README.
+
+- [ ] P5.1c ONE re-specification, declared in advance as the last attempt `[PLANNER]`
+  - Does: measure the high side over the SHOT FLIGHT window instead of at the release
+    instant, and re-run P5.1b unchanged. Fixing a mis-specified instant is legitimate;
+    hunting through windows until one passes is not. **One window, chosen from the
+    mechanism (release to the rebound frame, capped), one re-run, and if check B is still
+    not negative and consistent, F5's premise is dead and the project replans again.**
+  - Denominator to carry: 217 usable shots on five games, so about 430 over ten. Thinner
+    than the 796 missed shots the tag geometry alone can be computed on.
   - Does: check the tag index means what it is claimed to mean, using behaviour rather
     than a label. A high tag index at release must show up later as the attacking team
     arriving at the defensive end sooner and already matched. If it does not, the index is
