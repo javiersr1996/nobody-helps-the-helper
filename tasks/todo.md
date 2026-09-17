@@ -224,6 +224,14 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       **Found while drawing it**: finding 2's monotone claim is pooled over the halves. See
       the qualification added above; the figure states it rather than hiding it.
 - [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**
+- [ ] **Pendiente de decidir: dos negativos medidos el 2026-09-17 que aún no están en el
+      registro de P7.3.** (a) La etiqueta de punteo del proveedor se probó como variable del
+      modelo condicional: coeficiente -0.178 y la log-verosimilitud sube de -1.8583 a -1.8571,
+      +0.001 por rebote. Puntear cuesta rebote a través de la posición, que el modelo ya ve, y
+      la variable no se gana el sitio. (b) La dirección de ayudas defensivas se exploró con
+      cuatro sondas y se cerró, todas negativas. Ambas son calibración, nada congelado, ningún
+      held-out abierto, nada commiteado fuera de esta nota. Detalle en la memoria del proyecto,
+      `ayudas-defensivas-descartada`.
 - [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
 
 Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final

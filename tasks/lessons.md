@@ -1,32 +1,31 @@
 # Lessons
 
 ## Never report a pooled number where a per-unit split is possible
-**Why:** F1's surviving criterion was a partial Spearman of 0.183 at p = 0.0005 over 676
-shots. Split by game it was five effects, and held out it was 0.013 at p = 0.37, negative
-in three. The pooling did not weaken the result, it made it.
-**How to apply:** split by the unit you generalise across (the game, never the shot) and
-print every value before quoting an average. If the per-unit values straddle the baseline,
-the pooled figure is an artefact and must be reported as one.
+**Why:** F1's surviving partial Spearman was 0.183 over 676 shots; split by game, five
+effects, and held out 0.013 at p = 0.37, negative in three. P7.3 repeated it: top-1 passed
+pooled, held in three games of five, and amounted to five rebounds of 285.
+**How to apply:** split by the unit you generalise across (the game, never the shot) and print
+every value before quoting an average. Values that straddle the baseline make the pooled
+figure an artefact, to be reported as one even when the bar says PASS.
 
-## A correlation with a variable the label derives from is a reproduction, not a validation
-**Why:** twice. The estimated velocity correlated 0.99995 with the provider's `speed`: one
-smoothed derivative computed twice. And the control field's AUC matched `closestDefDist`'s
-to four decimals against a label derived from that distance, so it recovered it.
-**How to apply:** ask what the label is built from and what would have to be true for the
-two numbers to disagree. If nothing would, it is one computation run twice.
-
-## Check a quantity can actually vary before building a criterion on it
-**Why:** three times in F1. `slope` was to be fitted over 144 cells against rank metrics,
-but `sigmoid(slope * score)` is monotone, so every value ranked identically. Voronoi at the
-shooter's own position is always 1.0. The calibration surface was flat in both radii.
-**How to apply:** ask what makes the number differ across cases. Ranks cannot see a
-monotone reparameterisation; a reference point that is the subject itself is constant.
+## Check the test can fail before you run it
+**Why, the numbers cannot disagree:** the estimated velocity correlated 0.99995 with the
+provider's `speed`, one smoothed derivative computed twice; the control field's AUC matched
+`closestDefDist`'s to four decimals against a label derived from that distance.
+**Why, the quantity cannot vary:** a monotone reparameterisation every rank saw identically, a
+Voronoi share at the subject's own position, a flat calibration surface, and on 2026-09-17,
+4.4 of 5 defenders already between their man and the rim whether or not anyone helped.
+**How to apply:** ask what would have to be true for the two numbers to disagree, and print
+every quantity's spread first. Nothing would: one computation run twice. At its ceiling: it
+cannot carry a finding.
 
 ## Set a threshold from measured evidence, then never move it
-**Why:** twice in one day. A +0.02 bar was pre-registered knowing nothing about the
-magnitude a strong baseline leaves available; a sweep cell revealed +0.0068 and it was
-amended to +0.005 hours later, which then missed by 0.0004. P1.5's 0.80 bar sat above the
-ceiling of the variable its own label derived from. Both were guesses dressed as rigour.
-**How to apply:** before writing a bar, measure the available effect size on the half of
-the split you may look at, and say so. Then it is frozen: a missed criterion is re-specified
-only by recording the rewrite (D13), never by moving the number. Older: [[lessons-archive]].
+**Why:** three times. A +0.02 bar pre-registered knowing nothing about the magnitude
+available, amended to +0.005, then missed by 0.0004. P1.5's 0.80 bar sat above the ceiling of
+the variable its own label derived from. P7.2's area condition was already failing on
+calibration, 211 against 201 printed in front of whoever wrote it, and no shot-scaled zone
+could pass it at all: area is quadratic in the radius.
+**How to apply:** measure the available effect on the half you may look at, check the bar
+against THAT number, and ask what a passing version of the hypothesis would score. A bar
+nothing could pass carries no information; retiring one for that reason is not moving it, and
+the failure stays in the record (D13). Older: [[lessons-archive]].
