@@ -967,9 +967,16 @@ contribution.
     over the first 4 s of the chance they win, plus the events' own `transition` and
     `ptsScored`), `release_frames_for`. 16 tests, sign convention and shooter exclusion
     pinned against hand-built geometry.
-  - **Free construct-validity signal on game 114086, before P5.1b even runs:** `break_area`
-    is 509.3 on chances the events label `transition` and 481.3 on the ones they do not.
-    Our field and the provider's flag agree, and neither derives from the other.
+  - Signal on game 114086: `break_area` is 509.3 on chances the events label `transition`
+    and 481.3 on the ones they do not.
+    **CORRECTION, 2026-09-17: this was overclaimed when first recorded.** It was written up
+    as agreement between "two measures that share no input". That is not established. The
+    bundle's own `KNOWN_ISSUES.md` says assists and rebounds are tracking-derived judgment
+    calls, and nothing documents how `chances.transition` is built. If that flag comes from
+    ball speed or court progression, it shares its input with a tracking-derived space
+    measure and the agreement is partly circular, which is lesson 2 committed while
+    presenting a validity check. Downgraded to a consistency observation until SkillCorner
+    says how the flag is built. It is on the list of questions for them.
   - Denominator to carry forward: 36 of 44 defensive rebounds resolve a `break_area` on
     that game; the other 8 have no cached frame for the next chance (D12). Reported, never
     dropped in silence.
