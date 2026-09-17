@@ -68,11 +68,22 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
    reason written before anything ran. Most entries do not ship this. It is 20% of the mark.
 
 ### Remaining work, in order
-- [ ] **P7.1 Test the untested.** `retreat_pairs`, `retreat_match_distance`,
-      `high_side_for_pairs`, `tag_flight_features` and `approach_angles` have ZERO tests;
-      they were written fast while exploring. `approach_angles` is now load-bearing for the
-      headline, so it is first. Current state: ruff clean, 172 tests passing without the
-      `data` marker.
+- [x] **P7.1 Test the untested.** DONE 2026-09-17. 36 tests added to
+      `tests/test_tagging.py` (35 synthetic, 1 on a calibration game) for `approach_angles`
+      (first, it carries the headline), `retreat_pairs`, `retreat_match_distance`,
+      `high_side_for_pairs` and `tag_flight_features`. Every convention is pinned against
+      hand-built geometry, and the heading is pinned to read NOTHING but position and
+      velocity: the ball, the holder and the matchup cannot enter it, which is the intent
+      ruling written as a test. Proof the tests bite: 14 deliberate mutations of the five
+      functions (sign flips, the speed floor removed, the 2 s cap dropped, pairs read by slot
+      instead of by id) were all caught. State: ruff clean, 207 tests without the `data`
+      marker, 220 with it. No held-out game is touched.
+      Noted, not fixed, for P7.3 to decide on: `retreat_pairs` documents a (4, 2) result but
+      returns one row per non-shooting attacker, so a shot whose shooter is not in `off_ids`
+      yields five pairs and no error, and unlike `tag_features` it does not check that
+      `release` and `shots` have the same length. Separately, a heading built exactly on the
+      60 deg bar lands either side of it by float dust; the band test says so rather than
+      picking a side.
 - [ ] **P7.2 The shot-scaled zone**, formalised from finding 3 rather than a constant 8 ft.
 - [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
       wins each rebound, so ten independent probabilities is the wrong structure and today's
