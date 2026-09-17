@@ -1,12 +1,12 @@
 # Lessons
 
 ## Never report a pooled number where a per-unit split is possible
-**Why:** F1's one surviving criterion was a partial Spearman of 0.183 at p = 0.0005 over
-676 shots. Split by game it was five separate effects, and on the held-out five it was
-0.013 at p = 0.37, negative in three. The pooling did not weaken the result, it made it.
-**How to apply:** split by the unit you will generalise across (the game, never the shot)
-and print every value before quoting an average. If the per-unit values straddle the
-baseline, the pooled figure is an artefact and must be reported as one.
+**Why:** F1's surviving criterion was a partial Spearman of 0.183 at p = 0.0005 over 676
+shots. Split by game it was five effects, and held out it was 0.013 at p = 0.37, negative
+in three. The pooling did not weaken the result, it made it.
+**How to apply:** split by the unit you generalise across (the game, never the shot) and
+print every value before quoting an average. If the per-unit values straddle the baseline,
+the pooled figure is an artefact and must be reported as one.
 
 ## A correlation with a variable the label derives from is a reproduction, not a validation
 **Why:** twice. The estimated velocity correlated 0.99995 with the provider's `speed`: one
@@ -23,12 +23,11 @@ the shooter's own position is 1.0 always. The calibration surface was flat in bo
 monotone reparameterisation, and a reference point that is the subject itself is constant.
 
 ## Set a threshold from measured evidence, then never move it
-**Why:** in one day, twice. A criterion 1 bar of +0.02 was pre-registered with nothing
-known about the magnitude a strong baseline leaves on the table; timing a sweep cell
-revealed +0.0068 and it had to be amended to +0.005 hours later, which held out then
-missed by 0.0004. And P1.5's 0.80 bar sat above the ceiling of the very variable its
-label derived from. Both bars were guesses dressed as rigour.
-**How to apply:** before writing any bar, measure the available effect size on the half of
-the split you are allowed to look at, and say so. After that it is frozen: a missed
-criterion is re-specified only by recording the rewrite (D13), never by moving the number
-to fit the result. Older: [[lessons-archive]].
+**Why:** twice in one day. A +0.02 bar was pre-registered knowing nothing about the
+magnitude a strong baseline leaves available; a sweep cell revealed +0.0068 and it was
+amended to +0.005 hours later, which then missed by 0.0004. P1.5's 0.80 bar sat above the
+ceiling of the variable its own label derived from. Both were guesses dressed as rigour.
+**How to apply:** before writing a bar, measure the available effect size on the half of
+the split you may look at, and say so. Then it is frozen: a missed criterion is
+re-specified only by recording the rewrite (D13), never by moving the number to fit the
+result. Older: [[lessons-archive]].
