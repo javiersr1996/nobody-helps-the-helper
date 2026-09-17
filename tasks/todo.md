@@ -1045,7 +1045,33 @@ over the bail-out reading without a test that does.
 
 **Consequence.** Whether the flight gain relates to the TRANSITION OUTCOME (`break_area`,
 `next_pts`) is a different question from check B and has not been asked. It would need its
-own pre-registration, not an extension of this one. That decision is the user's.
+own pre-registration, not an extension of this one.
+
+#### RULED OUT by SkillCorner, 2026-09-17: intent cannot come from tracking
+The user's SkillCorner contact, asked directly about the crash events, answered in
+substance: crash is not in the open bundle as a dynamic event; with tracking you can see
+the points converge, **but you cannot tell whether they converged because the player is
+crashing or because they simply drifted there**; their crash events are annotated FROM
+VIDEO, sit in an event family not yet released, and will not be released for the
+competition. Their advice was explicit: do not go down that road, because it will be asked.
+
+**This is the same finding P5.1c reached from the data, stated from inside.** The competing
+reading recorded above (tag versus bail-out, with nothing separating them) is exactly the
+ambiguity they describe. It was never an implementation defect and no better definition
+fixes it: geometry does not carry intent, and the only thing that resolves it is the video
+annotation we do not have and will not get.
+
+**Therefore, and this is a closure and not a pause:**
+- Any deliverable that CLAIMS to identify a crash, a tag or a box-out is abandoned. Not
+  re-specified, abandoned. A published tag index would invite one question the project
+  cannot answer, from a jury, in public.
+- `tag_features`, `tag_flight_features` and the construct-validity run STAY IN THE REPO as
+  the record of a negative result. They are not deleted and they are not shipped as a
+  metric.
+- What survives is the half that never claimed intent: `break_area` measures the space the
+  breaking team owns, which is observable, and the control field behind it passed P1.8's
+  criterion 2 out of sample. Positions at the shot are observable too. **Observable shape
+  in, observable space out, and no sentence in between about what anybody meant to do.**
   - Does: check the tag index means what it is claimed to mean, using behaviour rather
     than a label. A high tag index at release must show up later as the attacking team
     arriving at the defensive end sooner and already matched. If it does not, the index is
