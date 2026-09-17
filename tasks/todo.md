@@ -874,6 +874,92 @@ zero rather than a reversal.
 **D13: work STOPS to replan.** The evidence is in `reports/validation_forward.csv` and
 `reports/validation_forward_criteria.csv`.
 
+### F5. Tagging up and the defensive transition trade-off (replan of 2026-09-17)
+**Decided by the user on 2026-09-17 after P1.8.** The control field stops being the
+deliverable and becomes the INSTRUMENT. P1.8's criterion 2 is what licenses that: held
+out, `area_valuable` alone separates a shot in the next 3 s at AUC 0.62 to 0.65 in all
+five games. It measures something real; it just does not beat a spacing baseline at
+predicting shots. So it is pointed at a question where nothing else can be pointed.
+
+**The question.** Tagging up (run at your own defender at the moment of the shot, take the
+high side, then retreat already matched) claims to let a team attack the offensive glass
+WITHOUT paying for it in transition defense. Coaches are unanimous about it and nobody has
+measured it. Does the claim hold on ACB tracking?
+
+**Why this question and not another.** SkillCorner published a crash-rate case study with
+the UF Sports Analytics Lab in August 2026 on exactly this kind of data, and wrote that
+crossing it with defensive transition would be the interesting next step. They did not do
+it. That is the provider's own declared gap, four months before the deadline. Attribution
+note for the README: tagging up is generally credited to Tuomas Iisalo, who is a diffuser;
+The Athletic traces it to Aaron Fearne and Paul Henare in New Zealand, with Mike Brown
+bringing it into the NBA in 2021. Single-source, and it will be cited as such.
+
+Also worth stating up front: the declared PRIMARY goal of tagging up is stopping the
+opponent's break, with offensive rebounding as the secondary benefit. Measuring it by
+offensive rebounds alone would be measuring the thing it is not for.
+
+#### Measured feasibility, before any design (never estimated)
+| Quantity | Measured | Note |
+|---|---|---|
+| Missed shots with a cached release frame | **796** | the unit for the tag geometry |
+| Defensive rebounds | **528** | all 528 carry a `nextChanceId` |
+| ... whose next chance is `transition` | **205** | 38.8% |
+| Offensive rebounds | 240 | the thin side; not the primary unit |
+| Rebounds resolving `shotId` into `shots` | 713 of 768 | |
+| Defensive rebounds per game | 44 to 63 | no game is an outlier |
+| Next-chance duration after a defensive rebound | median 10.7 s (q10 4.5, q90 20.0) | |
+
+**Lesson 3 check, done before writing a single criterion.** The tag index varies: over the
+796 missed shots it takes 0.00 (5), 0.25 (96), 0.50 (286), 0.75 (299), 1.00 (110), mean
+0.630, sd 0.224. Its continuous form (mean signed high-side distance) runs -12.23 to
++22.04 ft, mean +2.97, sd 3.36. Per game the mean sits between 0.610 and 0.664.
+
+#### Definitions
+- **Tag index**, at the release frame of a missed shot: the share of the four non-shooting
+  attackers who sit on the HIGH SIDE of their matched defender, that is, whose projection
+  onto the unit vector from that defender toward the basket they must now defend is
+  positive. `matchup_with_fallback` supplies the assignment. The continuous form is the
+  mean signed distance in feet and is the primary, because the four-step index throws
+  away magnitude.
+- **Transition cost**, over the opponent's chance that follows the defensive rebound:
+  points scored, and the retreating team's `area_valuable` over the first 4 s, which is
+  this project's control field pointed at the defending team instead of the attacking one.
+- **Crash benefit**: offensive rebound won on that shot.
+
+#### The guard this design exists around
+"High side" correlates mechanically with standing deeper, and standing deeper means fewer
+offensive rebounds. The probe already shows it: offensive rebound rate falls from 0.333 at
+tag index 0.25 to 0.255 at 1.00. **So every criterion is graded against a baseline that
+ALREADY contains each attacker's distance to the offensive rim and to their own rim.** If
+the tag index only adds "how far back they were standing", it must fail, and the run that
+shows that is the deliverable. This is P1.8's criterion 3 applied to a new trap.
+
+The outcome is not circular in the sense of lesson 1: the tag geometry is at the shooting
+team's release, the outcome is what the OTHER team does seconds later. The two can
+disagree, and the whole point is to find out when.
+
+#### Tasks
+- [ ] P5.1 Build the tag features and the transition outcome `[sonnet]`
+  - `tagging.py`: `tag_features` (index, continuous high-side, plus the depth controls),
+    `transition_outcome` (next chance, its points, its `transition` flag, retreat
+    `area_valuable` over the first 4 s). Tests for both, including the degenerate cases.
+- [ ] P5.2 Measure the available magnitudes on the CALIBRATION games only `[PLANNER]`
+  - Does: report what effect size is actually on the table, per fold, before any bar is
+    written. **This task exists because of this session's mistake:** on 2026-09-17 a
+    criterion 1 bar of +0.02 was pre-registered with no evidence about the magnitude a
+    strong baseline leaves available, and had to be amended the same day at +0.005, which
+    it then missed by 0.0004. A bar chosen blind is not rigour, it is a coin toss with a
+    credibility cost. No held-out game is read here.
+- [ ] P5.3 Pre-register the bars with the user and COMMIT them `[PLANNER]`
+  - D13 and D11 as always: written, committed, then never touched again.
+- [ ] P5.4 Grade on the five held-out games, report every fold `[PLANNER]`
+
+#### Status of the phases this replaces
+F2 (expected points controlled) and F3 (the possession as a time series) are **DROPPED**,
+not paused. They were designed around the control field being the deliverable, and it is
+not. `epc_share` and the control field survive inside F5 as instruments. F4
+(communication) and V (verification) stand, with their content repointed at F5.
+
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 

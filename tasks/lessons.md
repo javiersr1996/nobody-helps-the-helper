@@ -22,9 +22,13 @@ the shooter's own position is 1.0 always. The calibration surface was flat in bo
 **How to apply:** ask what makes the number differ across cases. Ranks cannot see a
 monotone reparameterisation, and a reference point that is the subject itself is constant.
 
-## When a criterion is missed, check what it measured before lowering or failing it
-**Why:** P0.3 asked for 99% of shots within 0.5 ft and got 96.6%, mixing which rotation is
-correct with how precise the tracking is. P1.5 asked a space model to beat `closestDefDist`
-at recovering a distance-derived label, above that variable's own 0.775 ceiling.
-**How to apply:** re-specify to the quantity it meant and record the rewrite. Never rewrite
-a pre-registered criterion (D13): report the miss and replan. Older: [[lessons-archive]].
+## Set a threshold from measured evidence, then never move it
+**Why:** in one day, twice. A criterion 1 bar of +0.02 was pre-registered with nothing
+known about the magnitude a strong baseline leaves on the table; timing a sweep cell
+revealed +0.0068 and it had to be amended to +0.005 hours later, which held out then
+missed by 0.0004. And P1.5's 0.80 bar sat above the ceiling of the very variable its
+label derived from. Both bars were guesses dressed as rigour.
+**How to apply:** before writing any bar, measure the available effect size on the half of
+the split you are allowed to look at, and say so. After that it is frozen: a missed
+criterion is re-specified only by recording the rewrite (D13), never by moving the number
+to fit the result. Older: [[lessons-archive]].

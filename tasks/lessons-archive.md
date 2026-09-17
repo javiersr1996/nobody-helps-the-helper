@@ -11,3 +11,10 @@ fixture had two columns because it shared the code's wrong assumption, so it tes
 bug slips through, fix the fixture too and prove the test fails against the old code.
 **Status:** internalised. P1.5 applied it unprompted, rebuilding the `_shot_row` fixture
 around the real `location` field rather than a convenient stand-in.
+
+## When a criterion is missed, check what it measured before lowering or failing it
+**Why:** P0.3 asked for 99% of shots within 0.5 ft and got 96.6%, mixing which rotation is
+correct with how precise the tracking is. P1.5 asked a space model to beat `closestDefDist`
+at recovering a distance-derived label, above that variable's own 0.775 ceiling.
+**How to apply:** re-specify to the quantity it meant and record the rewrite.
+(Archived 2026-09-17, folded into the threshold lesson in lessons.md.)
