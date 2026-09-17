@@ -29,6 +29,7 @@ from scbasket.forward import (
     frontcourt_mask,
     game_inputs,
     logo_scores,
+    nearest_cell,
 )
 from scbasket.frames import GameFrames, get_or_build, subsample
 from scbasket.io import Dataset
@@ -302,3 +303,15 @@ def test_game_inputs_builds_the_same_rows_for_every_piece():
     assert len(item["baseline"]) == n == len(item["label"]) == len(item["label_open"])
     assert item["n_backcourt_dropped"] == item["n_sampled"] - n
     assert item["label_open"].sum() < item["label"].sum()
+
+
+def test_nearest_cell_agrees_with_the_brute_force_argmin_it_replaced():
+    """Including points off the half court, which clamp to the edge cell in both versions."""
+    rng = np.random.default_rng(0)
+    points = np.column_stack([rng.uniform(-60, 20, 2000), rng.uniform(-35, 35, 2000)])
+    for cell_ft in (1.0, 2.0, 3.0):
+        grid = make_grid(cell_ft)
+        brute = np.linalg.norm(
+            points[:, None, :] - grid.centers[None, :, :], axis=-1
+        ).argmin(axis=1)
+        assert (nearest_cell(grid, points) == brute).all(), f"cell_ft={cell_ft}"
