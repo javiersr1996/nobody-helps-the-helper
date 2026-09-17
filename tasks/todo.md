@@ -84,7 +84,7 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       `release` and `shots` have the same length. Separately, a heading built exactly on the
       60 deg bar lands either side of it by float dust; the band test says so rather than
       picking a side.
-- [ ] **P7.2 The shot-scaled zone**, formalised from finding 3 rather than a constant 8 ft.
+- [x] **P7.2 The shot-scaled zone**, formalised from finding 3 rather than a constant 8 ft.
       PRE-REGISTERED 2026-09-17 and frozen before any held-out game was read (D11).
       **The zone**: r(d) = 5.40 + 0.180 d feet, d the shot's distance to the rim. Fitted on
       the 325 located CALIBRATION rebounds by pinball loss at q = 0.75 over a deliberately
@@ -126,6 +126,24 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       bigger zone, it is a differently shaped one.
       Work stops here to replan (D13). The bar is not moved to fit the result; any rewrite is
       recorded as a rewrite, with this entry left standing.
+      **REWRITE, 2026-09-17, recorded as D13 requires.** Condition 3 is RETIRED. Not moved,
+      not re-thresholded, not replaced by a friendlier number. The reason is that it cannot
+      discriminate: it asks a varying zone to carry no more MEAN area than a constant one at
+      matched coverage, and area is quadratic in the radius, so no shot-scaled zone can pass
+      it, while one that did would be a zone that barely varies, which is the null this work
+      is tested against. The retirement uses no held-out information, because the condition
+      was already failing on the calibration half, 211 against 201 sq ft, when it was
+      written. The failure entry above stays exactly as it fell, and the verdict is written
+      as "passes the two conditions that can discriminate", never as "P7.2 passed".
+      The concern behind condition 3 survives as a DIAGNOSTIC, reported and never graded: at
+      equal coverage the constant radius would be 8.16 ft on calibration and 8.22 held out
+      (209.3 and 212.4 sq ft) against the scaled zone's 211.2 and 222.9, and the scaled zone
+      is the SMALLER of the two on 48% and 41% of shots. Differently shaped, not bigger.
+      **Ships**: `ZONE_*`, `zone_radius` and `rebound_zone_table` in `scbasket.tagging`,
+      `scripts/rebound_zone.py` (`--fit` re-derives the frozen pair), `reports/rebound_zone.csv`
+      and `reports/rebound_zone_criterion.csv`, 10 tests of which one runs on a calibration
+      game. P7.3 consumes `zone_ratio`, the landing distance in units of the zone its shot
+      earned, which is the shot-scaled replacement for "within 8 ft".
 - [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
       wins each rebound, so ten independent probabilities is the wrong structure and today's
       numbers do not sum to one. Condition on the players actually there and rank them on

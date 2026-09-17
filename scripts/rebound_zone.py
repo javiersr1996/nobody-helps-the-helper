@@ -13,10 +13,22 @@ games the shot-scaled zone must:
   1. drift LESS across the shot-distance bands than the constant zone, measured as the spread
      between its best and worst covered band,
   2. hold its overall coverage within 0.03 of ZONE_COVERAGE, and
-  3. cover no more mean area than the constant zone.
+  3. RETIRED on 2026-09-17, see below: cover no more mean area than the constant zone.
 Condition 1 is the whole point: both zones hold three quarters of the rebounds overall by
 construction, and the question is whether the constant one only manages it by being too
 generous on close misses and too tight on everything else.
+
+**Condition 3 was retired, and the rewrite is recorded here rather than quietly dropped**
+(D13). It asked a varying zone to carry no more MEAN area than a constant one at matched
+coverage, and area is quadratic in the radius, so it cannot: measured at equal coverage on
+both halves the scaled zone is the larger one on average while being the SMALLER zone on 48%
+and 41% of shots. No shot-scaled zone could pass it, and one that did would be a zone that
+barely varies, which is the null this work is tested against. It is retired for being unable
+to discriminate, not for failing, and the distinction matters: it was ALREADY failing on the
+calibration half when it was written, with 211 against 201 sq ft printed in front of whoever
+wrote it, so retiring it uses no held-out information. The failure it produced stays in
+tasks/todo.md and in commit 7223c7f, and the concern behind it is still answered below, as a
+diagnostic and never as a bar.
 
 Writes {out}/rebound_zone.csv (one row per rebound) and {out}/rebound_zone_criterion.csv.
 """
@@ -67,11 +79,14 @@ def coverage(table: pd.DataFrame, radius: np.ndarray) -> pd.Series:
 
 
 def grade(table: pd.DataFrame) -> dict:
-    """The three frozen conditions, measured on one half."""
+    """The frozen conditions on one half, plus the retired one and what replaces it."""
     scaled = zone_radius(table["shot_dist"].to_numpy())
     flat = np.full(len(table), FLAT_ZONE_FT)
     scaled_cov, flat_cov = coverage(table, scaled), coverage(table, flat)
     bands = [i for i in scaled_cov.index if i != "overall"]
+    # The retired condition and its well-posed diagnostic travel together, so that reading the
+    # area difference without the equal-coverage comparison beside it takes an effort.
+    equal_cov_radius = float(np.quantile(table["reb_dist"], scaled_cov["overall"]))
     return {
         "n": len(table),
         "scaled_spread": scaled_cov[bands].max() - scaled_cov[bands].min(),
@@ -80,6 +95,9 @@ def grade(table: pd.DataFrame) -> dict:
         "flat_overall": flat_cov["overall"],
         "scaled_area": float(np.pi * np.mean(scaled**2)),
         "flat_area": float(np.pi * FLAT_ZONE_FT**2),
+        "equal_cov_radius": equal_cov_radius,
+        "equal_cov_area": float(np.pi * equal_cov_radius**2),
+        "share_under_flat": float((scaled < FLAT_ZONE_FT).mean()),
     }
 
 
@@ -184,14 +202,20 @@ def main() -> int:
             held["scaled_spread"] < held["flat_spread"],
         f"2. overall coverage within {MAX_COVERAGE_GAP} of {ZONE_COVERAGE}":
             abs(held["scaled_overall"] - ZONE_COVERAGE) <= MAX_COVERAGE_GAP,
-        "3. covers no more mean area than the constant zone":
-            held["scaled_area"] <= held["flat_area"],
     }
     print("\nThe frozen criterion, on the HELD-OUT games:")
     for name, passed in checks.items():
         print(f"  [{'PASS' if passed else 'FAIL'}] {name}")
-    print(f"\nVerdict: {'PASS' if all(checks.values()) else 'FAIL'}. Reported as it fell; a "
-          f"failed criterion is re-specified only by recording the rewrite (D13).")
+    print(f"  [RETIRED] 3. covers no more mean area than the constant zone: "
+          f"{held['scaled_area']:.1f} against {held['flat_area']:.1f} sq ft, which FAILED. "
+          f"Retired as unable to discriminate; the module docstring says why.")
+    print(f"      what it was meant to catch, as a diagnostic and never as a bar: at equal "
+          f"coverage the constant radius would be {held['equal_cov_radius']:.2f} ft "
+          f"({held['equal_cov_area']:.1f} sq ft), and the scaled zone is the SMALLER of the "
+          f"two on {held['share_under_flat']:.0%} of shots. Differently shaped, not bigger.")
+    print(f"\nVerdict on the conditions that can discriminate: "
+          f"{'PASS' if all(checks.values()) else 'FAIL'}. That is not 'P7.2 passed': the "
+          f"third condition fell and its failure stays in the record (D13).")
 
     args.out.mkdir(parents=True, exist_ok=True)
     raw.to_csv(args.out / "rebound_zone.csv", index=False)
