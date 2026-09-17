@@ -107,6 +107,25 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       with a location, 325 with their shot's location too, median 4.81 ft, Spearman +0.336,
       which is the recorded figure exactly. The 84 unusable rebounds keep their rows as
       unknown instead of being counted as landing outside the zone.
+      **RESULT, 2026-09-17.** The criterion was applied once, after the freeze (commit
+      1e670ea), on 288 usable held-out rebounds. (1) PASS: coverage spread 0.039 scaled
+      against 0.168 constant, a wider margin than calibration showed. (2) PASS: overall
+      coverage 0.760, gap 0.010. (3) **FAIL**: mean area 222.9 sq ft against the constant
+      zone's 201.1. Findings 1 and 3 replicate: median 4.93 ft held out against 4.81
+      calibration, Spearman +0.367 against +0.336, both the recorded figures.
+      **Verdict FAIL, and the fault is in the bar, not in the data.** Condition 3 was already
+      failing on the calibration half when it was written: the probe that produced the effect
+      size printed 211 against 201, and the bar was written anyway. That is lesson 4's
+      failure again, this time with the number in plain sight. It is also close to
+      unsatisfiable in principle, because area is quadratic in the radius: a zone that varies
+      but holds the same coverage carries a larger MEAN area than the constant one even when
+      it is the smaller zone for most shots. Post-hoc diagnostic, recorded and NOT used to
+      re-grade: at equal coverage the constant radius would be 8.16 ft on calibration and
+      8.22 held out (areas 209.3 and 212.4) against the scaled zone's 211.2 and 222.9, and
+      the scaled radius is under 8 ft on 48% and 41% of shots. So it is not a uniformly
+      bigger zone, it is a differently shaped one.
+      Work stops here to replan (D13). The bar is not moved to fit the result; any rewrite is
+      recorded as a rewrite, with this entry left standing.
 - [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
       wins each rebound, so ten independent probabilities is the wrong structure and today's
       numbers do not sum to one. Condition on the players actually there and rank them on
