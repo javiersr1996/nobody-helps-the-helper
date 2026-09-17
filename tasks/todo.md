@@ -938,8 +938,36 @@ The outcome is not circular in the sense of lesson 1: the tag geometry is at the
 team's release, the outcome is what the OTHER team does seconds later. The two can
 disagree, and the whole point is to find out when.
 
+#### What the open data does NOT carry (confirmed with SkillCorner, 2026-09-17)
+A SkillCorner contact told the user directly: **the crash rebounding data is not open.**
+Verified against the bundle: none of the 20 event families labels a crash, a box-out or a
+retreat. The August 2026 UF case study used a layer we do not have, which is why it could
+report 97% agreement with video for its crash detector.
+
+What IS open, and measured here, is everything F5 actually needs:
+- `rebounds` is complete, not a sample: 768 events against 853 missed shots (90%; the rest
+  are out of bounds, fouled or end of period), 76.8 per game, which is a normal full game.
+  It carries `rebounderId`, `defensive`, `frame`, `shotId`, `location` and `nextChanceId`.
+- Tracking at 25 fps with `matchups`, which is what the tag geometry is computed from.
+- `chances.transition` and `ptsScored`, which is what the outcome is measured on.
+
+**The consequence, stated plainly and it belongs in the README.** There is no provider
+ground truth for "was this a tag", so F5 can never claim a validated tag DETECTOR the way
+the UF study could. F5 measures a geometric quantity and tests what it relates to. It does
+not claim to read intent. P5.1b exists because of this.
+
+This also cuts the other way: the gap cannot be closed by anyone who merely downloads the
+open data, because the geometry has to be derived from tracking. That derivation is the
+contribution.
+
 #### Tasks
 - [ ] P5.1 Build the tag features and the transition outcome `[sonnet]`
+- [ ] P5.1b Construct validity for the tag index, in place of the video ground truth we
+      cannot have `[PLANNER]`
+  - Does: check the tag index means what it is claimed to mean, using behaviour rather
+    than a label. A high tag index at release must show up later as the attacking team
+    arriving at the defensive end sooner and already matched. If it does not, the index is
+    measuring something else and F5 stops before its criteria are even written.
   - `tagging.py`: `tag_features` (index, continuous high-side, plus the depth controls),
     `transition_outcome` (next chance, its points, its `transition` flag, retreat
     `area_valuable` over the first 4 s). Tests for both, including the degenerate cases.
