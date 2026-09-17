@@ -1173,9 +1173,21 @@ rest, by distance band, calibration then held out: 0-4 ft **+0.172 / +0.322**, 4
 is future information and would be circular, so only a prediction from the shot counts.
 - Long shots give long rebounds, and it replicates: Spearman +0.336 / +0.367, median radius
   3.4 ft for shots inside 8 ft rising to 6.5 ft on threes.
-- **Goldsberry's weak-side law does NOT hold here.** Share landing opposite to the shooter's
-  side: 0.434 / 0.489 overall, and for shots inside 16 ft only 0.302 / 0.351, which is a
-  STRONG-side bias. A negative result against published NBA work, worth reporting as one.
+- **Side bias: we EXTEND Goldsberry, we do not contradict him.** Source checked at the
+  primary (Kirk Goldsberry, Grantland, 14 Oct 2014, ~95,000 rebounds, NBA 2013-14, SportVU).
+  He claims 56% weak side on missed CORNER THREES, calls that "a slim majority" himself, and
+  already reports that long rebounds (20% of all) invert to a strong-side bias. Ours, share
+  landing opposite the shooter's side: threes 0.494 / **0.568**, which reproduces his 56%
+  out of sample; 16-23 ft 0.475 / 0.477, neutral; **shots inside 16 ft 0.302 / 0.351, a
+  pronounced STRONG-side bias.** The new part is the short-shot category, which is not the
+  one he attributes the inversion to (he attributes it to long rebounds off violent rim
+  collisions). Replicates in both halves.
+  **This entry corrected on 2026-09-17**, having first been written up as "the weak-side law
+  does not hold here", which the primary source does not support. It came from the research
+  report and reached the plan unverified. RULE, second time this happened today: nothing
+  from that report enters the README without the primary source being read. Still unchecked
+  and flagged: Maheswaran et al. SSAC 2012, Nylon Calculus 2020, and the Fearne/Henare
+  attribution for tagging up (single journalistic source, and now out of scope anyway).
 - **But the spot itself is not predictable.** sd of the landing radius is 4.88 ft overall and
   4.68 ft within shot-distance quartiles: conditioning buys 4%.
 
