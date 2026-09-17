@@ -1,4 +1,125 @@
-# Analytics Cup 2.0: shot-value-weighted space control (scbasket)
+# Analytics Cup 2.0: nobody reads the bounce (scbasket)
+
+## DEFINITIVE PLAN, set 2026-09-17. Read this section first.
+Everything below this section is the RECORD: the earlier plan, four premises that failed,
+and the measurements that killed them. None of it is deleted, because the record is part of
+the deliverable. But the plan is here.
+
+### The project
+**Title: "Nobody reads the bounce"**, subtitle *the eight feet where the rebound is decided,
+on SkillCorner's open ACB tracking*.
+
+**Thesis, one line: the rebound is not read, it is occupied.** The two halves hold each
+other up:
+- **The ball is barely legible.** Knowing where the shot came from cuts the uncertainty on
+  where the ball will land by 4%. The angle it comes down at, measured here for the first
+  time from broadcast tracking, adds 2.5% more.
+- **So the only thing a player controls is their own heading, inside a small zone.** Within
+  4 ft of the rim, coming in rimward multiplies the chance of winning the board by 3.5 on
+  the calibration games and by 5.6 on the held-out ones. Past 12 ft it is worth nothing.
+
+If the bounce were legible, rebounding would be a reading contest. It is not, so it is an
+occupation contest. That is falsifiable and it replicates on five games never touched.
+
+### What is established (every figure below is measured in this repo)
+Split throughout: CALIBRATION (114243, 114234, 114169, 114099, 114086) and HELD OUT
+(178442, 179612, 184439, 188630, 191313), reported apart, never pooled.
+
+**1. The zone is real and small.** 662 located rebounds: median 4.9 ft from the rim, 58.5%
+inside 6 ft, 72.8% inside 8 ft, 92.3% inside 15 ft. Offensive rebounds land slightly closer
+(43.8% inside 4 ft against 37.0%).
+
+**2. The heading decides inside it and nothing outside it.** Lift of a rimward heading
+(under 60 deg) over the rest, calibration then held out: 0-4 ft **+0.172 / +0.322**, 4-8 ft
++0.145 / +0.053, 8-12 ft +0.042 / -0.008, 12-16 ft +0.026 / +0.020, 16-22 ft +0.007 /
++0.031, 22+ ft +0.007 / -0.003. Within a FIXED 0-8 ft band, P(win) by angle band runs
+0.251, 0.213, 0.136, 0.071, 0.056: monotone, 4.5x, so it is not proximity relabelled.
+
+**3. The zone scales with the shot.** Median rebound radius 3.4 ft for shots inside 8 ft
+rising to 6.5 ft on threes; Spearman(shot distance, rebound distance) +0.336 / +0.367.
+
+**4. Side bias: we reproduce Goldsberry, then extend him.** Primary source read: Kirk
+Goldsberry, Grantland, 14 Oct 2014, about 95,000 rebounds, NBA 2013-14, SportVU. He reports
+56% weak side on missed CORNER THREES, calls that a slim majority himself, and already notes
+long rebounds invert. Ours, share landing opposite the shooter's side: threes 0.494 /
+**0.568** (his 56%, reproduced out of sample), 16-23 ft 0.475 / 0.477, and **inside 16 ft
+0.302 / 0.351, a pronounced STRONG-side bias**. The short-shot category is the new part.
+
+**5. The ball does not help further.** Descent angle recovered on 407 clean approaches
+(median 34.9 deg, q10 16.6, q90 52.6, apex 14.8 ft), nearly independent of shot distance
+(-0.062 / -0.050), so it is genuinely new information. It still fails to predict the landing
+radius: +0.018 on calibration against +0.190 held out, the halves disagreeing, which is the
+F1 failure mode. sd of the landing radius 4.97 to 4.76 (shot distance) to 4.64 (plus
+descent).
+
+**6. The control field survives as an instrument, not as the deliverable.** P1.8 criterion 2
+held out of sample: `area_valuable` alone separates "a shot follows within 3 s" at AUC
+0.6205 to 0.6547 in all five held-out games.
+
+### What ships
+1. **The derived layer, open source.** Rebound approach kinematics from tracking: heading,
+   speed, distance, the shot-scaled zone, and the ball's descent angle. The open bundle does
+   not carry it and SkillCorner confirmed their video-annotated crash events are not coming
+   for the competition. Published as a **DEFINITION, never a detector**: it measures
+   vectors, not intentions. This framing is non-negotiable, see the ruling below.
+2. **The finding**, with its two replicated negatives.
+3. **The record of what failed.** Four premises down in one day, three stopped BEFORE any
+   held-out game was read; thresholds frozen with commit hashes; one bar amended with the
+   reason written before anything ran. Most entries do not ship this. It is 20% of the mark.
+
+### Remaining work, in order
+- [ ] **P7.1 Test the untested.** `retreat_pairs`, `retreat_match_distance`,
+      `high_side_for_pairs`, `tag_flight_features` and `approach_angles` have ZERO tests;
+      they were written fast while exploring. `approach_angles` is now load-bearing for the
+      headline, so it is first. Current state: ruff clean, 172 tests passing without the
+      `data` marker.
+- [ ] **P7.2 The shot-scaled zone**, formalised from finding 3 rather than a constant 8 ft.
+- [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
+      wins each rebound, so ten independent probabilities is the wrong structure and today's
+      numbers do not sum to one. Condition on the players actually there and rank them on
+      heading, distance and speed inside the zone. This is what "who is best positioned"
+      means and it is what a SkillCorner contact pointed at.
+- [ ] **P7.4 The figure.** P(win) by heading and distance, both halves drawn on top of each
+      other, because the replication IS the argument. At most 2 figures are allowed.
+- [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**
+- [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
+
+Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final
+17 Feb 2027 in Paris.
+
+### Rules that carry into every session
+- **D11**: parameters and thresholds are frozen and COMMITTED before any held-out game is
+  read. **D13**: a pre-registered threshold that fails is reported as it fell and work stops
+  to replan; it is never moved to fit a result.
+- **Intent is not claimable from tracking.** SkillCorner's own position, given directly:
+  tracking shows the points converging but not whether they converged from crashing or from
+  drifting. No deliverable says a player crashed, tagged or boxed out. This closed the whole
+  tagging direction and it does not reopen.
+- **Nothing from the research report reaches the README until its primary source has been
+  read.** It leaked twice on 2026-09-17: the Goldsberry claim was written up backwards, and
+  a `break_area` agreement was called independent when the inputs were never checked. Still
+  unverified: Maheswaran et al. SSAC 2012, Nylon Calculus 2020, the Fearne and Henare
+  attribution for tagging up (out of scope now anyway).
+- `tasks/lessons.md` holds the four lessons, each bought with a failure. Read them first.
+
+### Superseded, kept below as the record
+F1 (control field validated at release), F1b (the forward label), F2 (expected points
+controlled), F3 (the possession as a time series), F5 (tagging up). The code for all of them
+stays in the repo; `tag_features` and `tag_flight_features` ship as neither metric nor
+deliverable.
+
+### Where the evidence lives
+`reports/angle_players.csv`, `angle_rebounds.csv`, `angle_tradeoff.csv`,
+`validation_forward.csv`, `validation_forward_criteria.csv`, `construct_validity.csv`,
+`control_params_forward.json`, `validation_release.csv`, `pilot_pick_signatures.csv`.
+Scripts: `angle_tradeoff.py`, `construct_validity.py`, `validate_forward.py`,
+`calibrate_forward.py`. Modules: `tagging.py`, `forward.py`, `control.py`, `value.py`,
+`frames.py`, `court.py`, `epc.py`, `validation.py`, `quality.py`, `io.py`.
+
+---
+
+## THE RECORD BELOW THIS LINE (earlier plan, superseded 2026-09-17)
+
 
 ## Decision
 Extend `scbasket` with its analytical side: a SPACE CONTROL model WEIGHTED BY SHOT
