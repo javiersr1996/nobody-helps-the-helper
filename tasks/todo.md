@@ -144,7 +144,7 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       and `reports/rebound_zone_criterion.csv`, 10 tests of which one runs on a calibration
       game. P7.3 consumes `zone_ratio`, the landing distance in units of the zone its shot
       earned, which is the shot-scaled replacement for "within 8 ft".
-- [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
+- [x] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
       wins each rebound, so ten independent probabilities is the wrong structure and today's
       numbers do not sum to one. Condition on the players actually there and rank them on
       heading, distance and speed inside the zone. This is what "who is best positioned"
@@ -176,6 +176,26 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       per rebound. The shot-scaled version is frozen because it is the object P7.2 argues for,
       not because it earned the place here, and both are carried so the difference stays
       visible.
+      **RESULT, 2026-09-17.** The criterion was applied once, after the freeze (commit
+      194f5c6), on 285 graded held-out rebounds of 359 (46 with no cached frame at the lead,
+      28 attributed to nobody, again zero lost to a winner outside the ten).
+      (1) PASS: log probability per rebound -1.8287 against the distance-only model's -1.9119,
+      a gain of +0.083. (2) PASS: top-1 0.2632 against the nearest-to-the-rim rule's 0.2456.
+      **Then lesson 1 splits the two apart, and they do not survive equally.** Per held-out
+      game, condition 1 holds in FIVE of five: +0.168, +0.119, +0.027, +0.027, +0.074. The
+      log-probability gain is a replicated effect. Condition 2 holds in THREE of five, losing
+      184439 (0.258 against 0.323) and 188630 (0.250 against 0.269); pooled it is 75 correct
+      against 70 out of 285, a difference of five rebounds. It passed as written because the
+      bar was written pooled, and the pass stands in the record as it fell, but by lesson 1
+      the top-1 margin is reported as a POOLED ARTEFACT and not as a result. The claim rests
+      on condition 1. The script prints the per-game split every run so the qualification
+      cannot be lost.
+      Margins also shrink out of sample, which is worth stating plainly: the gain over
+      distance is +0.121 on calibration against +0.083 held out, and top-1 0.306 against
+      0.263. The model ranks the true winner in its top three on 197 of 285 held-out rebounds.
+      **Ships**: `scbasket/conditional.py`, `scripts/rebound_contest.py`,
+      `reports/rebound_contest.csv`, `reports/rebound_contest_criterion.csv`, 17 tests of
+      which one runs on the calibration games. P7.4 draws from `rebound_contest.csv`.
 - [ ] **P7.4 The figure.** P(win) by heading and distance, both halves drawn on top of each
       other, because the replication IS the argument. At most 2 figures are allowed.
 - [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**

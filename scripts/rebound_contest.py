@@ -97,6 +97,28 @@ def score(X: np.ndarray, y: np.ndarray) -> pd.Series:
     })
 
 
+def by_game(X: np.ndarray, y: np.ndarray, graded: pd.DataFrame) -> pd.DataFrame:
+    """The same numbers split by game, which is the unit the claim generalises across.
+
+    Lesson 1, bought in F1: a pooled figure whose per-game values straddle the baseline is an
+    artefact of pooling and has to be reported as one. A criterion can pass pooled and still
+    fail this, and when it does, this table is the honest version of the result.
+    """
+    full = choice_probabilities(X, FROZEN_BETA)
+    distance = choice_probabilities(X, FROZEN_BETA_DISTANCE_ONLY)
+    gain = np.log(full[np.arange(len(y)), y]) - np.log(distance[np.arange(len(y)), y])
+    out = {}
+    for game in graded["game"].unique():
+        where = (graded["game"] == game).to_numpy()
+        out[game] = pd.Series({
+            "n": int(where.sum()),
+            "ll_gain_over_distance": gain[where].mean(),
+            "top1_full": (full[where].argmax(axis=1) == y[where]).mean(),
+            "top1_nearest_rim": nearest_rim_top1(X[where], y[where]),
+        })
+    return pd.DataFrame(out).T
+
+
 def per_rebound(X: np.ndarray, y: np.ndarray, rows: pd.DataFrame) -> pd.DataFrame:
     """One row per graded rebound: what the frozen model said about the player who won."""
     kept = rows[rows["drop_reason"].isna()].reset_index(drop=True)
@@ -178,6 +200,19 @@ def main() -> int:
     for name, passed in checks.items():
         print(f"  [{'PASS' if passed else 'FAIL'}] {name}")
     print(f"\nVerdict: {'PASS' if all(checks.values()) else 'FAIL'}. Reported as it fell (D13).")
+
+    held_mask = (graded["half"] == "held out").to_numpy()
+    split = by_game(X[held_mask], y[held_mask], graded[held_mask].reset_index(drop=True))
+    print("\nThe same held-out result split by game, because a pooled number that its own")
+    print("units contradict is an artefact and not a result (lesson 1):")
+    print(split.round(4).to_string())
+    beats_distance = int((split["ll_gain_over_distance"] > 0).sum())
+    beats_rule = int((split["top1_full"] > split["top1_nearest_rim"]).sum())
+    print(f"  condition 1 holds in {beats_distance} of {len(split)} games individually")
+    print(f"  condition 2 holds in {beats_rule} of {len(split)} games individually")
+    if beats_rule <= len(split) - 2:
+        print("  So condition 2 passed POOLED and does not replicate per game. By lesson 1 it "
+              "is reported as a pooled artefact, not as a result. Condition 1 is the finding.")
 
     print("\nWhere the model puts the winner, held out (rank among the ten):")
     held_rows = graded[graded["half"] == "held out"]
