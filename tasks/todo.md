@@ -961,7 +961,18 @@ open data, because the geometry has to be derived from tracking. That derivation
 contribution.
 
 #### Tasks
-- [ ] P5.1 Build the tag features and the transition outcome `[sonnet]`
+- [x] P5.1 Build the tag features and the transition outcome `[sonnet]`
+  - `tagging.py`: `high_side_distance`, `tag_features` (the geometry block plus the depth
+    controls), `transition_outcome` (`break_area`, the rebounding team's `area_valuable`
+    over the first 4 s of the chance they win, plus the events' own `transition` and
+    `ptsScored`), `release_frames_for`. 16 tests, sign convention and shooter exclusion
+    pinned against hand-built geometry.
+  - **Free construct-validity signal on game 114086, before P5.1b even runs:** `break_area`
+    is 509.3 on chances the events label `transition` and 481.3 on the ones they do not.
+    Our field and the provider's flag agree, and neither derives from the other.
+  - Denominator to carry forward: 36 of 44 defensive rebounds resolve a `break_area` on
+    that game; the other 8 have no cached frame for the next chance (D12). Reported, never
+    dropped in silence.
 - [ ] P5.1b Construct validity for the tag index, in place of the video ground truth we
       cannot have `[PLANNER]`
   - Does: check the tag index means what it is claimed to mean, using behaviour rather
