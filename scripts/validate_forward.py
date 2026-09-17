@@ -153,7 +153,7 @@ def main() -> int:
 
     criteria = pd.DataFrame([
         _criterion("1. mean delta AUC", f"positive in {positive}/5 folds", mean_delta,
-                   f">= {MEAN_DELTA_BAR:+.2f} and >= {MIN_POSITIVE_FOLDS}/5 folds", passed_1),
+                   f">= {MEAN_DELTA_BAR:+.3f} and >= {MIN_POSITIVE_FOLDS}/5 folds", passed_1),
         _criterion("2. field alone", f"worst fold of {SOLO_FEATURE}", worst,
                    f">= {SOLO_AUC_BAR:.2f} in every fold", passed_2),
         _criterion("3. not the clock", f"mean delta without the clock {mean_no_clock:+.4f}",

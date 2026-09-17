@@ -1,0 +1,4 @@
+criterion,detail,value,bar,verdict
+1. mean delta AUC,positive in 4/5 folds,0.00460667578360161,>= +0.01 and >= 5/5 folds,FAIL
+2. field alone,worst fold of area_valuable,0.6205096797684229,>= 0.60 in every fold,PASS
+3. not the clock,mean delta without the clock +0.0048,0.00460667578360161,the delta must not appear only once the clock is removed,PASS

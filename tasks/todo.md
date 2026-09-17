@@ -833,9 +833,46 @@ Measured, not estimated: `control_field` on a 1 ft grid (2,254 cells) runs at 1.
 frame, so all 10 games at 0.2 s take **2.2 minutes**. A 36-cell calibration sweep on the
 five calibration games is about 40 minutes and runs in the background.
 
-- [ ] P1.6 Build the forward label and the baseline block `[sonnet]`
-- [ ] P1.7 Re-calibrate on the calibration games, freeze, commit `[PLANNER]`
-- [ ] P1.8 Grade on the five held-out games, report every fold `[PLANNER]`
+- [x] P1.6 Build the forward label and the baseline block `[sonnet]`
+- [x] P1.7 Re-calibrate on the calibration games, freeze, commit `[PLANNER]`
+- [x] P1.8 Grade on the five held-out games, report every fold `[PLANNER]`
+
+#### P1.8 RESULT: 2 of 3 criteria pass, and the headline one FAILS
+Frozen cell `r_near=2.0, r_far=10.0, t_h=0.3`, calibration objective +0.0117 on 5/5 folds.
+Held-out rows: 7,562 to 8,245 per game, base rate 0.215 to 0.246. Nothing was adjusted.
+
+| Criterion | Held out | Bar | Verdict |
+|---|---|---|---|
+| 1. mean delta AUC | **+0.0046**, positive in **4/5** | >= +0.005 and 5/5 | **FAIL** |
+| 2. `area_valuable` alone, worst fold | **0.6205** (range 0.6205 to 0.6547) | >= 0.60 in every fold | PASS |
+| 3. not the clock | +0.0046 with the clock, +0.0048 without | delta must not need the clock removed | PASS |
+
+Per-fold delta: +0.0081, +0.0095, +0.0016, **-0.0002**, +0.0040. It misses both legs of
+criterion 1 narrowly: 0.0004 short on the mean, and game 188630 sits at -0.0002, which is
+zero rather than a reversal.
+
+- **Criterion 2 is the real finding and it is clean.** `area_valuable` ALONE separates
+  "a shot follows within 3 s" at AUC 0.62 to 0.65, in all five held-out games, with no
+  baseline underneath it. The field carries genuine forward information. That is the first
+  external result in this project that neither reproduces its own label nor changes sign
+  between games.
+- **Criterion 3 matters more than it looks.** The delta is +0.0046 with the clock in the
+  baseline and +0.0048 without it: identical. The field's contribution is orthogonal to
+  the shot clock, which is the trap this criterion existed to catch. It did not fire.
+- **Why criterion 1 still fails: the baseline already knows it.** Spacing, matchup
+  distances and ball-to-hoop reach AUC 0.77 to 0.81 alone. The field knows something real
+  (criterion 2) but almost nothing the baseline does not already know.
+- **Shrinkage from calibration to held out is 60%** (+0.0117 to +0.0046). The top five
+  sweep cells were within 0.0004 of each other, so taking the argmax over 36 cells on five
+  folds fitted the calibration noise. Flagged before the run, confirmed after it.
+- Secondary `open_shot_next_3s`: mean **-0.0040**, positive in 2/5. Negative, as the
+  disclosed circularity predicted. It is reported and must never be sold as support.
+- Cosmetic defect found in the output, disclosed: the criteria table printed the bar as
+  "+0.01" because of a `.2f` format on 0.005. The comparison used 0.005 and no verdict
+  changes; the format is now `.3f`.
+
+**D13: work STOPS to replan.** The evidence is in `reports/validation_forward.csv` and
+`reports/validation_forward_criteria.csv`.
 
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
