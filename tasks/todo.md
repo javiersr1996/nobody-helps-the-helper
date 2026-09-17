@@ -1103,6 +1103,53 @@ not paused. They were designed around the control field being the deliverable, a
 not. `epc_share` and the control field survive inside F5 as instruments. F4
 (communication) and V (verification) stand, with their content repointed at F5.
 
+### F6. The approach angle (opened 2026-09-17, on the user's call)
+An approach angle is the direction of a velocity vector, so it asserts nothing about what a
+player meant to do. That is the whole point: SkillCorner's objection is that tracking cannot
+separate a deliberate crash from a drift, and a heading never has to. It is a measurement,
+like `closestDefDist`.
+
+Measured `APPROACH_LEAD_FRAMES` = 12 (about 0.5 s) before the ball is won, so the outcome is
+not already encoded. 678 of 768 rebounds have that frame cached; 6,780 player rows, of which
+5,638 (83.2%) clear `MIN_APPROACH_SPEED` = 2 ft/s and have a usable heading.
+
+Nothing here is fitted, so opening the held-out games costs nothing D11 protects, and both
+halves are reported apart throughout.
+
+#### The buy: it REPLICATES, and it is the first thing in this project that does
+P(an offensive player wins the rebound), by approach angle to the rim:
+
+| Angle | Calibration | Held out |
+|---|---|---|
+| 0-30 deg | 0.1090 | 0.1157 |
+| 30-60 | 0.1101 | 0.0979 |
+| 60-90 | 0.0466 | 0.0478 |
+| 90-120 | 0.0267 | 0.0357 |
+| 120-180 | 0.0310 | 0.0233 |
+
+Five bands, two halves, same shape and the same magnitudes. A 3.5x drop from rimward to
+across. Defenders show the same shape from a higher base (0.199 to 0.037) and also replicate.
+
+**And it is not proximity wearing a new name.** Within the SAME distance band, 0 to 8 ft of
+the rim, P(win) runs 0.251, 0.213, 0.136, 0.071, 0.056 across the five angle bands: monotone,
+4.5x, at a fixed distance. The depth confound that swallowed P5.1b and P5.1c does not
+swallow this.
+
+#### The cost: NOT established, and it must be said so
+Bucketing by how many offensive players head within 60 deg of the rim, the offensive rebound
+rate rises as expected (0.16, 0.20, 0.35, 0.22, 0.60 on calibration) but the break side does
+not carry:
+- `break_area` moves 515.6 to 524.0 to 525.3 across n_committed 0 to 3, about 2%, and the
+  two halves disagree at n_committed = 0 (515.6 against 490.6).
+- `next_pts` moves the OTHER way, 0.919 down to 0.562, contradicting `break_area`.
+- n_committed 4 and 5 have 2 to 4 rebounds with a defined `break_area`. Unusable.
+
+**So F6 has a strong, replicated buy side and no established cost side.** The trade-off
+figure cannot be drawn honestly yet. Either the cost needs a better measure than a 4 s space
+average, or 10 games cannot resolve it and the paper reports the buy plus a null cost.
+
+Evidence: `reports/angle_players.csv`, `angle_rebounds.csv`, `angle_tradeoff.csv`.
+
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 

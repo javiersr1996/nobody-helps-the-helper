@@ -358,3 +358,39 @@ def tag_flight_features(
 FLIGHT_FEATURES = (
     "high_side_gain_mean", "high_side_gain_min", "tag_index_end", "high_side_end_mean",
 )
+
+
+# ------------------------------------------------------------------ approach kinematics (F6)
+
+APPROACH_LEAD_FRAMES = 12   # about 0.5 s before the rebound
+MIN_APPROACH_SPEED = 2.0    # ft/s; below this a heading is noise, not an approach
+COMMITTED_ANGLE_DEG = 60.0
+
+
+def approach_angles(frames: GameFrames) -> dict[str, np.ndarray]:
+    """(N, 10) approach kinematics toward the attacked rim: angle, speed and distance.
+
+    `angle` is the degrees between a player's velocity and the direction from that player
+    to the rim: 0 means driving straight at it, 90 means moving across, 180 means running
+    away. It is a property of a velocity vector and therefore claims nothing about intent,
+    which is the whole reason F6 is built on it. SkillCorner's own position is that tracking
+    cannot tell a deliberate crash from a drift; a heading does not have to.
+
+    `angle` is NaN where the player is slower than `MIN_APPROACH_SPEED`, because the
+    direction of a near-stationary player is numerically meaningless. The caller reports how
+    many rows that removes rather than treating them as zero.
+    """
+    xy = frames.xy.astype(np.float64)
+    v = frames.v.astype(np.float64)
+    speed = np.linalg.norm(v, axis=-1)
+
+    to_rim = ATTACKED_HOOP[None, None, :] - xy
+    rim_dist = np.linalg.norm(to_rim, axis=-1)
+    to_rim_u = np.divide(to_rim, rim_dist[..., None], out=np.zeros_like(to_rim),
+                         where=rim_dist[..., None] > 0)
+    v_u = np.divide(v, speed[..., None], out=np.zeros_like(v), where=speed[..., None] > 0)
+    cos = np.clip((v_u * to_rim_u).sum(axis=-1), -1.0, 1.0)
+
+    angle = np.degrees(np.arccos(cos))
+    angle[speed < MIN_APPROACH_SPEED] = np.nan
+    return {"angle": angle, "speed": speed, "rim_dist": rim_dist}
