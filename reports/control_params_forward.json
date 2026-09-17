@@ -1,0 +1,95 @@
+{
+  "params": {
+    "r_near": 2.0,
+    "r_far": 10.0,
+    "d_far": 30.0,
+    "v_max": 25.0,
+    "t_h": 0.3,
+    "slope": 1.0
+  },
+  "objective": "mean leave-one-game-out delta AUC (baseline + field vs baseline)",
+  "objective_value": 0.011709858437823507,
+  "positive_folds": 5,
+  "scope": "calibration games only; P1.8 decides on the five held-out games",
+  "label": {
+    "name": "shot_next_3s",
+    "horizon_s": 3.0,
+    "horizon_frames": 75,
+    "base_rate": 0.24328876451077944,
+    "n_rows": 38592
+  },
+  "sample": {
+    "every": 5,
+    "cell_ft": 1.0,
+    "seed": 0,
+    "per_game": {
+      "114243": {
+        "n_sampled": 10405,
+        "n_backcourt_dropped": 2482,
+        "n_kept": 7923,
+        "base_rate": 0.24599267954057807,
+        "base_rate_open": 0.04934999368925912
+      },
+      "114234": {
+        "n_sampled": 10028,
+        "n_backcourt_dropped": 2892,
+        "n_kept": 7136,
+        "base_rate": 0.24565582959641255,
+        "base_rate_open": 0.05787556053811659
+      },
+      "114169": {
+        "n_sampled": 10897,
+        "n_backcourt_dropped": 2938,
+        "n_kept": 7959,
+        "base_rate": 0.24500565397663024,
+        "base_rate_open": 0.05452946350043975
+      },
+      "114099": {
+        "n_sampled": 10627,
+        "n_backcourt_dropped": 2736,
+        "n_kept": 7891,
+        "base_rate": 0.25053858826511216,
+        "base_rate_open": 0.052591560005069066
+      },
+      "114086": {
+        "n_sampled": 10305,
+        "n_backcourt_dropped": 2622,
+        "n_kept": 7683,
+        "base_rate": 0.2290771833919042,
+        "base_rate_open": 0.044644019263308604
+      }
+    }
+  },
+  "grid": {
+    "r_near": [
+      2.0,
+      3.0,
+      4.0
+    ],
+    "r_far": [
+      8.0,
+      10.0,
+      12.0
+    ],
+    "t_h": [
+      0.0,
+      0.3,
+      0.6,
+      1.0
+    ]
+  },
+  "on_grid_edge": [
+    "r_near"
+  ],
+  "calibration_games": [
+    114243,
+    114234,
+    114169,
+    114099,
+    114086
+  ],
+  "previous_params_note": "P1.4's control_params.json froze t_h = 0.0 against a static contest AUC, so velocity did not enter the model. This cell is chosen against the forward label.",
+  "sweep_seconds": 2635.2,
+  "code_commit": "b80d66f05de5d895fc3b53aa0ed761e9dcee3461",
+  "working_tree_dirty": true
+}

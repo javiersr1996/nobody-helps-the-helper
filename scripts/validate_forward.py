@@ -11,8 +11,9 @@ writes them, and each is reported pass or fail. A failed criterion is a FINDING,
 error, so the exit code is 0 either way. The script refuses to run (exit 1) only when the
 parameters are not actually frozen.
 
-The three criteria (F1b, D13, the bar chosen by the user on 2026-09-17):
-  1. Mean leave-one-game-out delta AUC >= +0.02 AND delta > 0 in at least 4 of 5 folds.
+The three criteria (F1b, D13, amended by the user on 2026-09-17 BEFORE any held-out
+game was read; tasks/todo.md carries the full record of why):
+  1. Mean leave-one-game-out delta AUC >= +0.005 AND delta > 0 in 5 of 5 folds.
   2. AUC of `area_valuable` ALONE >= 0.60 in every one of the 5 folds.
   3. The delta is not the clock: FAIL if dropping `shot_clock` and `secs_into_chance`
      from the baseline is what makes the delta reach the bar.
@@ -49,8 +50,8 @@ from scbasket.io import Dataset
 from scbasket.validation import VALIDATION_GAMES
 from scbasket.value import league_zone_values, surface_from_zones
 
-MEAN_DELTA_BAR = 0.02
-MIN_POSITIVE_FOLDS = 4
+MEAN_DELTA_BAR = 0.005
+MIN_POSITIVE_FOLDS = 5
 SOLO_AUC_BAR = 0.60
 SOLO_FEATURE = "area_valuable"
 
