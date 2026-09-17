@@ -732,6 +732,97 @@ decision is the user's and is pending. `scripts/pilot_pick_signatures.py` and
 `reports/pilot_pick_signatures.csv` hold the evidence; nothing was added to the package,
 deliberately, so no design is committed to before the direction is settled.
 
+### F1b. Re-validation against a forward-looking label (replan of 2026-09-17)
+**Decided by the user on 2026-09-17: change the LABEL, not the model.** The trigger is
+Luke Blomm's public thread of 2026-09-15 (x.com/LukeBlomm/status/2099753077096284611),
+which builds the same object (P(offense arrives first) x open-shot value, summed over
+cells worth >= half a point, every 0.2 s) and validates it differently: leave-one-game-out,
+**+0.04 AUC over a spacing and defender-distance baseline, predicting a shot or an open
+shot in the next 3 s**. He also states the negative result plainly: it does not predict
+points on the possession, and nothing does from one frame.
+
+Why this is a replan and not a threshold rewrite (D13 holds): P1.5 and P3.4 both asked the
+field to recover a label DERIVED from the variable it was competing against
+(`contestLevel` from `closestDefDist`; coverage type from inter-player distances). Lesson
+2 in `tasks/lessons.md` names that failure mode. A future event is not derived from the
+present field, so the two CAN disagree: an offense can own valuable space and not shoot.
+That is the whole point of the change.
+
+**Everything below is PRE-REGISTERED and must be committed before the script first runs
+on the held-out games (D11).**
+
+#### Unit and filter
+One row per sampled live frame: every 5th cached frame (0.2 s at 25 fps), D12 filter
+already applied by the cache, plus the offense in the frontcourt (at or after the chance's
+`frontcourtFrame`). Measured yield at 0.2 s without the frontcourt filter: 10,305 rows on
+game 114086 and 12,011 on 178442, so about 105k rows over the 10 games. The frontcourt
+filter's cost is reported, not assumed.
+
+#### Labels
+- **Primary, `shot_next_3s`**: 1 if a `shots` event with the same `chance_idx` has its
+  `startFrame` in (t, t + 75 frames]. Measured base rate 0.176 (114086) and 0.173
+  (178442), and identical at 1 s sampling, so it does not depend on the sampling grid.
+- **Secondary, `open_shot_next_3s`**: the same with `contestLevel == "open"`. Base rate
+  0.036 and 0.030. **Declared secondary and disclosed as partially circular**: `open`
+  derives from `closestDefDist`, which sits in the baseline. It is reported because it is
+  Luke's headline, never as the project's own evidence.
+
+#### Model features (the field)
+- `A_t`: area in ft^2 of grid cells with `P_off(c) * V(c) >= 0.5` points. Luke's headline
+  quantity, recomputed here on our own frozen field and our own value surface.
+- `epc_share`: already implemented and tested (`epc.py`).
+- `p_off_ball`: P_off at the ball holder's position.
+
+#### Baseline (what must be beaten), field-free
+Spacing and distances only, plus the two clock variables. The clock is NOT optional:
+`A_t` grows as an offense sets up and shots come late, so without it the criterion would
+reward the field for proxying the clock.
+- convex hull area of the five offensive players
+- mean and minimum offense-defense pairwise distance
+- distance from the ball to the attacked hoop
+- distance from the ball holder to their nearest defender
+- `shot_clock` and seconds elapsed inside the chance
+
+#### Estimator and protocol
+`HistGradientBoostingClassifier` (scikit-learn, added as an OPTIONAL extra, never a
+package dependency: the core stays numpy and pandas). Chosen to match Luke's gradient
+boosting so the comparison is like for like, and because a linear model would flatter
+whichever block of features happens to be more linear.
+
+Split, preserving D11: control parameters are re-calibrated against the NEW label on the
+five CALIBRATION games only and re-frozen in `reports/control_params_forward.json` with a
+commit hash, then graded by **leave-one-game-out across the five HELD-OUT games**. The
+re-calibration is necessary and is disclosed: the frozen cell has `t_h = 0.0`, so velocity
+does not enter the model at all, because P1.4's objective was a static contest AUC. A
+forward-looking label is exactly where a projection horizon should matter, and `t_h` sat
+on the grid edge. Full 10-game leave-one-game-out is reported as a supplementary row.
+
+**Per-fold values are printed for every criterion. No pooled figure is quoted anywhere
+(lesson 1).**
+
+#### Accepts (pre-registered thresholds, D13)
+1. **Delta AUC.** AUC(baseline + field) - AUC(baseline) on `shot_next_3s`, leave-one-game-out
+   on the five held-out games: mean delta **>= +0.02** AND positive in **at least 4 of the
+   5 folds**. The bar is ours, not Luke's: +0.04 is his number on his implementation and
+   is quoted as external context only.
+2. **The field carries signal alone.** AUC of `A_t` by itself on `shot_next_3s` **>= 0.60
+   in every one of the 5 folds**.
+3. **It is not the clock.** Criterion 1 is graded against a baseline that ALREADY contains
+   `shot_clock` and seconds-into-chance. If dropping the two clock features from the
+   baseline is what makes the delta appear, the criterion is failed and reported as such.
+
+If a threshold fails: it is written as is and work STOPS to replan, exactly as in P1.5.
+Two failed external validations are already on the record; a third is reported, not hidden.
+
+#### Cost
+Measured, not estimated: `control_field` on a 1 ft grid (2,254 cells) runs at 1.3 ms per
+frame, so all 10 games at 0.2 s take **2.2 minutes**. A 36-cell calibration sweep on the
+five calibration games is about 40 minutes and runs in the background.
+
+- [ ] P1.6 Build the forward label and the baseline block `[sonnet]`
+- [ ] P1.7 Re-calibrate on the calibration games, freeze, commit `[PLANNER]`
+- [ ] P1.8 Grade on the five held-out games, report every fold `[PLANNER]`
+
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 

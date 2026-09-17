@@ -1,0 +1,206 @@
+"""Forward-looking event label and its field-free baseline (F1b).
+
+P1.5 and P3.4 both graded the control field against a label DERIVED from the variable
+the field was competing against, and both failed the same way. This module builds the
+replacement asked for in F1b: a label that is a FUTURE EVENT, so the field and the label
+can disagree, and the field-free baseline the field has to beat.
+
+``forward_label`` marks a sampled frame 1 when a shot of the SAME chance follows within
+the horizon. ``baseline_features`` is spacing, matchup distances and the two clock
+variables, computed without ever touching the control field. ``field_features`` is the
+model's side: ``area_valuable`` (Luke Blomm's A_t, the ft^2 of court the offense both
+reaches first and would score from), ``epc_share`` and P_off at the ball.
+
+Everything is vectorized over the (N, 10, 2) arrays and returns one row per frame of the
+GameFrames handed in, in that order, so the three pieces concatenate positionally.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from scbasket.control import ControlParams, control_field
+from scbasket.court import HOOP_X, Grid
+from scbasket.epc import epc_share
+from scbasket.frames import N_SIDE, GameFrames, matchup_with_fallback
+from scbasket.value import ValueSurface
+
+FPS = 25
+HORIZON_S = 3.0
+HORIZON_FRAMES = int(HORIZON_S * FPS)
+MIN_POINTS = 0.5
+OPEN_LEVEL = "open"
+
+
+def frontcourt_mask(frames: GameFrames, chances: pd.DataFrame) -> np.ndarray:
+    """(N,) True where the frame is at or after its chance's ``frontcourtFrame``.
+
+    The control field is built over the offensive half only, so a frame with the ball
+    still in the backcourt reads a field nobody is playing on yet. Chances whose
+    ``frontcourtFrame`` is null are KEPT (True): the frame cannot be shown to be in the
+    backcourt, and silently dropping them would bias the denominator. Callers report how
+    many rows each of the two reasons accounts for.
+    """
+    frontcourt = chances["frontcourtFrame"].to_numpy(dtype=float)[frames.chance_idx]
+    return np.isnan(frontcourt) | (frames.frame_idx >= frontcourt)
+
+
+def forward_label(
+    frames: GameFrames,
+    shots: pd.DataFrame,
+    chances: pd.DataFrame,
+    *,
+    horizon_frames: int = HORIZON_FRAMES,
+    level: str | None = None,
+) -> np.ndarray:
+    """(N,) bool: does a shot of this frame's own chance follow within the horizon?
+
+    A shot counts for frame t when its ``startFrame`` falls in (t, t + horizon_frames]
+    AND it belongs to the same chance, so a shot taken by the other team after a turnover
+    never labels the frames before it. Shots with a null ``startFrame`` or a null
+    ``chanceId`` are ignored.
+
+    ``level`` restricts to one ``contestLevel`` (``OPEN_LEVEL`` for the secondary label).
+    That variant is partially circular by construction, because ``contestLevel`` derives
+    from ``closestDefDist`` and the baseline carries matchup distances; F1b declares it
+    secondary and reports it as context, never as the project's own evidence.
+
+    The shot's chance is resolved through ``chances`` (``shots.chanceId`` -> the positional
+    row that ``frames.chance_idx`` stores), NEVER by looking the shot's own frame up in
+    ``frames``: the caller hands in a 0.2 s subsample, so four shots in five do not land on
+    a sampled frame and a frame lookup silently drops them. Measured when that bug was
+    live: base rate 0.076 instead of 0.176 on game 114086.
+    """
+    if horizon_frames < 1:
+        raise ValueError("horizon_frames must be >= 1")
+
+    keep = shots["startFrame"].notna() & shots["chanceId"].notna()
+    if level is not None:
+        keep &= shots["contestLevel"] == level
+    shots = shots[keep]
+    if shots.empty:
+        return np.zeros(len(frames), dtype=bool)
+
+    row_of_chance = pd.Series(np.arange(len(chances)), index=chances["id"])
+    shot_chance = shots["chanceId"].map(row_of_chance).to_numpy(dtype=float)
+    shot_frame = shots["startFrame"].to_numpy(dtype=np.int64)
+    known = ~np.isnan(shot_chance)
+    shot_chance, shot_frame = shot_chance[known].astype(np.int64), shot_frame[known]
+
+    same = frames.chance_idx[:, None] == shot_chance[None, :]
+    frame_idx = frames.frame_idx[:, None]
+    within = (frame_idx > shot_frame[None, :] - horizon_frames) & (frame_idx <= shot_frame[None, :])
+    return (same & within).any(axis=1)
+
+
+def _pairwise_offense(xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Mean and minimum pairwise distance among the five attackers, per frame."""
+    diff = xy[:, :N_SIDE, None, :] - xy[:, None, :N_SIDE, :]
+    dist = np.linalg.norm(diff, axis=-1)
+    iu = np.triu_indices(N_SIDE, k=1)
+    pairs = dist[:, iu[0], iu[1]]
+    return pairs.mean(axis=1), pairs.min(axis=1)
+
+
+def _ball_features(frames: GameFrames) -> tuple[np.ndarray, np.ndarray]:
+    """Distance from the ball to the hoop, and from the ball holder to their nearest defender.
+
+    The holder distance is NaN on frames with no resolved holder (``ball_holder < 0``,
+    about 12-15% of frames per the cache summary): the estimator handles NaN natively and
+    imputing a distance there would invent a defender.
+    """
+    ball_xy = frames.ball[:, :2].astype(np.float64)
+    hoop = np.array([HOOP_X, 0.0])
+    ball_hoop = np.linalg.norm(ball_xy - hoop, axis=1)
+
+    holder = frames.ball_holder.astype(np.int64)
+    has = holder >= 0
+    slot = np.clip(holder, 0, N_SIDE - 1)[:, None, None]
+    holder_xy = np.take_along_axis(frames.xy[:, :N_SIDE].astype(np.float64), slot, axis=1)[:, 0]
+    to_def = np.linalg.norm(
+        holder_xy[:, None, :] - frames.xy[:, N_SIDE:].astype(np.float64), axis=-1
+    ).min(axis=1)
+    return ball_hoop, np.where(has, to_def, np.nan)
+
+
+def _secs_into_chance(frames: GameFrames) -> np.ndarray:
+    """Seconds elapsed since the first CACHED frame of each chance.
+
+    Measured against the cache, not against the chance's true start, because a chance
+    whose opening frames were dropped by D12 has no usable origin here. Stated plainly
+    rather than silently: this is a lower bound on the real elapsed time.
+    """
+    frame_idx = frames.frame_idx.astype(np.int64)
+    _, inverse = np.unique(frames.chance_idx, return_inverse=True)
+    first = np.full(inverse.max(initial=-1) + 1, np.iinfo(np.int64).max, dtype=np.int64)
+    np.minimum.at(first, inverse, frame_idx)
+    return (frame_idx - first[inverse]) / FPS
+
+
+def baseline_features(frames: GameFrames) -> pd.DataFrame:
+    """The field-free baseline the control field has to beat (F1b).
+
+    Spacing, matchup distances and the two clock variables. The clock is NOT optional:
+    ``area_valuable`` grows while an offense sets up and shots come late, so a baseline
+    without it would let the field win by proxying the shot clock. F1b's third criterion
+    grades exactly that.
+    """
+    xy = frames.xy.astype(np.float64)
+    off_mean, off_min = _pairwise_offense(xy)
+
+    matchup = matchup_with_fallback(frames).astype(np.int64)
+    defender_xy = np.take_along_axis(
+        xy[:, N_SIDE:], matchup[:, :, None].repeat(2, axis=2), axis=1
+    )
+    matchup_dist = np.linalg.norm(xy[:, :N_SIDE] - defender_xy, axis=-1)
+
+    ball_hoop, ball_def = _ball_features(frames)
+    return pd.DataFrame(
+        {
+            "off_pairwise_mean": off_mean,
+            "off_pairwise_min": off_min,
+            "matchup_dist_mean": matchup_dist.mean(axis=1),
+            "matchup_dist_min": matchup_dist.min(axis=1),
+            "ball_hoop_dist": ball_hoop,
+            "ball_def_dist": ball_def,
+            "shot_clock": frames.shot_clock.astype(np.float64),
+            "secs_into_chance": _secs_into_chance(frames),
+        }
+    )
+
+
+CLOCK_FEATURES = ("shot_clock", "secs_into_chance")
+
+
+def field_features(
+    frames: GameFrames,
+    grid: Grid,
+    params: ControlParams,
+    surface: ValueSurface,
+    *,
+    min_points: float = MIN_POINTS,
+    batch: int = 64,
+) -> pd.DataFrame:
+    """The model's side: area_valuable (A_t), epc_share and P_off at the ball.
+
+    ``area_valuable`` is the ft^2 of court whose expected points under offensive control
+    reach ``min_points``: cells with ``P_off(c) * V(c) >= min_points``, times the grid's
+    cell area. It is the quantity Luke Blomm's thread sums, recomputed on this project's
+    own field and its own league value surface.
+    """
+    p_off = control_field(frames, grid, params, batch=batch)
+    weighted = p_off * np.asarray(surface.values, dtype=np.float64)[None, :]
+    cell_area = grid.cell_ft**2
+
+    ball_xy = frames.ball[:, :2].astype(np.float64)
+    cell_of_ball = np.linalg.norm(
+        ball_xy[:, None, :] - grid.centers[None, :, :], axis=-1
+    ).argmin(axis=1)
+    return pd.DataFrame(
+        {
+            "area_valuable": (weighted >= min_points).sum(axis=1) * cell_area,
+            "epc_share": epc_share(p_off, surface),
+            "p_off_ball": p_off[np.arange(len(frames)), cell_of_ball],
+        }
+    )
