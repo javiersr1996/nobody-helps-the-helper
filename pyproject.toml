@@ -15,6 +15,9 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 # F1b only: the gradient boosting that grades the forward label. Never a core dependency;
 # scbasket itself stays numpy and pandas, so the package still installs and runs without it.
 forward = ["scikit-learn>=1.4"]
+# P7.4 only: the two figures. Same rule as above, the package draws nothing by itself
+# and every number behind a figure is in a reports/*.csv that needs no plotting library.
+figures = ["matplotlib>=3.8"]
 
 [build-system]
 requires = ["hatchling"]

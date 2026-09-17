@@ -34,6 +34,12 @@ inside 6 ft, 72.8% inside 8 ft, 92.3% inside 15 ft. Offensive rebounds land slig
 +0.145 / +0.053, 8-12 ft +0.042 / -0.008, 12-16 ft +0.026 / +0.020, 16-22 ft +0.007 /
 +0.031, 22+ ft +0.007 / -0.003. Within a FIXED 0-8 ft band, P(win) by angle band runs
 0.251, 0.213, 0.136, 0.071, 0.056: monotone, 4.5x, so it is not proximity relabelled.
+**Qualified 2026-09-17 while drawing P7.4**: that five-number curve is POOLED over both
+halves, which this plan otherwise never does. Split, the held-out half is monotone (0.270,
+0.207, 0.140, 0.115, 0.048) and the calibration half ticks UP in the last band (0.237,
+0.217, 0.133, 0.051, 0.062), on 59 and 113 players. The 4.5x fall and the direction hold in
+both halves; strict monotonicity is a property of the pooled curve only, and the figure says
+so on its face.
 
 **3. The zone scales with the shot.** Median rebound radius 3.4 ft for shots inside 8 ft
 rising to 6.5 ft on threes; Spearman(shot distance, rebound distance) +0.336 / +0.367.
@@ -196,8 +202,27 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       **Ships**: `scbasket/conditional.py`, `scripts/rebound_contest.py`,
       `reports/rebound_contest.csv`, `reports/rebound_contest_criterion.csv`, 17 tests of
       which one runs on the calibration games. P7.4 draws from `rebound_contest.csv`.
-- [ ] **P7.4 The figure.** P(win) by heading and distance, both halves drawn on top of each
-      other, because the replication IS the argument. At most 2 figures are allowed.
+- [x] **P7.4 The figure.** DONE 2026-09-17, `scripts/figures.py`, two figures, which is the
+      maximum allowed. Both draw the halves ON TOP of each other rather than side by side,
+      because the replication is the argument.
+      1. `figure_1_lift_by_distance.png`: the lift of a rimward heading by distance to the
+         rim. It reproduces finding 2 to the digit (0.172/0.322, 0.145/0.053, 0.042/-0.008,
+         0.026/0.020, 0.007/0.031, 0.007/-0.003), which is also an independent check on it:
+         the record's numbers came out of `angle_tradeoff.py` and these out of a second
+         implementation reading the same rows.
+      2. `figure_2_pwin_by_angle.png`: P(win) by angle inside a FIXED 0-8 ft band, the
+         control that stops the heading from being proximity relabelled.
+      Intervals are a CLUSTER bootstrap over the five games of each half, not over rebounds,
+      because rebounds inside a game are not independent (lesson 1). Five clusters is few and
+      the bands are correspondingly wide; they are there so a band of 26 players cannot look
+      as solid as one of 608, and every point carries its count on the figure itself.
+      matplotlib is declared as the OPTIONAL `figures` extra, the same rule scikit-learn
+      lives under: the package still installs and runs on numpy and pandas alone, and every
+      number behind both figures is in a `reports/*.csv` that needs no plotting library.
+      The PNGs are regenerable output and `reports/figures/` is gitignored, so the script is
+      what ships, not the images.
+      **Found while drawing it**: finding 2's monotone claim is pooled over the halves. See
+      the qualification added above; the figure states it rather than hiding it.
 - [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**
 - [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
 
