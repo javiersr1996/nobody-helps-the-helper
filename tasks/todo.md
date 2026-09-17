@@ -149,6 +149,33 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       numbers do not sum to one. Condition on the players actually there and rank them on
       heading, distance and speed inside the zone. This is what "who is best positioned"
       means and it is what a SkillCorner contact pointed at.
+      PRE-REGISTERED 2026-09-17, frozen before any held-out game was read (D11).
+      **The model**: a conditional logit over the ten on court, scored `APPROACH_LEAD_FRAMES`
+      before the ball is won. P(player i wins) is their score's share of the ten exponentiated
+      scores, so the ten probabilities sum to one by construction rather than by correction.
+      Features, in frozen order: `zone_ratio` (distance to the rim in units of P7.2's
+      shot-scaled zone), `rimward` (cosine of the approach angle), `speed`, `no_heading` (the
+      player is under the 2 ft/s floor, kept in the choice set with `rimward` zeroed because
+      removing a player would break the one guarantee the structure gives), `offense`.
+      Fitted by Newton on the concave likelihood, numpy only, no new dependency. Lives in
+      `scbasket/conditional.py`; `scripts/rebound_contest.py --fit` re-derives the frozen
+      coefficients. Frozen beta: -0.871, +0.739, +0.124, +0.317, -0.456.
+      **Sample**: 409 calibration rebounds, 324 graded. 44 have no cached frame at the lead
+      and 41 are attributed to nobody by the provider; both keep their row with the reason.
+      Zero rebounds are lost to a winner who is not among the ten, so the choice set closes.
+      **Effect available on calibration, measured BEFORE the bar was written** (lesson 4):
+      log probability per rebound -2.303 knowing nothing, -1.979 for distance and side alone,
+      -1.858 for the full model. Top-1 0.100, 0.228, and 0.306, with the plain rule "whoever
+      is nearest the rim wins" at 0.235.
+      **CRITERION**, relative so there is no number to move (D13). Coefficients frozen from
+      calibration and NOT refitted, on the held-out games the full model must (1) put more log
+      probability on the player who actually won than the distance-only model does, and (2)
+      rank the actual winner first more often than the nearest-to-the-rim rule.
+      **Recorded now, not after the fact**: the shot-scaled `zone_ratio` and the raw distance
+      in feet are indistinguishable inside this model on calibration, -1.8583 against -1.8607
+      per rebound. The shot-scaled version is frozen because it is the object P7.2 argues for,
+      not because it earned the place here, and both are carried so the difference stays
+      visible.
 - [ ] **P7.4 The figure.** P(win) by heading and distance, both halves drawn on top of each
       other, because the replication IS the argument. At most 2 figures are allowed.
 - [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**
