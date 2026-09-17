@@ -34,13 +34,16 @@ from scbasket.tagging import (
     approach_angles,
     high_side_distance,
     high_side_for_pairs,
+    rebound_zone_table,
     release_frames_for,
     retreat_match_distance,
     retreat_pairs,
     tag_features,
     tag_flight_features,
     transition_outcome,
+    zone_radius,
 )
+from scbasket.validation import CALIBRATION_GAMES, spearman
 from scbasket.value import surface_from_zones
 
 CACHE_DIR = REAL_DATASET_ROOT.parents[1] / "interim"
@@ -680,6 +683,115 @@ def test_a_player_standing_on_the_rim_stays_finite_and_is_marked_by_their_distan
     assert np.isfinite(kin["angle"][0, 0])
 
 
+# ------------------------------------------------------------- the shot-scaled zone (P7.2)
+#
+# The zone replaces a constant 8 ft band, and its coefficients are frozen. Tests here hold
+# the line itself, and hold the table to carrying an unmeasurable rebound through as unknown
+# rather than as one that landed outside, which is the difference between 662 rebounds and a
+# convenient subset of them.
+
+
+def _at_rim_distance(feet: float) -> list[float]:
+    """An event location exactly `feet` from the attacked rim, straight out from it."""
+    return [float(ATTACKED_HOOP[0] + feet), 0.0]
+
+
+def _zone_shots(rows) -> pd.DataFrame:
+    """rows: (id, distance from the rim in feet or None, three)."""
+    return pd.DataFrame({
+        "id": [r[0] for r in rows],
+        "location": [None if r[1] is None else _at_rim_distance(r[1]) for r in rows],
+        "three": [r[2] for r in rows],
+    })
+
+
+def _zone_rebounds(rows) -> pd.DataFrame:
+    """rows: (id, shotId, distance from the rim in feet or None, defensive)."""
+    return pd.DataFrame({
+        "id": [r[0] for r in rows],
+        "shotId": [r[1] for r in rows],
+        "location": [None if r[2] is None else _at_rim_distance(r[2]) for r in rows],
+        "defensive": [r[3] for r in rows],
+    })
+
+
+def test_the_zone_is_the_frozen_line_and_a_longer_shot_never_earns_a_smaller_one():
+    """D11: these three numbers were committed before a held-out game was read."""
+    assert zone_radius(0.0) == pytest.approx(5.40)
+    assert zone_radius(8.0) == pytest.approx(6.84)
+    assert zone_radius(22.15) == pytest.approx(9.387)
+    assert np.all(np.diff(zone_radius(np.linspace(0.0, 30.0, 61))) > 0)
+
+
+def test_an_unknown_shot_distance_earns_no_zone_rather_than_the_intercept():
+    assert np.isnan(zone_radius(np.nan))
+
+
+def test_the_table_measures_both_distances_from_the_rim_and_scales_the_landing_by_the_zone():
+    out = rebound_zone_table(_zone_shots([("s1", 22.0, True)]),
+                             _zone_rebounds([("r1", "s1", 6.0, True)]))
+    row = out.iloc[0]
+    assert row["shot_dist"] == pytest.approx(22.0, abs=1e-6)
+    assert row["reb_dist"] == pytest.approx(6.0, abs=1e-6)
+    assert row["zone_ft"] == pytest.approx(zone_radius(22.0))
+    assert row["zone_ratio"] == pytest.approx(6.0 / zone_radius(22.0), abs=1e-6)
+    assert row["in_zone"]
+
+
+def test_the_same_landing_spot_is_inside_the_zone_of_a_three_and_outside_that_of_a_layup():
+    """The whole point of P7.2: seven feet out means different things for different shots."""
+    out = rebound_zone_table(
+        _zone_shots([("s1", 2.0, False), ("s2", 25.0, True)]),
+        _zone_rebounds([("r1", "s1", 7.0, True), ("r2", "s2", 7.0, True)]),
+    )
+    assert not out.loc[0, "in_zone"]  # the zone of a layup is 5.76 ft
+    assert out.loc[1, "in_zone"]      # the zone of a 25 ft shot is 9.90 ft
+
+
+def test_the_edge_of_the_zone_is_where_the_ratio_crosses_one():
+    edge = zone_radius(10.0)
+    out = rebound_zone_table(
+        _zone_shots([("s1", 10.0, False), ("s2", 10.0, False)]),
+        _zone_rebounds([("r1", "s1", edge * 0.999, True), ("r2", "s2", edge * 1.001, True)]),
+    )
+    assert out.loc[0, "in_zone"] and not out.loc[1, "in_zone"]
+
+
+def test_a_rebound_with_no_location_is_carried_through_as_unknown_not_as_outside():
+    """Counting an unlocated rebound as outside the zone would inflate every share reported."""
+    out = rebound_zone_table(_zone_shots([("s1", 10.0, False)]),
+                             _zone_rebounds([("r1", "s1", None, True)]))
+    assert len(out) == 1
+    assert np.isnan(out.loc[0, "reb_dist"])
+    assert pd.isna(out.loc[0, "in_zone"])
+
+
+def test_a_shot_with_no_location_leaves_the_zone_unknown_too():
+    out = rebound_zone_table(_zone_shots([("s1", None, False)]),
+                             _zone_rebounds([("r1", "s1", 4.0, True)]))
+    assert out.loc[0, "reb_dist"] == pytest.approx(4.0, abs=1e-6)
+    assert np.isnan(out.loc[0, "zone_ft"])
+    assert pd.isna(out.loc[0, "in_zone"])
+
+
+def test_every_rebound_keeps_its_row_and_its_shot_columns():
+    out = rebound_zone_table(
+        _zone_shots([("s1", 4.0, False), ("s2", 25.0, True)]),
+        _zone_rebounds([("r1", "s1", 3.0, True), ("r2", "s2", 12.0, False),
+                        ("r3", "s1", None, True)]),
+    )
+    assert out["rebound_id"].tolist() == ["r1", "r2", "r3"]
+    assert out["shot_id"].tolist() == ["s1", "s2", "s1"]
+    assert out["three"].tolist() == [False, True, False]
+    assert out["defensive"].tolist() == [True, False, True]
+
+
+def test_an_empty_rebound_table_returns_an_empty_one_with_the_columns():
+    out = rebound_zone_table(_zone_shots([("s1", 4.0, False)]), _zone_rebounds([]))
+    assert len(out) == 0
+    assert {"reb_dist", "shot_dist", "zone_ft", "zone_ratio", "in_zone"} <= set(out.columns)
+
+
 # ------------------------------------------------------------------------------ the real data
 
 
@@ -720,3 +832,25 @@ def test_the_approach_kinematics_hold_on_a_real_game_and_the_heading_varies():
     # whole range on a real game, and a third of the rows sit inside the committed band.
     assert 0.25 < (finite < COMMITTED_ANGLE_DEG).mean() < 0.45
     assert kin["rim_dist"].max() < 95.0, "the far corner is about 90 ft from this rim"
+
+
+@pytest.mark.data
+@requires_real_dataset
+def test_the_shot_scaled_zone_reproduces_finding_three_on_the_calibration_games():
+    """Finding 3 had no code behind it until P7.2. This is it, on the calibration half only:
+    the held-out half is the script's business and is read once, after the freeze."""
+    dataset = Dataset(REAL_DATASET_ROOT)
+    table = pd.concat(
+        [rebound_zone_table(dataset.events(g)["shots"], dataset.events(g)["rebounds"])
+         for g in CALIBRATION_GAMES],
+        ignore_index=True,
+    )
+    assert len(table) == 409, "every rebound of the five games keeps its row"
+    assert table["in_zone"].isna().sum() == 84, "67 have no location, 17 more no shot location"
+    usable = table.dropna(subset=["reb_dist", "shot_dist"])
+    assert len(usable) == 325
+
+    assert usable["reb_dist"].median() == pytest.approx(4.81, abs=0.01)
+    rho = spearman(usable["shot_dist"].to_numpy(), usable["reb_dist"].to_numpy())
+    assert rho == pytest.approx(0.336, abs=0.001), "the record's +0.336, now reproducible"
+    assert usable["in_zone"].mean() == pytest.approx(0.75, abs=0.03)

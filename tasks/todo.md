@@ -85,6 +85,28 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       60 deg bar lands either side of it by float dust; the band test says so rather than
       picking a side.
 - [ ] **P7.2 The shot-scaled zone**, formalised from finding 3 rather than a constant 8 ft.
+      PRE-REGISTERED 2026-09-17 and frozen before any held-out game was read (D11).
+      **The zone**: r(d) = 5.40 + 0.180 d feet, d the shot's distance to the rim. Fitted on
+      the 325 located CALIBRATION rebounds by pinball loss at q = 0.75 over a deliberately
+      coarse grid (0.1 ft on the intercept, 0.01 on the slope). q = 0.75 is the coverage the
+      constant 8 ft band already reaches on calibration (0.745), so the two zones are
+      compared at equal coverage and can only differ in WHERE they hold it. Lives in
+      `scbasket.tagging` (`ZONE_COVERAGE`, `ZONE_INTERCEPT_FT`, `ZONE_SLOPE`, `zone_radius`,
+      `rebound_zone_table`), graded by `scripts/rebound_zone.py`, whose `--fit` re-derives
+      the two numbers from the data and prints them next to the frozen pair.
+      **Effect available, measured on calibration BEFORE the bar was written** (lesson 4):
+      coverage spread across the four shot bands is 0.230 for the constant zone against
+      0.125 for the scaled one, at equal overall coverage (0.745 / 0.748) and equal mean area
+      (201 / 211 sq ft). The scaled zone halves the drift; it does not cover more ground.
+      **CRITERION**, relative on purpose so there is no number left to move (D13). On the
+      HELD-OUT games: (1) the scaled zone drifts less across the bands than the constant one,
+      (2) its overall coverage sits within 0.03 of 0.75, (3) its mean area is no larger.
+      **Rebuilt on the way**: findings 1 and 3 had NO code behind them. Commit 111a9ac added
+      50 lines of record and not one line of source, so nothing in the repo reproduced the
+      headline zone numbers. Now `rebound_zone_table` does: on calibration, 409 rebounds, 342
+      with a location, 325 with their shot's location too, median 4.81 ft, Spearman +0.336,
+      which is the recorded figure exactly. The 84 unusable rebounds keep their rows as
+      unknown instead of being counted as landing outside the zone.
 - [ ] **P7.3 The conditional model: who wins among the ten present.** Exactly one of ten
       wins each rebound, so ten independent probabilities is the wrong structure and today's
       numbers do not sum to one. Condition on the players actually there and rank them on

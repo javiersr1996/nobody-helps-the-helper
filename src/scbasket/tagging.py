@@ -26,6 +26,7 @@ from scbasket.control import ControlParams, control_field
 from scbasket.court import HOOP_X, Grid
 from scbasket.forward import MIN_POINTS
 from scbasket.frames import N_SIDE, GameFrames, at_frames, matchup_with_fallback
+from scbasket.validation import hoop_distance
 from scbasket.value import ValueSurface
 
 FPS = 25
@@ -394,3 +395,67 @@ def approach_angles(frames: GameFrames) -> dict[str, np.ndarray]:
     angle = np.degrees(np.arccos(cos))
     angle[speed < MIN_APPROACH_SPEED] = np.nan
     return {"angle": angle, "speed": speed, "rim_dist": rim_dist}
+
+
+# --------------------------------------------------------------- the shot-scaled zone (P7.2)
+
+#: Share of rebounds the zone is built to hold. Chosen as the coverage of the constant 8 ft
+#: band this replaces (0.745 on the calibration games), rounded to 0.75, so the two zones are
+#: compared at equal overall coverage and the only thing that can differ is WHERE they hold it.
+ZONE_COVERAGE = 0.75
+
+#: r(d) = ZONE_INTERCEPT_FT + ZONE_SLOPE * d, d the shot's distance to the rim, both in feet.
+#: FROZEN on the CALIBRATION games on 2026-09-17 and committed before any held-out game was
+#: read (D11). Fitted by minimising the pinball loss at ZONE_COVERAGE over a deliberately
+#: coarse grid (0.1 ft on the intercept, 0.01 on the slope) across 325 located calibration
+#: rebounds; two significant figures is all a sample that size supports.
+#: `scripts/rebound_zone.py --fit` re-derives them from the data and prints both.
+ZONE_INTERCEPT_FT = 5.40
+ZONE_SLOPE = 0.180
+
+
+def zone_radius(shot_distance) -> np.ndarray:
+    """Feet from the rim of the zone a shot taken `shot_distance` feet out earns.
+
+    The constant 8 ft band the earlier work used holds 75% of the calibration rebounds
+    overall, but it holds 0.885 of them on shots from inside 8 ft and 0.655 in mid-range: too
+    generous on a close miss, too tight on everything else. This line holds the same share
+    overall with half that drift across the bands.
+
+    It DESCRIBES where the ball lands given the shot. It says nothing about where a player
+    should have been, and nothing about anyone's intention, which is the same footing the
+    rest of this layer stands on.
+    """
+    return ZONE_INTERCEPT_FT + ZONE_SLOPE * np.asarray(shot_distance, dtype=np.float64)
+
+
+def rebound_zone_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFrame:
+    """One row per rebound: where it landed, and the zone the shot it came from earned.
+
+    Columns: `rebound_id`, `shot_id`, `reb_dist` (feet from the attacked rim to the rebound's
+    published location), `shot_dist` (the same for the shot), `zone_ft`, `zone_ratio`
+    (`reb_dist` in units of that zone, so 1.0 is exactly on its edge), `in_zone`, `three` and
+    `defensive`.
+
+    Both locations come from the event tables, which court.py establishes are already in the
+    attacking frame, so neither is re-oriented here. A rebound with no location, or whose shot
+    has none, keeps its row with NaN in the measured columns and pd.NA in `in_zone`: on the
+    calibration games that is 84 of 409 rebounds, 67 missing their own location and 17 more
+    their shot's. The caller reports that count rather than quietly counting them as outside.
+    """
+    by_id = shots.set_index("id")
+    reb_dist = hoop_distance(rebounds["location"])
+    shot_dist = hoop_distance(rebounds["shotId"].map(by_id["location"]))
+    zone_ft = zone_radius(shot_dist)
+    ratio = reb_dist / zone_ft
+    return pd.DataFrame({
+        "rebound_id": rebounds["id"].to_numpy(),
+        "shot_id": rebounds["shotId"].to_numpy(),
+        "reb_dist": reb_dist,
+        "shot_dist": shot_dist,
+        "zone_ft": zone_ft,
+        "zone_ratio": ratio,
+        "in_zone": pd.Series(ratio <= 1.0, dtype="boolean").mask(np.isnan(ratio)),
+        "three": rebounds["shotId"].map(by_id["three"]).astype("boolean").to_numpy(),
+        "defensive": rebounds["defensive"].astype("boolean").to_numpy(),
+    })
