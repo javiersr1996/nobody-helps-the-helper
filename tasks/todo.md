@@ -1150,6 +1150,56 @@ average, or 10 games cannot resolve it and the paper reports the buy plus a null
 
 Evidence: `reports/angle_players.csv`, `angle_rebounds.csv`, `angle_tradeoff.csv`.
 
+#### F6 exploration, 2026-09-17: the rebound zone, the ball, and the descent angle
+Three questions asked in order, each one because the previous answer demanded it.
+
+**1. Where does the ball land?** 662 located rebounds: median 4.9 ft from the rim, 58.5%
+inside 6 ft, 72.8% inside 8 ft, 92.3% inside 15 ft. Offensive rebounds land slightly closer
+(43.8% inside 4 ft against 37.0%). The "semicircle" a SkillCorner contact pointed at is real
+and it is small.
+
+**2. Does the heading matter outside it? No.** Lift of a rimward heading (<60 deg) over the
+rest, by distance band, calibration then held out: 0-4 ft **+0.172 / +0.322**, 4-8 ft
+**+0.145 / +0.053**, 8-12 ft +0.042 / -0.008, 12-16 ft +0.026 / +0.020, 16-22 ft +0.007 /
++0.031, 22+ ft +0.007 / -0.003. **The whole value of the angle lives inside 8 ft.**
+
+  *Correction this forces on the headline curve.* The five-band angle table reported earlier
+  mixes distances, and at 22+ ft 511 of 598 players are not rimward because they are already
+  retreating, so part of that gradient was composition. The effect survives WITHIN 0-8 ft
+  (0.251 to 0.056, monotone, at fixed distance), but the honest headline is not "the angle
+  matters", it is **"inside 8 ft the heading decides, outside 8 ft it decides nothing"**.
+
+**3. Is the landing spot predictable, so a heading could aim at it?** Using the ACTUAL spot
+is future information and would be circular, so only a prediction from the shot counts.
+- Long shots give long rebounds, and it replicates: Spearman +0.336 / +0.367, median radius
+  3.4 ft for shots inside 8 ft rising to 6.5 ft on threes.
+- **Goldsberry's weak-side law does NOT hold here.** Share landing opposite to the shooter's
+  side: 0.434 / 0.489 overall, and for shots inside 16 ft only 0.302 / 0.351, which is a
+  STRONG-side bias. A negative result against published NBA work, worth reporting as one.
+- **But the spot itself is not predictable.** sd of the landing radius is 4.88 ft overall and
+  4.68 ft within shot-distance quartiles: conditioning buys 4%.
+
+**4. Does the ball's DESCENT ANGLE rescue it? No, and this was the last candidate.**
+Recovered on 407 clean descending approaches over the ten games, fitted over the 6 frames
+before the closest horizontal approach to the rim, because the tracker smooths straight
+through the rim contact itself (the ball visibly hovers near 11 ft for about 0.5 s) and the
+impact is not sharply resolved. Median 34.9 deg, q10 16.6, q90 52.6; apex 14.8 ft.
+- It is genuinely NEW information: Spearman with shot distance is -0.062 / -0.050.
+- It still does not predict the landing radius: given shot distance, **+0.018 on calibration
+  and +0.190 held out**. The halves disagree, which is F1's failure mode exactly, so by
+  lesson 1 it is not a result.
+- Uncertainty test: sd 4.97 -> 4.76 (shot distance) -> **4.64** (shot distance and descent).
+  Adding the descent angle buys 0.12 ft, about 2.5%.
+- One consistent crumb, recorded but not built on: among shots of 16 ft or more, median
+  rebound radius runs flat 5.44/5.92, mid 6.40/6.77, steep 6.98/7.21, monotone in BOTH
+  halves. Steeper comes down FARTHER, which is the opposite of the usual coaching line. The
+  tracker's smoothing is a live alternative explanation and cannot be ruled out here.
+
+**Design consequence.** The zone is not a fixed 8 ft: it SCALES with the shot, from about
+3.5 ft on a close miss to about 6.5 ft on a three. Positioning quality gets judged against
+the zone that shot earns, not a constant radius. The ball's own geometry buys nothing
+beyond that, and ball z goes back out of scope.
+
 ### F2. Expected points controlled and counterfactuals (weeks 7-8)
 Closed objective: outputs 1 (creation) and 2 (denial) as tables by mechanism.
 
