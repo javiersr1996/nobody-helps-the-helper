@@ -12,6 +12,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+# F1b only: the gradient boosting that grades the forward label. Never a core dependency;
+# scbasket itself stays numpy and pandas, so the package still installs and runs without it.
+forward = ["scikit-learn>=1.4"]
 
 [build-system]
 requires = ["hatchling"]

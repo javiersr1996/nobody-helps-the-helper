@@ -22,9 +22,13 @@ from scbasket.forward import (
     HORIZON_FRAMES,
     OPEN_LEVEL,
     baseline_features,
+    delta_auc,
     field_features,
+    fold_auc,
     forward_label,
     frontcourt_mask,
+    game_inputs,
+    logo_scores,
 )
 from scbasket.frames import GameFrames, get_or_build, subsample
 from scbasket.io import Dataset
@@ -238,3 +242,63 @@ def test_the_label_base_rate_on_a_real_game_is_what_f1b_pre_registered():
     label = forward_label(frames, events["shots"], events["chances"])
     assert label.mean() == pytest.approx(0.176, abs=0.005)
     assert HORIZON_FRAMES == 3 * FPS
+
+
+# --------------------------------------------------------------- leave-one-game-out grading
+
+pytest.importorskip("sklearn", reason="F1b grading needs the `forward` extra")
+
+
+def _two_game_frame(n: int = 400, seed: int = 0):
+    """Two games, a signal feature that carries the label and a noise feature that does not."""
+    rng = np.random.default_rng(seed)
+    game = np.repeat([1, 2], n)
+    label = rng.random(2 * n) < 0.3
+    signal = label + rng.normal(0.0, 0.5, 2 * n)
+    noise = rng.normal(0.0, 1.0, 2 * n)
+    return pd.DataFrame({"signal": signal, "noise": noise}), label, game
+
+
+def test_logo_scores_leave_one_game_out_never_trains_on_the_fold_it_scores():
+    """A feature that is the label in game 1 and inverted in game 2 must score BELOW chance."""
+    n = 300
+    game = np.repeat([1, 2], n)
+    label = np.r_[np.arange(n) % 2 == 0, np.arange(n) % 2 == 0]
+    flipped = np.r_[label[:n], ~label[n:]].astype(float)
+    features = pd.DataFrame({"flipped": flipped})
+
+    auc = fold_auc(logo_scores(features, label, game), label, game)
+    assert (auc < 0.5).all(), "a within-fold fit would have scored these near 1.0"
+
+
+def test_fold_auc_returns_one_row_per_game():
+    features, label, game = _two_game_frame()
+    auc = fold_auc(logo_scores(features, label, game), label, game)
+    assert list(auc.index) == [1, 2]
+    assert auc.notna().all()
+
+
+def test_a_feature_that_carries_the_label_lifts_the_delta():
+    features, label, game = _two_game_frame()
+    table = delta_auc(features[["noise"]], features[["signal"]], label, game)
+    assert (table["delta"] > 0.1).all()
+    assert set(table.columns) == {"auc_baseline", "auc_with_field", "delta"}
+
+
+def test_pure_noise_does_not_lift_the_delta():
+    """The falsification: if delta_auc rewarded any extra column, the criterion is worthless."""
+    features, label, game = _two_game_frame()
+    rng = np.random.default_rng(1)
+    junk = pd.DataFrame({"junk": rng.normal(0.0, 1.0, len(label))})
+    assert delta_auc(features[["signal"]], junk, label, game)["delta"].mean() < 0.02
+
+
+@pytest.mark.data
+@requires_real_dataset
+def test_game_inputs_builds_the_same_rows_for_every_piece():
+    dataset = Dataset(REAL_DATASET_ROOT)
+    item = game_inputs(dataset, 114086, CACHE_DIR, every=25)
+    n = len(item["frames"])
+    assert len(item["baseline"]) == n == len(item["label"]) == len(item["label_open"])
+    assert item["n_backcourt_dropped"] == item["n_sampled"] - n
+    assert item["label_open"].sum() < item["label"].sum()

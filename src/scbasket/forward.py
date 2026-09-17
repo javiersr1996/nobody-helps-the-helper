@@ -23,7 +23,9 @@ import pandas as pd
 from scbasket.control import ControlParams, control_field
 from scbasket.court import HOOP_X, Grid
 from scbasket.epc import epc_share
-from scbasket.frames import N_SIDE, GameFrames, matchup_with_fallback
+from scbasket.frames import N_SIDE, GameFrames, get_or_build, matchup_with_fallback, subsample
+from scbasket.io import Dataset
+from scbasket.validation import rank_auc
 from scbasket.value import ValueSurface
 
 FPS = 25
@@ -204,3 +206,100 @@ def field_features(
             "p_off_ball": p_off[np.arange(len(frames)), cell_of_ball],
         }
     )
+
+
+# ------------------------------------------------------------------ leave-one-game-out grading
+
+SEED = 0
+
+
+def _classifier(seed: int):
+    """HistGradientBoostingClassifier, imported lazily so scbasket installs without sklearn.
+
+    scikit-learn is the `forward` optional extra, never a package dependency (pyproject).
+    Everything else in scbasket runs on numpy and pandas alone, and this is the one place
+    that needs a learner: F1b grades whether the field ADDS to a baseline, and a linear
+    model would flatter whichever block of features happens to be the more linear one.
+    """
+    try:
+        from sklearn.ensemble import HistGradientBoostingClassifier
+    except ImportError as exc:  # pragma: no cover - exercised only without the extra
+        raise ImportError(
+            "F1b's grading needs scikit-learn: uv pip install 'scbasket[forward]'"
+        ) from exc
+    return HistGradientBoostingClassifier(random_state=seed)
+
+
+def logo_scores(
+    features: pd.DataFrame, label: np.ndarray, game: np.ndarray, *, seed: int = SEED
+) -> np.ndarray:
+    """Out-of-fold P(label) from leave-one-game-out gradient boosting.
+
+    One model per held-out game, trained on every OTHER game's frames and scored on that
+    game's. The fold is the GAME, never the frame or the shot: frames 0.2 s apart are all
+    but identical, so a random split would train and test on the same possession and
+    report an AUC that means nothing (lesson 1 in tasks/lessons.md, the other way round).
+    NaN goes in untouched: HistGradientBoosting splits on missingness natively.
+    """
+    scores = np.full(len(features), np.nan)
+    for held_out in np.unique(game):
+        test = game == held_out
+        model = _classifier(seed).fit(features[~test], label[~test])
+        scores[test] = model.predict_proba(features[test])[:, 1]
+    return scores
+
+
+def fold_auc(scores: np.ndarray, label: np.ndarray, game: np.ndarray) -> pd.Series:
+    """AUC per game, indexed by game id. NaN for a game whose label has only one class."""
+    return pd.Series(
+        {
+            int(g): rank_auc(scores[game == g], label[game == g].astype(float))
+            for g in np.unique(game)
+        },
+        dtype=float,
+        name="auc",
+    )
+
+
+def delta_auc(
+    baseline: pd.DataFrame,
+    field: pd.DataFrame,
+    label: np.ndarray,
+    game: np.ndarray,
+    *,
+    seed: int = SEED,
+) -> pd.DataFrame:
+    """Per-game AUC of the baseline, of baseline + field, and their difference (F1b's criterion 1).
+
+    Returns one row per game. NOTHING here pools: F1b grades the mean and the per-fold
+    signs, and the caller prints every row before quoting either.
+    """
+    both = pd.concat([baseline.reset_index(drop=True), field.reset_index(drop=True)], axis=1)
+    base_auc = fold_auc(logo_scores(baseline, label, game, seed=seed), label, game)
+    full_auc = fold_auc(logo_scores(both, label, game, seed=seed), label, game)
+    return pd.DataFrame({"auc_baseline": base_auc, "auc_with_field": full_auc}).assign(
+        delta=lambda d: d["auc_with_field"] - d["auc_baseline"]
+    )
+
+
+def game_inputs(dataset: Dataset, game_id: int, cache_dir, every: int = 5) -> dict:
+    """Everything about one game that does NOT depend on the control parameters.
+
+    Sampled frames after the frontcourt filter, both labels and the field-free baseline.
+    Split out from the field so a parameter sweep recomputes only ``field_features`` per
+    cell instead of re-reading the tracking cache once per cell, and so P1.7 and P1.8
+    build their rows through exactly the same code path.
+    """
+    frames = subsample(get_or_build(dataset, game_id, cache_dir), every)
+    events = dataset.events(game_id)
+    before = len(frames)
+    frames = frames.take(frontcourt_mask(frames, events["chances"]))
+    return {
+        "game_id": game_id,
+        "frames": frames,
+        "n_sampled": before,
+        "n_backcourt_dropped": before - len(frames),
+        "label": forward_label(frames, events["shots"], events["chances"]),
+        "label_open": forward_label(frames, events["shots"], events["chances"], level=OPEN_LEVEL),
+        "baseline": baseline_features(frames),
+    }
