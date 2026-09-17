@@ -1011,6 +1011,41 @@ working, and it is worth saying so in the README.
     not negative and consistent, F5's premise is dead and the project replans again.**
   - Denominator to carry: 217 usable shots on five games, so about 430 over ten. Thinner
     than the 796 missed shots the tag geometry alone can be computed on.
+
+#### P5.1c RESULT: check B fails AGAIN. Check C passes hard. The gate is failed.
+The re-specification measures the tag as a MOVEMENT: pairs fixed at the release, high side
+re-measured at the rebound frame (capped at 2 s), and the difference is what the attacker
+actually took during the flight. Median flight window used, 216 usable shots.
+
+**Check B, the pre-declared gate, fails.** Partial correlation with `match_dist` given depth:
+
+| Feature | Pooled | Negative in |
+|---|---|---|
+| `high_side_gain_mean` | **+0.119** | 2 of 5 (+0.545, +0.191, -0.110, -0.142, +0.307) |
+| `high_side_gain_min` | +0.061 | 2 of 5 |
+| `tag_index_end` | -0.071 | 3 of 5 |
+| `high_side_end_mean` | **+0.188** | 0 of 5 |
+
+Taking high side during the flight does NOT leave you closer to your man when the break
+arrives. **F5's premise as written is dead and is not being rescued.** P5.1c was declared
+in advance as the only retry and it was spent.
+
+**But check C passes decisively, and this is a real finding.** Between-team variance of
+`high_side_gain_mean`: observed 1.087 against a null median of 0.225, **permutation
+p = 0.0000** (2,000 shuffles, seed 0). Team means run **1.82 to 4.75 ft**, a 2.6x spread.
+The release-instant version gave p = 0.337. So: the POSE at the shot is not coached, the
+MOVEMENT during the flight strongly is.
+
+**Competing explanation that must not be buried.** `high_side_end_mean` correlates
+POSITIVELY with `match_dist` in 5 of 5 games. Ending further high side means ending further
+from your man. That is consistent with the flight gain measuring *who bails out early and
+sprints back*, a coached transition-defense policy, rather than *who tags*. Both would show
+a team signal. Nothing here separates them yet, and the README cannot claim the tag reading
+over the bail-out reading without a test that does.
+
+**Consequence.** Whether the flight gain relates to the TRANSITION OUTCOME (`break_area`,
+`next_pts`) is a different question from check B and has not been asked. It would need its
+own pre-registration, not an extension of this one. That decision is the user's.
   - Does: check the tag index means what it is claimed to mean, using behaviour rather
     than a label. A high tag index at release must show up later as the attacking team
     arriving at the defensive end sooner and already matched. If it does not, the index is

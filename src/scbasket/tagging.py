@@ -273,3 +273,88 @@ def retreat_match_distance(
                     row["secs_to_frontcourt"] = (target - float(rebound["frame"])) / FPS
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+# ------------------------------------------------------------- the flight re-specification (P5.1c)
+
+MAX_FLIGHT_S = 2.0
+MAX_FLIGHT_FRAMES = int(MAX_FLIGHT_S * FPS)
+
+
+def high_side_for_pairs(frame: GameFrames, pairs: np.ndarray) -> np.ndarray:
+    """(K,) signed high side for explicit (attacker id, defender id) pairs in a ONE-row frame.
+
+    Keyed on ids, so the SAME pairing can be evaluated at two instants even though slots and
+    possession may have moved in between. NaN where either player is absent from the frame.
+    """
+    xy = _xy_of_players(frame, pairs.ravel()).reshape(-1, 2, 2)
+    attacker, defender = xy[:, 0], xy[:, 1]
+    toward_own = OWN_HOOP[None, :] - defender
+    norm = np.linalg.norm(toward_own, axis=-1, keepdims=True)
+    toward_own = np.divide(toward_own, norm, out=np.zeros_like(toward_own), where=norm > 0)
+    return ((attacker - defender) * toward_own).sum(axis=-1)
+
+
+def tag_flight_features(
+    frames: GameFrames,
+    release: GameFrames,
+    shots: pd.DataFrame,
+    rebounds: pd.DataFrame,
+    *,
+    max_flight_frames: int = MAX_FLIGHT_FRAMES,
+) -> pd.DataFrame:
+    """P5.1c: the tag measured as a MOVEMENT over the shot flight, not a pose at the release.
+
+    P5.1b failed because P5.1 measured the wrong instant. Tagging up is executed while the
+    ball is in the air: the attackers run AT their defenders after the shot leaves. The
+    release frame is the state before that, so it described the offensive shape the
+    possession ended in and not the tag.
+
+    Here the pairs are fixed at the release and then re-measured at the moment the ball is
+    rebounded (capped at `max_flight_frames` after the release, and skipped when no rebound
+    frame exists). `high_side_gain` is the difference: how much high side each attacker
+    actually TOOK during the flight. A gain is immune by construction to the depth confound
+    that swallowed P5.1b, because a player who was already deep and stayed there gains zero.
+
+    One window, taken from the mechanism, and P5.1c is the only retry F5 allows itself.
+    Trying windows until one passes is the failure this project has been punished for twice.
+
+    Noted rather than buried: at the rebound frame the ball is being secured, so the END
+    level partly reflects who won it. That is harmless for the P5.1b check, whose outcome is
+    measured seconds later at the opponent's frontcourt crossing, but any use of these
+    columns against a rebound outcome has to reckon with it.
+    """
+    pairs = retreat_pairs(release, shots)
+    by_shot = rebounds.set_index("shotId")["frame"]
+    by_shot = by_shot[~by_shot.index.duplicated()]
+    rows = []
+    for i, shot_id in enumerate(shots["id"].to_numpy()):
+        start = int(release.frame_idx[i])
+        at_start = high_side_for_pairs(release.take(np.array([i])), pairs[i])
+        row = {
+            "high_side_gain_mean": np.nan, "high_side_gain_min": np.nan,
+            "tag_index_end": np.nan, "high_side_end_mean": np.nan,
+            "flight_secs": np.nan, "n_flight_pairs": 0,
+        }
+        end_frame = by_shot.get(shot_id, np.nan)
+        if np.isfinite(end_frame):
+            target = min(int(end_frame), start + max_flight_frames)
+            at = at_frames(frames, np.array([target]))
+            if len(at) and target > start:
+                at_end = high_side_for_pairs(at, pairs[i])
+                found = np.isfinite(at_end) & np.isfinite(at_start)
+                row["n_flight_pairs"] = int(found.sum())
+                if found.any():
+                    gain = (at_end - at_start)[found]
+                    row["high_side_gain_mean"] = float(gain.mean())
+                    row["high_side_gain_min"] = float(gain.min())
+                    row["tag_index_end"] = float((at_end[found] > 0).mean())
+                    row["high_side_end_mean"] = float(at_end[found].mean())
+                    row["flight_secs"] = (target - start) / FPS
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+FLIGHT_FEATURES = (
+    "high_side_gain_mean", "high_side_gain_min", "tag_index_end", "high_side_end_mean",
+)

@@ -37,10 +37,12 @@ from scbasket.frames import get_or_build
 from scbasket.io import Dataset
 from scbasket.tagging import (
     DEPTH_CONTROLS,
+    FLIGHT_FEATURES,
     TAG_FEATURES,
     release_frames_for,
     retreat_match_distance,
     tag_features,
+    tag_flight_features,
 )
 from scbasket.validation import CALIBRATION_GAMES, partial_spearman, spearman
 
@@ -59,6 +61,7 @@ def build(dataset: Dataset, game_id: int, cache_dir: Path) -> pd.DataFrame:
     table = pd.concat(
         [
             tag_features(release, missed),
+            tag_flight_features(frames, release, missed, events["rebounds"]),
             retreat_match_distance(frames, release, missed, events["rebounds"], events["chances"]),
         ],
         axis=1,
@@ -85,7 +88,7 @@ def main() -> int:
         [build(dataset, g, args.cache) for g in CALIBRATION_GAMES], ignore_index=True
     )
 
-    usable = table[table["match_dist"].notna()].copy()
+    usable = table[table["match_dist"].notna() & table["high_side_gain_mean"].notna()].copy()
     print(f"missed shots: {len(table)}")
     print(f"  of which the other team rebounded AND the break reached a cached frontcourt "
           f"frame: {len(usable)} ({len(usable) / len(table):.1%})")
@@ -95,12 +98,20 @@ def main() -> int:
           f"q10 {usable['match_dist'].quantile(.1):.1f}, "
           f"q90 {usable['match_dist'].quantile(.9):.1f}")
     print(f"secs_to_frontcourt: median {usable['secs_to_frontcourt'].median():.1f}")
+    print(f"flight window actually used: median {usable['flight_secs'].median():.2f} s, "
+          f"q90 {usable['flight_secs'].quantile(.9):.2f} s; "
+          f"pairs found {usable['n_flight_pairs'].mean():.2f} of 4")
+    print(f"high_side_gain_mean (ft taken during the flight): "
+          f"mean {usable['high_side_gain_mean'].mean():+.2f}, "
+          f"sd {usable['high_side_gain_mean'].std():.2f}, "
+          f"range {usable['high_side_gain_mean'].min():+.1f} to "
+          f"{usable['high_side_gain_mean'].max():+.1f}")
 
     rows = []
     print("\n" + "=" * 78)
     print("CHECK A (confounded on purpose) and CHECK B (the gate), per game then pooled")
     print("=" * 78)
-    for feature in TAG_FEATURES:
+    for feature in TAG_FEATURES + FLIGHT_FEATURES:
         print(f"\n{feature} vs match_dist:")
         for game_id, part in usable.groupby("game"):
             raw = spearman(part[feature].to_numpy(), part["match_dist"].to_numpy())
@@ -131,11 +142,13 @@ def main() -> int:
     print("\n" + "=" * 78)
     print("CHECK C: is the tag index a team trait, or noise?")
     print("=" * 78)
-    by_team = table.groupby("off_team")["tag_index"].agg(["count", "mean"]).sort_values("mean")
+    team_col = "high_side_gain_mean"
+    flight = table[table[team_col].notna()]
+    by_team = flight.groupby("off_team")[team_col].agg(["count", "mean"]).sort_values("mean")
     print(by_team.round(3).to_string())
 
-    teams = table["off_team"].to_numpy()
-    values = table["tag_index"].to_numpy()
+    teams = flight["off_team"].to_numpy()
+    values = flight[team_col].to_numpy()
 
     def between_team_variance(labels: np.ndarray) -> float:
         frame = pd.DataFrame({"t": labels, "v": values})
@@ -149,7 +162,7 @@ def main() -> int:
     print(f"\nbetween-team variance of tag_index: observed {observed:.5f}, "
           f"null median {np.median(null):.5f}, permutation p = {p_value:.4f} "
           f"({N_SHUFFLES} shuffles, seed {SEED})")
-    rows.append({"check": "C", "feature": "tag_index", "game": "all", "n": len(table),
+    rows.append({"check": "C", "feature": team_col, "game": "all", "n": len(flight),
                  "observed": observed, "p_value": p_value})
 
     pd.DataFrame(rows).to_csv(args.out / "construct_validity.csv", index=False)
