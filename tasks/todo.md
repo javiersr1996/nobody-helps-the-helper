@@ -336,11 +336,18 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       4.5 ft, which is most of the zone. The bounce is barely legible to a camera measuring
       the ball after the fact; nothing here says a player can use it in the half second they
       have, and this work does not claim they can.
-      **Side bias, rebuilt, does NOT reproduce the record.** Held out: inside 16 ft 0.477,
-      16-22 ft 0.469, threes 0.539, against the record's 0.351 / 0.477 / 0.568. The direction
-      survives in both halves (short shots lean strong side, threes lean weak side) but the
-      magnitudes are small, and the Goldsberry reproduction claim does not hold under a
-      definition that keeps middle-of-the-floor shots. The README stops claiming it.
+      **Side bias, rebuilt, does NOT reproduce the record, and the Goldsberry claim was
+      answering a question he did not ask.** His 56% weak side is about missed CORNER threes.
+      The record compared it to OUR band of all threes and called that a reproduction; cut to
+      corner threes, which the `region` column gives directly, the two halves disagree: 0.414
+      on calibration and 0.519 held out, on 29 and 27 rebounds. So this data neither
+      reproduces nor contradicts him, and the README says exactly that. Outside his
+      population: other threes 0.528 / 0.557 (weak side), inside 16 ft 0.424 / 0.477 (strong
+      side), 16-22 ft 0.435 / 0.333. This is the THIRD time the Goldsberry claim has gone into
+      the record wrong, after being written backwards on 2026-09-17, and the rule it keeps
+      breaking is the one already in this file: nothing from the research report reaches the
+      README until its primary source has been read. Now it has code and the right population,
+      and the claim it supports is a refusal to claim.
       **Ships**: `ball_entry_table`, `side_bias_table` and the `ENTRY_*` constants in
       `scbasket.tagging`, `scripts/rebound_flight.py` (`--fit` re-derives the frozen
       coefficients from calibration alone), `reports/rebound_flight.csv` and

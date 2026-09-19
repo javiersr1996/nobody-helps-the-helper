@@ -34,8 +34,7 @@ a game, and five clusters is few, so the bands are crude.
 
 The control. Players arriving rimward are also nearer, so figure 1 alone cannot separate
 heading from proximity. At a fixed distance, varying only the angle, P(win) falls 4.5x, 0.251
-to 0.056 pooled. Split, the held-out half is monotone and calibration ticks up at the end;
-the figure says so.
+to 0.056 pooled. Split, the held-out half is monotone and calibration ticks up at the end.
 
 ## How it was tested
 
@@ -60,19 +59,20 @@ distance-only model's -1.912, and the gain holds in **five games of five**.
 ## The negatives, which are part of the claim
 
 - **This repository overturned one of its own findings.** Earlier work called the ball useless
-  (+0.018 against the landing radius), from an exploration that left no code behind. Rebuilt as
+  (+0.018), from an exploration that left no code behind. Rebuilt as
   code, the sign reverses and replicates.
 - **The model's top-1 accuracy is a pooled artefact.** 0.263 against the nearest-to-the-rim
-  rule's 0.246 passed as pre-registered, but holds in three games of five and amounts to
-  five rebounds of 285. The claim rests on the log probability, which holds in all five.
+  rule's 0.246 passed as pre-registered, but holds in three games of five and amounts to five
+  rebounds of 285. The claim rests on the log probability, which holds in all five.
 - **One pre-registered condition was retired, not moved.** It asked the scaled zone to carry no
   more mean area than the constant one at equal coverage. Area is quadratic in the radius, so
   no scaled zone could pass it, and it was already failing on the half it was written from. The
-  verdict reads "passes the two conditions that can discriminate", never "passed".
-- **The side bias does not reproduce Goldsberry (2014).** Share landing opposite the shooter's
-  side: threes 0.504 / 0.539, inside 16 ft 0.424 / 0.477. His directions survive, weakly;
-  his 56% does not, under a definition with no free parameter in it.
-- **Defensive help does not leave you badly placed to rebound.** Four probes, all negative;
+  verdict reads "passes the two conditions that discriminate", never "passed".
+- **The side bias cannot answer Goldsberry (2014).** His 56% weak side is about missed CORNER
+  threes; on those our two halves disagree, 0.414 and 0.519 on 29 and 27 rebounds, so this
+  neither reproduces nor contradicts him. Other threes 0.528 / 0.557 land weak side, shots
+  inside 16 ft 0.424 / 0.477 strong side.
+- **Defensive help does not leave you badly placed to rebound.** Four probes, all negative,
   the direction closed in an afternoon. No code ships from it, so no number from it is quoted
   here: the detail is in `tasks/todo.md`.
 
@@ -80,8 +80,8 @@ distance-only model's -1.912, and the gain holds in **five games of five**.
 
 `scbasket` is the derived layer the open bundle does not carry. `approach_angles` (heading and
 speed half a second before the ball is won), `zone_radius` and `rebound_zone_table` (the
-shot-scaled zone), `ball_entry_table` (how steeply the ball arrives, before it touches
-anything) and `scbasket.conditional` (the contest among the ten). Published as a
+shot-scaled zone), `ball_entry_table` (how steeply the ball arrives) and
+`scbasket.conditional` (the contest among the ten). Published as a
 **definition, never a detector**: it measures vectors, not intentions, as
 SkillCorner itself says. Nothing here says a player crashed, tagged up or boxed out.
 
@@ -100,7 +100,7 @@ uv run pytest                    # 225 pass; 14 need the dataset, 1 the forward 
 ```
 
 Every number above lands in a `reports/*.csv`. The package runs on pandas and numpy;
-matplotlib and scikit-learn are optional.
+the rest are optional extras.
 
 ## Data and licence
 

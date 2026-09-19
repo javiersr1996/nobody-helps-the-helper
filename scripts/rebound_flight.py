@@ -83,6 +83,7 @@ def build(dataset: Dataset, game_id: int, cache_dir: Path) -> pd.DataFrame:
     side = side_bias_table(shots, rebounds)
     table = entry.merge(zone.drop(columns=["shot_id"]), on="rebound_id").merge(
         side.drop(columns=["shot_id", "shot_dist", "three"]), on="rebound_id")
+    table["region"] = table["shot_id"].map(shots.set_index("id")["region"])
     half = "calibration" if game_id in CALIBRATION_GAMES else "held out"
     return table.assign(game=game_id, half=half)
 
@@ -125,9 +126,16 @@ def measure(table: pd.DataFrame) -> dict:
 
 
 def side_shares(table: pd.DataFrame) -> pd.DataFrame:
-    """Share landing opposite the shooter's side, by shot-distance band and half."""
+    """Share landing opposite the shooter's side, by shot-distance band and half.
+
+    The last row is the CORNER THREE, which is the only row that speaks to Goldsberry: his
+    56% weak side is about missed corner threes, not about threes in general, and comparing
+    our wider band to his number would be answering a question he did not ask.
+    """
     bands = pd.cut(table["shot_dist"], [0, 16, 22.15, 200], right=False,
-                   labels=["inside 16 ft", "16-22 ft", "threes"])
+                   labels=["inside 16 ft", "16-22 ft", "threes"]).astype(object)
+    corner = table["region"].astype(str).str.contains("corner three", case=False, na=False)
+    bands[corner.to_numpy()] = "... of which corner threes"
     return (table.assign(band=bands).dropna(subset=["opposite"])
             .pivot_table(index="band", columns="half", values="opposite",
                          aggfunc=["mean", "count"], observed=True))
