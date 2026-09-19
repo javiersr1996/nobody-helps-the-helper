@@ -3,6 +3,13 @@
 Rules: one minute, own voice. It is not a summary of the README, it is the argument. The two
 figures already exist, so the video shows nothing that is not measured in the repo.
 
+**The picture is built.** `uv run --extra figures python scripts/video_slides.py` writes five
+1920x1080 slides and `reports/video/nobody_reads_the_bounce.mp4`, a silent 60 s cut that holds
+each slide for exactly the length of its line below. Record the voice over that file in one
+pass; nothing has to be edited to a beat. Slides 3 and 4 are the README's two figures whole and
+unaltered, so the audience is shown precisely what the repository publishes, and slide 5 reads
+its commit list out of `git log` rather than quoting it.
+
 Every number spoken below appears in `README.md` and in a `reports/*.csv`. Nothing is rounded
 in the speaker's favour.
 
