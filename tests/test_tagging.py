@@ -27,17 +27,23 @@ from scbasket.tagging import (
     ATTACKED_HOOP,
     COMMITTED_ANGLE_DEG,
     DEPTH_CONTROLS,
+    ENTRY_COLUMNS,
+    ENTRY_WINDOW_FRAMES,
     FLIGHT_FEATURES,
+    MAX_ENTRY_FLIGHT_FRAMES,
     MIN_APPROACH_SPEED,
     OWN_HOOP,
+    RIM_HEIGHT_FT,
     TAG_FEATURES,
     approach_angles,
+    ball_entry_table,
     high_side_distance,
     high_side_for_pairs,
     rebound_zone_table,
     release_frames_for,
     retreat_match_distance,
     retreat_pairs,
+    side_bias_table,
     tag_features,
     tag_flight_features,
     transition_outcome,
@@ -59,13 +65,14 @@ def _ids(value, first: int, n: int) -> np.ndarray:
 
 
 def _frames(xy, chance_idx=None, frame_idx=None, matchup=None, v=None,
-            off_ids=None, def_ids=None) -> GameFrames:
+            off_ids=None, def_ids=None, ball=None) -> GameFrames:
     xy = np.asarray(xy, dtype=np.float32)
     n = len(xy)
     if frame_idx is None:
         frame_idx = np.arange(n, dtype=np.int32)
     frame_idx = np.asarray(frame_idx, np.int32)
-    ball = np.concatenate([xy[:, 0], np.full((n, 1), 4.0, np.float32)], axis=1)
+    ball = (np.concatenate([xy[:, 0], np.full((n, 1), 4.0, np.float32)], axis=1)
+            if ball is None else np.asarray(ball, np.float32))
     return GameFrames(
         game_id=GAME_ID,
         frame_idx=frame_idx,
@@ -854,3 +861,208 @@ def test_the_shot_scaled_zone_reproduces_finding_three_on_the_calibration_games(
     rho = spearman(usable["shot_dist"].to_numpy(), usable["reb_dist"].to_numpy())
     assert rho == pytest.approx(0.336, abs=0.001), "the record's +0.336, now reproducible"
     assert usable["in_zone"].mean() == pytest.approx(0.75, abs=0.03)
+
+
+# ----------------------------------------------- the ball's entry angle at the rim (P7.7)
+#
+# The angle carries the README's opening claim, so every convention is read off coordinates
+# a person can check by hand, and the one test that matters most is the circularity guard:
+# the angle must come from the flight BEFORE the ball touches the rim, never from the bounce
+# that is already carrying it toward where it will be collected.
+
+
+def _ball_flight(track) -> GameFrames:
+    """Frames whose only meaningful content is a hand-built (K, 3) ball track."""
+    track = np.asarray(track, dtype=np.float32)
+    xy = np.zeros((len(track), 10, 2), np.float32)
+    return _frames(xy, ball=track)
+
+
+def _entry_shots(end_frame: int = 0) -> pd.DataFrame:
+    return pd.DataFrame({"id": ["shot-1"], "endFrame": [end_frame]})
+
+
+def _entry_rebounds(frame, shot_id="shot-1") -> pd.DataFrame:
+    return pd.DataFrame({"id": ["reb-1"], "shotId": [shot_id], "frame": [frame]})
+
+
+def _fall(drop_per_frame: float, run_per_frame: float, n: int = 8, top: float = 14.0):
+    """A straight fall from `top`, so the angle is arctan(drop / run) by construction."""
+    z = top - drop_per_frame * np.arange(n)
+    x = run_per_frame * np.arange(n)
+    return np.column_stack([x, np.zeros(n), z])
+
+
+def test_a_ball_falling_one_foot_for_every_foot_forward_enters_at_forty_five_degrees():
+    frames = _ball_flight(_fall(1.0, 1.0))
+    out = ball_entry_table(frames, _entry_shots(), _entry_rebounds(7))
+    assert out.loc[0, "entry_angle"] == pytest.approx(45.0)
+    assert out.loc[0, "reason"] == ""
+
+
+def test_a_ball_dropping_straight_down_enters_at_ninety():
+    out = ball_entry_table(_ball_flight(_fall(1.0, 0.0)), _entry_shots(), _entry_rebounds(7))
+    assert out.loc[0, "entry_angle"] == pytest.approx(90.0)
+
+
+def test_a_flat_ball_enters_shallow_and_a_steep_one_steeply():
+    flat = ball_entry_table(_ball_flight(_fall(1.0, 2.0)), _entry_shots(),
+                            _entry_rebounds(7)).loc[0, "entry_angle"]
+    steep = ball_entry_table(_ball_flight(_fall(2.0, 1.0)), _entry_shots(),
+                             _entry_rebounds(7)).loc[0, "entry_angle"]
+    assert flat == pytest.approx(np.degrees(np.arctan2(1.0, 2.0)))
+    assert steep == pytest.approx(np.degrees(np.arctan2(2.0, 1.0)))
+    assert flat < steep
+
+
+def test_the_angle_is_the_incoming_flight_and_never_the_bounce_that_follows():
+    """The circularity guard. A ball that arrives flat, hits the rim and leaves steeply must
+    read as the flat arrival: reading the departure would predict where the ball lands from
+    the ball already travelling there."""
+    incoming = _fall(1.0, 2.0, n=8)                  # arrives at 26.6 degrees
+    bounce_up = np.column_stack([                    # back above the rim, then straight down
+        incoming[-1, 0] + np.arange(1, 7) * 0.2,
+        np.zeros(6),
+        [10.5, 11.5, 12.0, 11.0, 9.0, 6.0],
+    ])
+    out = ball_entry_table(_ball_flight(np.vstack([incoming, bounce_up])), _entry_shots(),
+                           _entry_rebounds(13))
+    assert out.loc[0, "entry_angle"] == pytest.approx(np.degrees(np.arctan2(1.0, 2.0)))
+    assert out.loc[0, "apex_ft"] == pytest.approx(14.0), "the apex is the shot, not the bounce"
+
+
+def test_the_window_is_the_last_frames_of_the_fall_and_not_the_whole_descent():
+    """A long shallow fall that turns steep at the end. Fitting the whole descent would call
+    this ball flat; fitting the last frames calls it steep, and the steep answer is the one
+    that describes how it actually arrives. Every step is exact in binary, because a fall
+    built from 0.4 crosses the rim a frame earlier in float64 than in the float32 track."""
+    shallow, steep, n = 0.25, 3.0, ENTRY_WINDOW_FRAMES + 12
+    z = np.array([14.0] + [None] * (n - 1), dtype=float)
+    for i in range(1, n):
+        z[i] = z[i - 1] - (shallow if i <= 11 else steep)
+    track = np.column_stack([np.arange(n, dtype=float), np.zeros(n), z])
+
+    crossing = int(np.flatnonzero(z < RIM_HEIGHT_FT)[0])
+    window = np.degrees(np.arctan2(z[crossing - ENTRY_WINDOW_FRAMES] - z[crossing],
+                                   float(ENTRY_WINDOW_FRAMES)))
+    whole = np.degrees(np.arctan2(z[0] - z[crossing], float(crossing)))
+    assert window - whole > 10.0, "the two fits have to disagree or the test proves nothing"
+
+    out = ball_entry_table(_ball_flight(track), _entry_shots(), _entry_rebounds(n - 1))
+    assert out.loc[0, "entry_angle"] == pytest.approx(window, abs=1e-4)
+
+
+def test_a_ball_that_never_climbs_above_the_rim_has_no_entry_angle():
+    out = ball_entry_table(_ball_flight(_fall(0.5, 1.0, top=9.0)), _entry_shots(),
+                           _entry_rebounds(7))
+    assert np.isnan(out.loc[0, "entry_angle"])
+    assert out.loc[0, "reason"] == "no arc above the rim"
+
+
+def test_a_ball_still_above_the_rim_at_the_rebound_has_no_entry_angle():
+    out = ball_entry_table(_ball_flight(_fall(0.2, 1.0, top=14.0)), _entry_shots(),
+                           _entry_rebounds(7))
+    assert np.isnan(out.loc[0, "entry_angle"])
+    assert out.loc[0, "reason"] == "never falls back to rim height"
+
+
+def test_a_flight_longer_than_the_cap_is_refused_rather_than_measured():
+    n = MAX_ENTRY_FLIGHT_FRAMES + 10
+    track = np.column_stack([np.arange(n), np.zeros(n),
+                             np.concatenate([_fall(1.0, 1.0, n=8)[:, 2],
+                                             np.full(n - 8, 5.0)])])
+    out = ball_entry_table(_ball_flight(track), _entry_shots(), _entry_rebounds(n - 1))
+    assert np.isnan(out.loc[0, "entry_angle"])
+    assert out.loc[0, "reason"] == "flight too long to be one"
+
+
+def test_too_few_cached_frames_is_a_reason_and_not_an_angle():
+    out = ball_entry_table(_ball_flight(_fall(1.0, 1.0, n=4)), _entry_shots(),
+                           _entry_rebounds(3))
+    assert np.isnan(out.loc[0, "entry_angle"])
+    assert out.loc[0, "reason"] == "too few cached frames"
+
+
+def test_a_rebound_with_no_shot_or_no_frame_keeps_its_row_with_the_reason():
+    frames = _ball_flight(_fall(1.0, 1.0))
+    rebounds = pd.DataFrame({"id": ["a", "b"], "shotId": [None, "shot-1"],
+                             "frame": [7, None]})
+    out = ball_entry_table(frames, _entry_shots(), rebounds)
+    assert len(out) == 2
+    assert out["entry_angle"].isna().all()
+    assert (out["reason"] == "no shot or no frame").all()
+
+
+def test_every_rebound_keeps_its_row_and_the_frozen_columns():
+    frames = _ball_flight(_fall(1.0, 1.0))
+    rebounds = pd.DataFrame({"id": ["a", "b", "c"], "shotId": ["shot-1"] * 3,
+                             "frame": [7, 7, 7]})
+    out = ball_entry_table(frames, _entry_shots(), rebounds)
+    assert tuple(out.columns) == ENTRY_COLUMNS
+    assert list(out["rebound_id"]) == ["a", "b", "c"]
+
+
+# ------------------------------------------------------- which side it lands on (P7.7)
+
+
+def _side_shots(locations) -> pd.DataFrame:
+    return pd.DataFrame({"id": [f"shot-{i}" for i in range(len(locations))],
+                         "location": list(locations),
+                         "three": [False] * len(locations)})
+
+
+def _side_rebounds(locations) -> pd.DataFrame:
+    return pd.DataFrame({"id": [f"reb-{i}" for i in range(len(locations))],
+                         "shotId": [f"shot-{i}" for i in range(len(locations))],
+                         "location": list(locations)})
+
+
+def test_a_rebound_on_the_other_side_is_opposite_and_one_on_the_same_side_is_not():
+    out = side_bias_table(_side_shots([[-20.0, 8.0], [-20.0, 8.0]]),
+                          _side_rebounds([[-38.0, -3.0], [-38.0, 3.0]]))
+    assert bool(out.loc[0, "opposite"]) is True
+    assert bool(out.loc[1, "opposite"]) is False
+
+
+def test_a_shot_or_a_rebound_exactly_on_the_middle_line_has_no_side():
+    out = side_bias_table(_side_shots([[-20.0, 0.0], [-20.0, 5.0]]),
+                          _side_rebounds([[-38.0, 3.0], [-38.0, 0.0]]))
+    assert out["opposite"].isna().all(), "a side of zero is unknown, never a flip we pick"
+
+
+def test_a_missing_location_leaves_the_side_unknown_rather_than_guessed():
+    out = side_bias_table(_side_shots([None, [-20.0, 5.0]]),
+                          _side_rebounds([[-38.0, 3.0], None]))
+    assert out["opposite"].isna().all()
+    assert len(out) == 2, "both rebounds keep their row"
+
+
+@pytest.mark.data
+@requires_real_dataset
+def test_the_entry_angle_holds_on_the_calibration_games_and_predicts_the_landing_radius():
+    """Finding 5 had no code behind it until P7.7, and the rebuild disagrees with it. This is
+    the calibration half only: the held-out half is the script's business, read once after the
+    freeze (D11)."""
+    dataset = Dataset(REAL_DATASET_ROOT)
+    parts = []
+    for game in CALIBRATION_GAMES:
+        events = dataset.events(game)
+        frames = get_or_build(dataset, game, CACHE_DIR)
+        entry = ball_entry_table(frames, events["shots"], events["rebounds"])
+        zone = rebound_zone_table(events["shots"], events["rebounds"])
+        parts.append(entry.merge(zone.drop(columns=["shot_id"]), on="rebound_id")
+                     .assign(game=game))
+    table = pd.concat(parts, ignore_index=True)
+
+    usable = table.dropna(subset=["entry_angle", "reb_dist", "shot_dist"])
+    assert len(usable) == 256, "the frozen calibration sample"
+    assert usable["entry_angle"].median() == pytest.approx(43.4, abs=0.1)
+
+    shot_vs_angle = spearman(usable["shot_dist"].to_numpy(), usable["entry_angle"].to_numpy())
+    assert abs(shot_vs_angle) < 0.05, "new information, not the shot distance relabelled"
+
+    rho = spearman(usable["entry_angle"].to_numpy(), usable["reb_dist"].to_numpy())
+    assert rho == pytest.approx(-0.330, abs=0.001), "a flatter ball carries further"
+    per_game = [spearman(p["entry_angle"].to_numpy(), p["reb_dist"].to_numpy())
+                for _, p in usable.groupby("game")]
+    assert all(v < 0 for v in per_game), "negative in five of five calibration games (lesson 1)"

@@ -270,7 +270,58 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       cuatro sondas y se cerró, todas negativas. Ambas son calibración, nada congelado, ningún
       held-out abierto, nada commiteado fuera de esta nota. Detalle en la memoria del proyecto,
       `ayudas-defensivas-descartada`.
+- [ ] **P7.7 The ball, rebuilt as code.** OPENED 2026-09-19 by the P7.6 verification pass,
+      which found that three groups of README numbers had no code anywhere in the repository,
+      ever: the descent angle, the sd chain 4.97 -> 4.76 -> 4.64 (the "4%" and "2.5%" the
+      README and the video OPEN with), and the Goldsberry side bias. Commit 580f6b7 added
+      fifty lines of this file and not one line of source, and the word "descent" never
+      appeared in `src/`, `scripts/` or `tests/` in the whole history. It is exactly the hole
+      P7.2 had to fill for findings 1 and 3, left open in the two places that carry the
+      headline. Javier's call, with the three options measured: rebuild, freeze, and spend a
+      held-out read on it.
+      **The quantity**: the ENTRY ANGLE, how steeply the ball falls through rim height on the
+      INCOMING flight, before it touches anything. `ball_entry_table` in `scbasket.tagging`,
+      graded by `scripts/rebound_flight.py`. The record's own definition is gone with the
+      scratchpad, so this is a new measurement of the same idea and not a reproduction: it
+      reports a median of 43.4 deg against the record's 34.9. A LEVEL like that is a property
+      of the definition (the median moves 47.3 -> 38.7 with the fitting window alone), so
+      every claim is built on the ORDERING, which barely moves (Spearman 0.96 between a
+      3-frame and an 8-frame window).
+      **Effect available on calibration, measured BEFORE the bar was written** (lesson 3), on
+      409 rebounds of which 300 have an angle and 256 also have both locations:
+      Spearman(shot distance, entry angle) = +0.000, so it is genuinely new information;
+      Spearman(entry angle, landing radius) = **-0.330**, negative in FIVE of five calibration
+      games (-0.187, -0.592, -0.331, -0.216, -0.279); residual sd of the landing radius under
+      the frozen coefficients 4.725 knowing nothing, 4.604 knowing the shot's distance, 4.276
+      knowing the entry angle too. **This contradicts finding 5**, which reported +0.018 here
+      and retired the ball as useless.
+      **CRITERION**, frozen with the coefficients before any held-out game is read (D11),
+      relative so there is nothing left to move (D13). Coefficients fitted on calibration and
+      NOT refitted. On the held-out games: (1) the frozen model that reads the entry angle
+      leaves a smaller residual sd of the landing radius than the frozen model that reads only
+      the shot's distance; (2) Spearman(entry angle, landing radius) is negative in at least
+      FOUR of the five games taken separately. Lesson 1 is built INTO the bar this time rather
+      than applied to it afterwards, which is what P7.3's top-1 condition bought.
+      **Tests**: 14 synthetic plus 1 on the calibration games. The one that matters is the
+      circularity guard, `test_the_angle_is_the_incoming_flight_and_never_the_bounce_that_
+      follows`: reading the angle after the bounce would predict where the ball lands from the
+      ball already travelling there. Five deliberate mutations (crossing taken after the
+      bounce, the angle's legs swapped, the whole descent fitted, the apex clearance dropped,
+      a middle shot given a side) were all caught.
+      **Side bias (finding 4) rides along as a DESCRIPTIVE table**, `side_bias_table`, no
+      criterion: it is a share and was always reported as one. It keeps middle-of-the-floor
+      shots, which contribute a near coin flip and pull every share toward 0.5, so it
+      UNDERSTATES a bias rather than manufacturing one. On calibration that gives inside 16 ft
+      0.424, 16-22 ft 0.448, threes 0.504, against the record's 0.302 / 0.475 / 0.494 under a
+      definition that is gone. Same direction inside 16 ft, weaker.
+      STATE AT THE FREEZE: 246 tests without the `data` marker, 16 with it, ruff clean, no
+      held-out game read for this question yet.
 - [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
+      IN PROGRESS 2026-09-19. Mechanical half done and passing: 247 tests (before P7.7),
+      ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
+      alone, no data or secrets tracked, README 995 words and two figures, licences checked in
+      all four layers, and every zone / contest / lift / angle-curve number in the README
+      reproduced by RUNNING the scripts. It is this pass that opened P7.7.
 
 Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final
 17 Feb 2027 in Paris.

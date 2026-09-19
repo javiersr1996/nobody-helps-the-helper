@@ -459,3 +459,134 @@ def rebound_zone_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFr
         "three": rebounds["shotId"].map(by_id["three"]).astype("boolean").to_numpy(),
         "defensive": rebounds["defensive"].astype("boolean").to_numpy(),
     })
+
+
+# ------------------------------------------------- the ball's entry angle at the rim (P7.7)
+
+RIM_HEIGHT_FT = 10.0
+#: Frames of fall fitted for the angle, about 0.2 s at 25 fps. It is a chord over the last
+#: part of the descent rather than a two-frame derivative, which at this frame rate is mostly
+#: noise. The ORDERING it produces barely moves with this number (Spearman 0.96 between a
+#: 3-frame and an 8-frame window on the 300 calibration rebounds that have one); the median
+#: angle does, from 47.3 to 38.7 degrees, so the level is a property of the definition and
+#: only the ordering is a property of the ball. Every claim here is built on the ordering.
+ENTRY_WINDOW_FRAMES = 5
+#: Above this the ball did not fly from the shot to the rebound. 4 s at 25 fps.
+MAX_ENTRY_FLIGHT_FRAMES = 100
+#: Below this the window cannot hold an apex and a fall.
+MIN_ENTRY_FLIGHT_FRAMES = 6
+#: The apex has to clear the rim by this much or the ball never came DOWN to rim height.
+MIN_APEX_CLEARANCE_FT = 0.5
+
+ENTRY_COLUMNS = ("rebound_id", "shot_id", "entry_angle", "apex_ft", "flight_frames", "reason")
+
+
+def _entry_angle_of(ball: np.ndarray) -> tuple[float, float, str]:
+    """(angle, apex, reason) for one flight's (K, 3) ball track, from release to rebound.
+
+    The angle is measured where the ball first falls back through rim height AFTER its apex,
+    so it is the INCOMING trajectory: the ball has not touched the rim yet. Measuring after
+    the bounce would predict the landing spot from the ball already on its way there, which
+    is circular, and that is the one mistake this function exists to avoid.
+    """
+    z = ball[:, 2]
+    apex = int(np.argmax(z))
+    if z[apex] < RIM_HEIGHT_FT + MIN_APEX_CLEARANCE_FT:
+        return np.nan, float(z[apex]), "no arc above the rim"
+
+    below = np.flatnonzero(z[apex:] < RIM_HEIGHT_FT)
+    if below.size == 0:
+        return np.nan, float(z[apex]), "never falls back to rim height"
+
+    crossing = apex + int(below[0])
+    seg = np.arange(max(apex, crossing - ENTRY_WINDOW_FRAMES), crossing + 1)
+    if seg.size < 3:
+        return np.nan, float(z[apex]), "fall too short to fit"
+
+    drop = float(z[seg[0]] - z[seg[-1]])
+    if drop <= 0:
+        return np.nan, float(z[apex]), "not falling"
+    run = float(np.linalg.norm(ball[seg[-1], :2] - ball[seg[0], :2]))
+    angle = 90.0 if run == 0 else float(np.degrees(np.arctan2(drop, run)))
+    return angle, float(z[apex]), ""
+
+
+def ball_entry_table(
+    frames: GameFrames, shots: pd.DataFrame, rebounds: pd.DataFrame
+) -> pd.DataFrame:
+    """One row per rebound: how steeply the ball was falling when it reached rim height.
+
+    Columns are `ENTRY_COLUMNS`. `entry_angle` is degrees below horizontal, 0 for a ball
+    arriving flat and 90 for one dropping vertically, measured on the incoming flight before
+    the ball touches anything. `reason` says why an angle is NaN and is empty when there is
+    one, so a caller counts the losses instead of inferring them.
+
+    The flight is the cached live frames from the shot's `endFrame` to the rebound's `frame`.
+    Frames D12 already dropped are simply absent, which is why a flight can be too short.
+
+    Like every other quantity in this module it is a DEFINITION, not a detector: it describes
+    a trajectory and asserts nothing about anyone's intention.
+    """
+    by_id = shots.set_index("id")["endFrame"] if len(shots) else pd.Series(dtype=float)
+    row_of = {int(f): i for i, f in enumerate(frames.frame_idx)}
+    ball = frames.ball.astype(np.float64)
+
+    rows = []
+    for rebound_id, shot_id, frame in zip(
+        rebounds["id"], rebounds["shotId"], rebounds["frame"], strict=True
+    ):
+        row = {"rebound_id": rebound_id, "shot_id": shot_id, "entry_angle": np.nan,
+               "apex_ft": np.nan, "flight_frames": 0, "reason": "no shot or no frame"}
+        release = by_id.get(shot_id, np.nan) if pd.notna(shot_id) else np.nan
+        if pd.notna(release) and pd.notna(frame):
+            lo, hi = int(release), int(frame)
+            want = [row_of[f] for f in range(lo, hi + 1) if f in row_of]
+            row["flight_frames"] = len(want)
+            if hi - lo > MAX_ENTRY_FLIGHT_FRAMES:
+                row["reason"] = "flight too long to be one"
+            elif len(want) < MIN_ENTRY_FLIGHT_FRAMES:
+                row["reason"] = "too few cached frames"
+            else:
+                angle, apex, reason = _entry_angle_of(ball[want])
+                row.update(entry_angle=angle, apex_ft=apex, reason=reason)
+        rows.append(row)
+    return pd.DataFrame(rows, columns=list(ENTRY_COLUMNS))
+
+
+# --------------------------------------------------------------- which side it lands on (P7.7)
+
+
+def side_bias_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFrame:
+    """One row per rebound: the side the shot came from, the side it landed on, and `opposite`.
+
+    Sides are the sign of y in the attacking frame, which court.py establishes the event
+    locations are already in. A shot from the middle of the floor has no meaningful side and
+    is kept anyway, contributing close to a coin flip: that pulls every share toward 0.5 and
+    therefore UNDERSTATES any bias rather than manufacturing one. No minimum |y| is applied,
+    because a threshold there is a free parameter and this is a descriptive table.
+
+    `opposite` is pd.NA where either location is missing or either y is exactly zero.
+    """
+    by_id = shots.set_index("id")
+    loc = rebounds["shotId"].map(by_id["location"])
+    shot_xy = np.full((len(rebounds), 2), np.nan)
+    have = loc.notna().to_numpy()
+    if have.any():
+        shot_xy[have] = np.array(loc[have].tolist(), dtype=float)
+    reb_xy = np.full((len(rebounds), 2), np.nan)
+    have_reb = rebounds["location"].notna().to_numpy()
+    if have_reb.any():
+        reb_xy[have_reb] = np.array(rebounds["location"][have_reb].tolist(), dtype=float)
+
+    shot_y, reb_y = shot_xy[:, 1], reb_xy[:, 1]
+    opposite = np.sign(shot_y) != np.sign(reb_y)
+    unknown = np.isnan(shot_y) | np.isnan(reb_y) | (shot_y == 0) | (reb_y == 0)
+    return pd.DataFrame({
+        "rebound_id": rebounds["id"].to_numpy(),
+        "shot_id": rebounds["shotId"].to_numpy(),
+        "shot_y": shot_y,
+        "reb_y": reb_y,
+        "shot_dist": hoop_distance(rebounds["shotId"].map(by_id["location"])),
+        "three": rebounds["shotId"].map(by_id["three"]).astype("boolean").to_numpy(),
+        "opposite": pd.Series(opposite, dtype="boolean").mask(unknown),
+    })
