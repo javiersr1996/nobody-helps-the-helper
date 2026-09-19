@@ -8,9 +8,9 @@ the Liga ACB 2025-26.
 **The ball is barely legible, and only to a camera.** Knowing where the shot came from cuts
 the spread of where it lands by 2.6% (sd 4.73 to 4.60 ft fitted, 4.84 to 4.70 on five games
 never touched). The angle the ball arrives at, recovered here from broadcast tracking as it
-falls through rim height, is the only other thing that helps:
-another 7.1% fitted and 4.0% held out, with a rank correlation against the landing radius of
--0.330 and **-0.353**, negative in five of five games in **both** halves. A flatter ball
+falls through rim height, is the only other thing that helps: another 7.1% fitted and 4.0%
+held out, with a rank correlation against the landing radius of -0.330 and **-0.353**,
+negative in five of five games in **both** halves. A flatter ball
 carries further. And after all of that the landing point still has a spread of **4.5 ft**,
 most of the zone. The angle is measured after the fact: nothing here says a player can use it
 in the half second they get.

@@ -376,6 +376,23 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       upstream, it touches only the superseded F1b path, and nothing in the deliverable
       imports scikit-learn, so the fix is not worth carrying: the README does not ask anyone
       to install that extra.
+      **Adversarial review, lens 1 of 3 (the pre-registration), came back NOT REFUTED.** Run
+      by a fresh reviewer with the instruction to refute and to default to refuted if
+      uncertain, because the author of a claim is the worst judge of it. What it found:
+      `git diff cdb3cd5 32c30ec -- src/scbasket/tagging.py scripts/rebound_flight.py` is
+      EMPTY, so no threshold or coefficient moved between the freeze and the held-out read;
+      the CSV committed at the freeze carries only the five calibration games; and
+      `git log -S"entry_angle" --all` returns `cdb3cd5` alone, so the quantity did not exist
+      before it. Then the test this entry did not think to run: shuffling `entry_angle` among
+      the held-out rows 200 times, condition 1 passes 0 of 200, condition 2 passes 47 of 200
+      (about the binomial rate), and **both together 0 of 200**. So the bar cannot be cleared
+      by chance, which is the opposite failure to P7.2's, where the bar could not be cleared
+      at all. Its one open point, raised as suspicious rather than as a refutation: the
+      held-out -0.117 dependence on shot distance is in this record but not in the README.
+      Checked and left as it is, because the README makes no independence claim: its "another
+      7.1% and 4.0%" is the gain of the frozen model that ALREADY holds shot distance, so the
+      omission cannot overstate anything. Two more lenses (measurement artefact and
+      circularity; README against code) were still running when this was written.
 
 Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final
 17 Feb 2027 in Paris.
