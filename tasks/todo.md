@@ -118,7 +118,7 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       against 0.168 constant, a wider margin than calibration showed. (2) PASS: overall
       coverage 0.760, gap 0.010. (3) **FAIL**: mean area 222.9 sq ft against the constant
       zone's 201.1. Findings 1 and 3 replicate: median 4.93 ft held out against 4.81
-      calibration, Spearman +0.367 against +0.336, both the recorded figures.
+      calibration (the held-out figure is 4.9248 and rounds to 4.92: see the audit below), Spearman +0.367 against +0.336, both the recorded figures.
       **Verdict FAIL, and the fault is in the bar, not in the data.** Condition 3 was already
       failing on the calibration half when it was written: the probe that produced the effect
       size printed 211 against 201, and the bar was written anyway. That is lesson 4's
@@ -270,6 +270,34 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       cuatro sondas y se cerró, todas negativas. Ambas son calibración, nada congelado, ningún
       held-out abierto, nada commiteado fuera de esta nota. Detalle en la memoria del proyecto,
       `ayudas-defensivas-descartada`.
+      **Las cuatro sondas, con sus cifras, porque el README apunta aquí y esto tiene que poder
+      leerse en un clon del repositorio** (añadido 2026-09-19: hasta hoy esta entrada remitía a
+      la memoria del proyecto, que no viaja con `git clone`, y un jurado que siguiera el puntero
+      no encontraba nada). Todo es calibración, nada congelado, ningún held-out abierto, y no
+      hay una línea de código en el repo porque la dirección se cerró antes de escribirlo.
+      1. **Orden de ayuda medido geométricamente** (el defensor se aleja de su hombre mientras
+         cierra hacia el balón): el primero en romper coincide con el defensor al que el
+         proveedor le apunta el closeout el 26,5% de las veces, contra un 25,0% de azar. La
+         versión escala-libre (coseno de la velocidad, reutilizando `approach_angles`) arregla
+         el sesgo de distancia pero marca dos o más rompedores en el 72% de las penetraciones,
+         porque durante un drive todo el mundo deriva hacia el balón.
+      2. **Orden tomado de la etiqueta del proveedor** (varios closeouts en la misma jugada):
+         31 jugadas con dos o más en calibración, 8 con tres. No hay muestra para un ordinal.
+      3. **Ayuda -> mala colocación para rebotear**: una ayuda comprime a los dos equipos hacia
+         el aro casi igual (defensa -0,371, ataque -0,342 en unidades de zona dentro de 8 ft),
+         así que la ventaja relativa no se mueve. Y el box-out está en su techo: 4,4 de 5
+         defensores ya están entre su hombre y el aro, haya habido ayuda o no.
+      4. **Puntear el tiro -> perder el rebote**: el signo es el correcto y el efecto es nulo
+         una vez descontada la posición. Metida como variable en el modelo condicional de P7.3
+         da coeficiente -0,178 y sube la log-verosimilitud de -1,8583 a -1,8571, +0,001 por
+         rebote. Puntear cuesta rebote a través de DÓNDE acabas colocado, que el modelo ya veía.
+      Lo que quedó vivo por si se reabre: los closeouts como evento etiquetado (unos 600 en los
+      diez partidos, distancias 13,7 -> 10,9 -> 4,9 ft), el recuento de colapso por drive, que
+      se mueve con la etiqueta `blowby` del proveedor (1,64 contra 1,40), y una observación sin
+      explotar: el que cierra es MENOS probable que el azar de haber sido el defensor más
+      cercano (14% contra 25%), o sea ayuda el lado débil y no el contiguo. Caveat: celdas de 36
+      a 84 casos, así que un efecto pequeño no se habría visto; lo que sostiene el cierre son
+      cuatro encuadres independientes dando lo mismo, no cada uno por separado.
 - [x] **P7.7 The ball, rebuilt as code.** OPENED 2026-09-19 by the P7.6 verification pass,
       which found that three groups of README numbers had no code anywhere in the repository,
       ever: the descent angle, the sd chain 4.97 -> 4.76 -> 4.64 (the "4%" and "2.5%" the
@@ -399,9 +427,9 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       is this pass that opened P7.7. README now 999 words of 1000 and two figures.
       **Found by cloning the repo and following the README as a judge would**: the test count
       the README quoted was the one from THIS machine's environment, not the one a clean
-      install produces. `uv sync --extra dev` collects 239 tests, of which 225 pass, 1 skips
-      (it needs the `forward` extra) and 14 are deselected (they need the dataset). The 262
-      tests quoted before only collect where matplotlib and scikit-learn are already present.
+      install produces. `uv sync --extra dev` collects 241 tests, of which 227 pass, 1 skips
+      (it needs the `forward` extra) and 14 need the dataset. The larger counts quoted before
+      only collect where matplotlib and scikit-learn are already present.
       The README now states the clean-install numbers.
       **Known environment limitation, recorded and not fixed**: `uv sync --extra forward` on
       Python 3.14 builds scikit-learn from source and the build lands incomplete
@@ -410,6 +438,39 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       upstream, it touches only the superseded F1b path, and nothing in the deliverable
       imports scikit-learn, so the fix is not worth carrying: the README does not ask anyone
       to install that extra.
+      **Adversarial review, lens 3 of 3 (the README against the code), came back REFUTED, and
+      it was right on every count.** Checked here before accepting, all confirmed:
+      (1) the README opened with "sd 4.73"; the value is 4.724858, which rounds to **4.72**.
+      (2) it said the held-out median landing radius is 4.93 ft; it is 4.924779, which rounds
+      to **4.92**. That digit came from THIS FILE, where the P7.2 entry rounded the 3-decimal
+      display 4.925 upward, so the record carried the error into the deliverable. Both are
+      corrected in the README; the P7.2 entry keeps its number with this note beside it.
+      (3) the README pointed at `tasks/todo.md` for the defensive-help detail and this file
+      pointed at a memory that does not travel with `git clone`. The four probes now live in
+      this file, above, with their numbers.
+      (4) the README glossed the conditional model's fifth feature as "team" when the code
+      calls it `offense`, attacker or defender rather than which team: reworded.
+      Its "clean" list is the useful half: the zone formula, both criteria CSVs, the lift and
+      P(win) values, the game ids, the three freeze hashes, the figures being versioned and the
+      word count all reproduce at the digit.
+      **Test counts corrected again** (they had aged two tests in a day): a clean clone with
+      `uv sync --extra dev` and no dataset collects 241, of which 227 pass, 14 are the
+      dataset's and 1 needs the `forward` extra.
+      **Lens 1's remaining half, delivered after the verdict, adds the sharpest point of the
+      three**: the frozen criterion could not have discriminated. `run` alone, the denominator,
+      passes condition 2 with the opposite sign in 5 of 5 calibration games (+0.548, +0.722,
+      +0.494, +0.547, +0.519) and 5 of 5 held out (+0.611, +0.709, +0.388, +0.663, +0.504),
+      and beats condition 1's bar more comfortably than the angle does (residual sd 4.079
+      against the angle's 4.511, and the crossing position 3.854). A bar that the angle and its
+      own denominator clear equally cannot tell them apart, which is the question in dispute.
+      That is lesson 2's failure in a new shape: the test COULD fail, and still could not
+      answer. Also from lens 1, and recorded because it is the only thing that came back clean:
+      **selection is not related to the outcome**. Landing radius for rebounds with an angle
+      against without: calibration median 5.42 against 4.45, held out 5.21 against 4.36,
+      Mann-Whitney p = 0.31 and 0.40. And trimming the 10% most extreme angles at each end
+      leaves -0.213 and -0.271, so the association is not a tail artefact either. It dies only
+      where it should: controlling for the crossing position, or restricting to entries that
+      really happen at the rim (-0.070 at p = 0.63, -0.042 at p = 0.78).
       **Adversarial review, lens 1 of 3 (the pre-registration), came back NOT REFUTED.** Run
       by a fresh reviewer with the instruction to refute and to default to refuted if
       uncertain, because the author of a claim is the worst judge of it. What it found:

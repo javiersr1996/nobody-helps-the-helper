@@ -5,13 +5,13 @@
 **Thesis: the rebound is not read, it is occupied.**
 
 **The ball is barely legible.** Knowing where the shot came from cuts the spread of where it lands
-by 2.6% (sd 4.73 to 4.60 ft fitted, 4.84 to 4.70 held out). The ball's own flight cuts more, and a
+by 2.6% (sd 4.72 to 4.60 ft fitted, 4.84 to 4.70 held out). The ball's own flight cuts more, and a
 pre-registered test of it passed held out. Then this repository refuted what it meant. The
-quantity was the angle the ball arrives at, which is arctan(drop / run), and only the denominator
-predicts: how far the ball is still carrying sideways when it reaches rim height (rho +0.57) and
-how far from the rim it gets there (+0.64). Steepness alone points the other way, +0.17 and +0.22.
-Hold those two and the angle keeps **-0.04 and -0.01** of the landing radius, which is nothing. A
-ball still heading outward lands outward: that is geometry, not a read.
+quantity was the angle the ball arrives at, arctan(drop / run), and only the denominator predicts:
+how far the ball is still carrying sideways when it reaches rim height (rho +0.57) and how far
+from the rim it gets there (+0.64). Steepness alone points the other way, +0.17 and +0.22. Hold
+those two and the angle keeps **-0.04 and -0.01** of the landing radius, which is nothing. A ball
+still heading outward lands outward: geometry, not a read.
 
 **What a player controls is their heading, inside a small zone.** Within 4 ft of the rim, arriving
 rimward (under 60 deg) lifts the chance of winning the board by **+0.172** on the five calibration
@@ -43,15 +43,15 @@ committed before a held-out game was opened (`1e670ea`, `194f5c6`, `cdb3cd5`).
 **The shot-scaled zone.** r(d) = 5.40 + 0.180·d feet, d the shot's distance to the rim, fitted by
 pinball loss at q = 0.75 on 325 located calibration rebounds. Held out it holds coverage 0.760 and
 cuts the drift across shot-distance bands to 0.039, against the constant 8 ft band's 0.168.
-Rebounds land a median 4.81 / 4.93 ft from the rim, and the radius scales with the shot: Spearman
+Rebounds land a median 4.81 / 4.92 ft from the rim, and the radius scales with the shot: Spearman
 +0.336 / +0.367.
 
 **Who wins among the ten present.** Exactly one of ten wins each rebound, so ten independent
 probabilities is the wrong structure. A conditional logit over the ten on court, scored half a
-second before the ball is won, on distance in zone units, heading, speed and team. Coefficients
-frozen on calibration, not refitted. On 285 graded held-out rebounds it puts **-1.829** of log
-probability per rebound on the player who won, against the distance-only model's -1.912, and the
-gain holds in **five games of five**.
+second before the ball is won, on distance in zone units, heading, speed, and whether they are
+attacking or defending. Coefficients frozen on calibration, not refitted. On 285 graded held-out
+rebounds it puts **-1.829** of log probability per rebound on the player who won, against the
+distance-only model's -1.912, and the gain holds in **five games of five**.
 
 ## The negatives, which are part of the claim
 
@@ -94,10 +94,10 @@ uv run python scripts/rebound_contest.py                # --fit re-derives the b
 uv run python scripts/rebound_flight.py                 # --fit reads calibration only
 uv run python scripts/angle_tradeoff.py
 uv run --extra figures python scripts/figures.py
-uv run pytest                    # 225 pass; 14 need the dataset, 1 the forward extra
+uv run pytest                    # 227 pass; 14 more need the dataset, 1 the forward extra
 ```
 
-Every number above lands in a `reports/*.csv`. The package runs on pandas and numpy alone.
+Every number above lands in a `reports/*.csv`; the package runs on pandas and numpy alone.
 
 ## Data and licence
 
