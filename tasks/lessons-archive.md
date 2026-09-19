@@ -18,3 +18,11 @@ correct with how precise the tracking is. P1.5 asked a space model to beat `clos
 at recovering a distance-derived label, above that variable's own 0.775 ceiling.
 **How to apply:** re-specify to the quantity it meant and record the rewrite.
 (Archived 2026-09-17, folded into the threshold lesson in lessons.md.)
+
+## Superseded 2026-09-19 by "Check what the quantity is made of"
+## Check the test can fail before you run it
+**Why:** the estimated velocity correlated 0.99995 with the provider's `speed`, one derivative
+computed twice; the control field's AUC matched `closestDefDist`'s against a label derived from
+it; and 4.4 of 5 defenders sat between their man and the rim whether or not anyone helped.
+**How to apply:** ask what would have to be true for the two numbers to disagree, and print
+every quantity's spread first.
