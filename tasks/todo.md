@@ -428,6 +428,115 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       (see P7.7) and four README defects, all fixed. Every number either reviewer produced was
       recomputed here before it was accepted. The pass that the first lens could not break is
       the D11 discipline itself.
+- [ ] **P7.8 The interactive page.** OPENED 2026-09-19 on the user's call: the analysis gets
+      an output a judge can click through, a single self-contained HTML page in SkillCorner's
+      own house style (black ground, the lime `#c8ff6a` and green `#00a82f` of their CSS
+      variables, their wordmark for attribution only), with no CDN and no network at open
+      time. It REPLACES nothing. The competition asks for one video, a README of at most
+      1000 words and at most two figures, and those stay exactly as they are; the page is an
+      extra the README links in one line.
+      **Design, decided before writing**: `src/scbasket/report.py` becomes the one place the
+      banded tables are computed (the lift of a rimward heading by distance, P(win) by angle
+      inside the fixed band, and the cluster bootstrap over the five games of each half).
+      `scripts/figures.py` loses its private copies and imports them; `scripts/report_html.py`
+      reads the same tables plus the criterion CSVs and injects them as JSON into
+      `scripts/report_template.html`. Not one number is typed into the page: every value on
+      screen is read off a `reports/*.csv` (lesson 1). Slide 2 of the video still types three
+      pairs of correlations by hand and is noted here, not fixed in this task.
+      **The simplification, which is the second half of the ask**: the cluster bootstrap is
+      2000 pandas `groupby`s per half per figure, 1m34 for two PNGs, and the page would have
+      paid the same bill a second time. Resampling five GAMES only ever sums five rows of
+      per-game counts, so the whole bootstrap is an integer index into a small array. Same
+      seed, same draws (verified first: `rng.choice(size=(2000, 5))` consumes the stream
+      exactly as 2000 calls of `size=5`), so the intervals do not move and the two committed
+      PNGs stay as they are.
+      **RESULT 2026-09-19, after the user rejected the first build as not worth reading.**
+      The verdict was "either it grabs attention immediately or nothing", with two demands:
+      draw the results ON a court, and make them move. Both were answerable with data already
+      in the repository, which is the only reason they were done:
+      - `rebound_zone_table` now also returns `reb_x`, `reb_y`, `shot_x`, `shot_y`, the
+        published event locations it was already reducing to two distances. Nothing is
+        reconstructed and no number moved: `reports/rebound_zone_criterion.csv` is identical
+        after the rebuild. The page draws its court out of these.
+      - `scripts/court_scenes.py` writes `reports/court_scenes.json`: eight whole rebounds as
+        tracking, the ten players and the ball from the shot to half a second after the ball
+        is won, with the frozen model's ten probabilities attached. The clips are chosen by a
+        rule, half of them ones the model ranks first and half ones it gets wrong, so the page
+        cannot show only the flattering ones. No player id, name or number is written.
+      - **The check that earned its place**: two of the first eight clips had the winner 71 ft
+        from the ball. Orientation is a property of the possession, and the frames after a
+        defensive rebound already belong to the other team attacking the other hoop, so a clip
+        that ran past the rebound mirrored itself halfway through. Fixed by cutting the clip
+        to the rebound's own chance, and the check stayed in as a gate: a clip ships only if
+        the winner is within 3 ft of the published landing point. On the eight that ship the
+        worst gap is 0.60 ft, which is also an independent check of the orientation, the frame
+        alignment and the slot order all at once.
+      - The page leads with that clip running, and its first interaction is the reader picking
+        who wins from the frame the model sees, before the model's ten probabilities are
+        revealed on the court. The two figures, the zone, the ball and the record follow.
+      **The three-point line was wrong in the first draft** and was found by measuring rather
+      than by looking: the arc was drawn with SVG's small-arc flag, so its apex sat 10 ft
+      short. The rendered path's bounding box is now checked against the geometry computed
+      from `court.py`'s constants, and matches to the hundredth of a foot.
+      **What the README paid**: it was at 999 words of 1000. The page and its two run lines
+      cost 16, so the Goldsberry bullet's supporting numbers (other threes 0.528 / 0.557,
+      inside 16 ft 0.424 / 0.477) came out of the README and went ONTO the page, where there
+      is no word limit. Nothing left the deliverable.
+      **One claim on the page was false and was corrected, not deleted**: the byline said every
+      number on the page is read from a CSV. The charts and tables are; the negatives quote
+      figures from this record that have no CSV of their own. The byline now says which is
+      which, rather than the page quietly failing its own standard (lesson 1).
+      **Still not done, and deliberately**: slide 2 of the video still types the three pairs of
+      carry correlations by hand instead of reading `reports/rebound_flight_carry.csv`. It is
+      the same defect the page just fixed for itself, in the other output, and it is left here
+      as the next thing to do rather than folded into this task.
+      **`/simplify` over the whole output layer, 2026-09-19.** Four reviewers, one per angle,
+      on the diff. Applied:
+      - the cluster bootstrap is vectorised over the five per-game counter rows instead of
+        2000 `pd.concat`s per half per figure: **1m34 to 3.9 s**, and the two committed PNGs
+        are BYTE-IDENTICAL to the ones in `HEAD` afterwards, which is the proof that the
+        intervals did not move.
+      - `scbasket.report` now also owns the pooled angle curve, which `figures.py` and
+        `report_html.py` had a copy of each.
+      - one `scripts/_record.py` reads the freeze commits for both the video's last slide and
+        the page's last section; there were two keyword lists, free to drift.
+      - the court geometry is no longer typed into the template: `scripts/report_html.py`
+        ships `dataclasses.asdict(court.FIBA)` in the payload and the page reads all eight
+        measurements from it. `ra_radius_ft` is FITTED by `scripts/fit_zone_geometry.py`, so
+        a refit would have left the page drawing the old restricted area for ever.
+      - `FLAT_ZONE_FT` and `MAX_COVERAGE_GAP` moved from `scripts/rebound_zone.py` into
+        `scbasket.tagging` beside `ZONE_COVERAGE`, because the page states them too. The
+        grader re-run after the move writes `reports/rebound_zone_criterion.csv` identical to
+        the committed one, so nothing about the pre-registration moved with them.
+      - smaller: the per-frame `getElementById` and the per-frame DOM read of a radius are
+        both hoisted; one `IntersectionObserver` per bar block instead of a new one per
+        filter click; `_coordinates` is now the single location parser in `tagging.py`
+        (`side_bias_table` had its own copy).
+      Skipped, with the reason: factoring the "grade one game with the frozen model" sequence
+      out of `rebound_contest.py` (the grader is frozen and the shared part is already
+      `rebound_choice_set`), and replacing the `half = "calibration" if ... else "held out"`
+      line in three other scripts (a pre-existing pattern in files this work does not touch).
+      **THE HOLE THE USER FOUND, 2026-09-19, and it was the right one.** Asked what happened
+      to the defensive transition, and said the answer as it stood gave them nothing. They
+      were right twice over. The F6 verdict above says it plainly: **a strong replicated buy
+      side and NO established cost side** (`break_area` moves 2% and the halves disagree at
+      n_committed 0, 515.6 against 490.6; `next_pts` moves the OTHER way, 0.919 to 0.562;
+      n_committed 4 and 5 have 2 to 4 usable rebounds). That verdict was in this file and in
+      `reports/angle_tradeoff.csv` and in NEITHER deliverable. An entry that says "occupy the
+      glass" without saying it could not price what that costs is quietly overclaiming, which
+      is the one thing this repository is built not to do.
+      Now: the page carries the whole bucketed table (`D.cost`, straight from
+      `reports/angle_tradeoff.csv`, both halves, n_committed 0 to 3) under the heading a coach
+      would use, and the README carries it as a negative. It was paid for at 1000 words by
+      dropping three run-block comments each script's `--help` already prints and one gloss
+      the ball paragraph had already made; the defensive-help bullet gave up its README line
+      and gained its two real numbers ON the page (26.5% against 25.0% by chance; the
+      compression -0.371 against -0.342), where it had been asking to be trusted.
+      **And a defect I wrote myself, caught in the same pass**: the new caption said "what
+      does crashing cost you". `crash` is a banned word in every deliverable under the intent
+      ruling, and the first place it appeared was the sentence about a coach's decision, which
+      is exactly where it is easiest to write. Reworded, and the page now says so out loud
+      where it would have been easiest to slip.
 - [ ] **What is left before submitting** (deadline 18 Dec 2026, about 13 weeks):
       1. **Record the minute of video.** The picture is built and timed
          (`scripts/video_slides.py`, `tasks/video_script.md`, 141 spoken words, a 60.000 s
@@ -437,7 +546,14 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
          sixth slide drawing the shot-scaled zone on a court. Neither is needed for a complete
          entry.
       3. **Decide whether anything else ships.** The entry is complete as it stands: README,
-         two figures, the derived layer, the record, and a video waiting for a voice.
+         two figures, the derived layer, the record, the interactive page, and a video
+         waiting for a voice.
+      4. **Two checks on the page that this machine could not run** (P7.8, 2026-09-19):
+         the phone layout, because the browser driven here does not change its render
+         viewport, so the 900 px breakpoint is written and never seen; and the replay at 60
+         fps, because a background tab throttles the frame callback, so the state machine was
+         asserted from the console instead of watched. Both want two minutes on a real phone
+         and a real window before submitting.
       IN PROGRESS 2026-09-19. Mechanical half done and passing: 247 tests (before P7.7),
       ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
       alone, no data or secrets tracked, licences checked in all four layers, and every zone /
@@ -506,6 +622,30 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       7.1% and 4.0%" is the gain of the frozen model that ALREADY holds shot distance, so the
       omission cannot overstate anything. Two more lenses (measurement artefact and
       circularity; README against code) were still running when this was written.
+
+### TWO NOTES FROM THE SIBLING PROJECT, 2026-09-19, both measured elsewhere
+Measured in `skillcorner_screens`, a separate repository that shares only the public
+bundle. Neither changes a number here; both change what can be said.
+
+**1. The rules were re-read at source and one of them is stricter than this record says.**
+The README limit is "a maximum of two figures OR TABLES in total, in any combination",
+not two figures. Checked: this README carries two figures and no tables, so it complies,
+but there is no room for a table. Also confirmed and not previously written down: one
+basketball entry per region and no entering both regions; remote talks are not accepted,
+so the Paris final needs someone there in person and travel is not reimbursed; and
+finalists may receive additional ACB 2025/2026 data under a EULA between 8 January and
+the final.
+
+**2. The tracking's effective time resolution is 200 ms, not 40 ms.** Player and ball
+tracks change slope every five frames: 46.6% of second differences are exactly zero for
+fully detected players, and the autocorrelation of the acceleration peaks at lag 5 and
+again at lag 10, in detected tracks, extrapolated tracks and the ball alike. P7.7 fits
+the ball's entry angle over windows of 3 to 8 frames, that is 120 to 320 ms, at or below
+the solution interval, so that quantity is partly fitted to interpolation. It is already
+refuted on other grounds and ships qualified; this is a second, independent reason, and
+it explains the window dependence P7.7 recorded and could not account for (the median
+moving 47.3 to 38.7 degrees with the fitting window alone). The headline is safe: the
+approach heading is measured over 0.48 s, which is two and a half solution intervals.
 
 Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final
 17 Feb 2027 in Paris.
