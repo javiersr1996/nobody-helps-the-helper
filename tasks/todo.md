@@ -349,9 +349,22 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
 - [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
       IN PROGRESS 2026-09-19. Mechanical half done and passing: 247 tests (before P7.7),
       ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
-      alone, no data or secrets tracked, README 995 words and two figures, licences checked in
-      all four layers, and every zone / contest / lift / angle-curve number in the README
-      reproduced by RUNNING the scripts. It is this pass that opened P7.7.
+      alone, no data or secrets tracked, licences checked in all four layers, and every zone /
+      contest / lift / angle-curve number in the README reproduced by RUNNING the scripts. It
+      is this pass that opened P7.7. README now 999 words of 1000 and two figures.
+      **Found by cloning the repo and following the README as a judge would**: the test count
+      the README quoted was the one from THIS machine's environment, not the one a clean
+      install produces. `uv sync --extra dev` collects 239 tests, of which 225 pass, 1 skips
+      (it needs the `forward` extra) and 14 are deselected (they need the dataset). The 262
+      tests quoted before only collect where matplotlib and scikit-learn are already present.
+      The README now states the clean-install numbers.
+      **Known environment limitation, recorded and not fixed**: `uv sync --extra forward` on
+      Python 3.14 builds scikit-learn from source and the build lands incomplete
+      (`sklearn.metrics._pairwise_distances_reduction._middle_term_computer` missing), so the
+      four F1b grading tests fail there while they pass against a wheel install. It is
+      upstream, it touches only the superseded F1b path, and nothing in the deliverable
+      imports scikit-learn, so the fix is not worth carrying: the README does not ask anyone
+      to install that extra.
 
 Deadline 18 Dec 2026, about 13 weeks from this plan. Finalists 8 Jan 2027, European final
 17 Feb 2027 in Paris.

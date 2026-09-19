@@ -26,7 +26,7 @@ games never touched.
 
 ![Lift of a rimward heading by distance to the rim](reports/figures/figure_1_lift_by_distance.png)
 
-Both halves on the same axes, because the replication is the argument. Intervals are a cluster
+Both halves on the same axes: the replication is the argument. Intervals are a cluster
 bootstrap over the five games of each half, not over rebounds: those are not independent inside
 a game, and five clusters is few, so the bands are crude.
 
@@ -39,7 +39,7 @@ the figure says so.
 
 ## How it was tested
 
-Ten games, split once and never pooled: **calibration** 114243, 114234, 114169, 114099, 114086;
+Ten games, split once, never pooled: **calibration** 114243, 114234, 114169, 114099, 114086;
 **held out** 178442, 179612, 184439, 188630, 191313. Every parameter and every pass/fail
 criterion was frozen and committed before a held-out game was opened (`1e670ea`, `194f5c6`,
 `cdb3cd5`).
@@ -82,8 +82,8 @@ distance-only model's -1.912, and the gain holds in **five games of five**.
 speed half a second before the ball is won), `zone_radius` and `rebound_zone_table` (the
 shot-scaled zone), `ball_entry_table` (how steeply the ball arrives, before it touches
 anything) and `scbasket.conditional` (the contest among the ten). Published as a
-**definition, never a detector**: it measures vectors, not intentions, which is
-SkillCorner's own position. Nothing here says a player crashed, tagged up or boxed out.
+**definition, never a detector**: it measures vectors, not intentions, as
+SkillCorner itself says. Nothing here says a player crashed, tagged up or boxed out.
 
 ## Run it
 
@@ -96,7 +96,7 @@ uv run python scripts/rebound_contest.py                # --fit re-derives the b
 uv run python scripts/rebound_flight.py                 # --fit reads calibration only
 uv run python scripts/angle_tradeoff.py
 uv run --extra figures python scripts/figures.py
-uv run pytest                                           # 246 tests, 16 more with data
+uv run pytest                    # 225 pass; 14 need the dataset, 1 the forward extra
 ```
 
 Every number above lands in a `reports/*.csv`. The package runs on pandas and numpy;
@@ -105,6 +105,6 @@ matplotlib and scikit-learn are optional.
 ## Data and licence
 
 MIT, both ways: this repository and SkillCorner's
-[opendata-basketball](https://github.com/SkillCorner/opendata-basketball), downloaded rather
-than versioned here. Dependencies are BSD or MIT.
+[opendata-basketball](https://github.com/SkillCorner/opendata-basketball), downloaded, not
+versioned here. Dependencies are BSD or MIT.
 Entry for the PySport x SkillCorner Analytics Cup 2.0.
