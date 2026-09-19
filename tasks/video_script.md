@@ -15,9 +15,9 @@ in the speaker's favour.
 
 **[0:08-0:24] — a still of a shot in flight, the spread numbers on screen**
 
-> Knowing where the shot came from barely tells you where the ball lands: it cuts the spread
-> four percent. The descent angle, measured here from broadcast tracking, adds two and a half,
-> then fails out of sample.
+> Knowing where the shot came from tells you almost nothing about where the ball lands. The
+> angle it arrives at, measured here from broadcast tracking, helps most, and the landing
+> point still moves four and a half feet.
 
 **[0:24-0:42] — figure 1 fills the screen**
 
@@ -37,11 +37,11 @@ in the speaker's favour.
 
 ---
 
-144 spoken words: 58 s at 150 words per minute, 64 s at 135, which is the realistic pace for a
+145 spoken words: 58 s at 150 words per minute, 64 s at 135, which is the realistic pace for a
 script with numbers in it. Time a first take before recording; if it runs over, the first cut
 is "measured here from broadcast tracking", then "in there too, as they fell" becomes "in there
-too". The last thing to cut is the descent angle, because it is the one quantity measured here
-for the first time.
+too". The last thing to cut is the ball's entry angle: it is the one quantity measured here for
+the first time, and the repository overturned its own earlier finding to get it.
 
 Do not say "crash", "box out" or "tag up" anywhere in the video. The work measures vectors, not
 intentions, and that ruling holds in the voiceover as much as in the code.

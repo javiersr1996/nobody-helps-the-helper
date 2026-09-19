@@ -270,7 +270,7 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       cuatro sondas y se cerró, todas negativas. Ambas son calibración, nada congelado, ningún
       held-out abierto, nada commiteado fuera de esta nota. Detalle en la memoria del proyecto,
       `ayudas-defensivas-descartada`.
-- [ ] **P7.7 The ball, rebuilt as code.** OPENED 2026-09-19 by the P7.6 verification pass,
+- [x] **P7.7 The ball, rebuilt as code.** OPENED 2026-09-19 by the P7.6 verification pass,
       which found that three groups of README numbers had no code anywhere in the repository,
       ever: the descent angle, the sd chain 4.97 -> 4.76 -> 4.64 (the "4%" and "2.5%" the
       README and the video OPEN with), and the Goldsberry side bias. Commit 580f6b7 added
@@ -316,6 +316,36 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       definition that is gone. Same direction inside 16 ft, weaker.
       STATE AT THE FREEZE: 246 tests without the `data` marker, 16 with it, ruff clean, no
       held-out game read for this question yet.
+      **RESULT, 2026-09-19.** The criterion was applied once, after the freeze (commit
+      cdb3cd5), on 236 usable held-out rebounds of 359. (1) PASS: the frozen model that reads
+      the entry angle leaves a residual sd of 4.511 ft against 4.700 for the frozen model that
+      reads only the shot. (2) PASS: Spearman(entry angle, landing radius) is negative in FIVE
+      of five held-out games (-0.322, -0.381, -0.264, -0.281, -0.482), pooled **-0.353**
+      against calibration's -0.330. It is the first quantity in this project that comes back
+      from the held-out half no weaker than it went in.
+      **So finding 5 is overturned, not qualified.** The record said the ball does not help:
+      it does, it is the only thing besides the shot itself that does, and it holds per game
+      in both halves, which is the standard lesson 1 sets and which P7.3's top-1 failed.
+      **What shrinks out of sample, stated plainly**: the angle's share of the work. It takes
+      the sd from 4.604 to 4.276 on calibration (-7.1%) and from 4.700 to 4.511 held out
+      (-4.0%). And the independence from the shot's distance is clean on calibration (+0.000)
+      but -0.117 held out, small but no longer nothing, so "genuinely new information" is
+      reported with that number next to it.
+      **The thesis survives and gets sharper, because the absolute numbers did not move.**
+      With the shot AND the ball's own trajectory, the landing radius still has an sd of
+      4.5 ft, which is most of the zone. The bounce is barely legible to a camera measuring
+      the ball after the fact; nothing here says a player can use it in the half second they
+      have, and this work does not claim they can.
+      **Side bias, rebuilt, does NOT reproduce the record.** Held out: inside 16 ft 0.477,
+      16-22 ft 0.469, threes 0.539, against the record's 0.351 / 0.477 / 0.568. The direction
+      survives in both halves (short shots lean strong side, threes lean weak side) but the
+      magnitudes are small, and the Goldsberry reproduction claim does not hold under a
+      definition that keeps middle-of-the-floor shots. The README stops claiming it.
+      **Ships**: `ball_entry_table`, `side_bias_table` and the `ENTRY_*` constants in
+      `scbasket.tagging`, `scripts/rebound_flight.py` (`--fit` re-derives the frozen
+      coefficients from calibration alone), `reports/rebound_flight.csv` and
+      `reports/rebound_flight_criterion.csv`, 15 tests of which one runs on the calibration
+      games.
 - [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
       IN PROGRESS 2026-09-19. Mechanical half done and passing: 247 tests (before P7.7),
       ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
