@@ -419,7 +419,25 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       coefficients from calibration alone), `reports/rebound_flight.csv` and
       `reports/rebound_flight_criterion.csv`, 15 tests of which one runs on the calibration
       games.
-- [ ] **P7.6 Verification pass** (`/verification-before-completion`), then submit.
+- [x] **P7.6 Verification pass.** DONE 2026-09-19. Mechanical half: 264 tests with the data,
+      ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
+      alone, no data or secrets tracked, and a fresh clone followed as a judge would (227 pass,
+      241 collected). Judgement half: three adversarial lenses, each told to refute and to
+      default to refuted, on the pre-registration, the measurement and the README against the
+      code. Two of the three refuted, and both were right: the entry angle's interpretation
+      (see P7.7) and four README defects, all fixed. Every number either reviewer produced was
+      recomputed here before it was accepted. The pass that the first lens could not break is
+      the D11 discipline itself.
+- [ ] **What is left before submitting** (deadline 18 Dec 2026, about 13 weeks):
+      1. **Record the minute of video.** The picture is built and timed
+         (`scripts/video_slides.py`, `tasks/video_script.md`, 141 spoken words, a 60.000 s
+         silent cut measured with ffprobe). Only the voice is missing, and only Javier can
+         add it.
+      2. **Optional, offered and not yet answered**: animating slide 2's two arrivals, or a
+         sixth slide drawing the shot-scaled zone on a court. Neither is needed for a complete
+         entry.
+      3. **Decide whether anything else ships.** The entry is complete as it stands: README,
+         two figures, the derived layer, the record, and a video waiting for a voice.
       IN PROGRESS 2026-09-19. Mechanical half done and passing: 247 tests (before P7.7),
       ruff clean, the wheel builds and imports in a clean Python 3.11 venv on pandas and numpy
       alone, no data or secrets tracked, licences checked in all four layers, and every zone /

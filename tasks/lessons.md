@@ -5,9 +5,10 @@
 of prose, zero code). Rebuilt, finding 5 reversed and then its replacement was refuted too, and
 finding 4 was answering a question Goldsberry never asked. P7.2 had fixed exactly this for
 findings 1 and 3 and nobody swept the rest.
-**How to apply:** before a number reaches a reader, name the script that prints it and RUN it;
-then clone the repo and follow your own README, whose test count was this machine's, not a clean
-install's.
+**How to apply:** before a number reaches a reader, name the script that prints it, RUN it, and
+read the value back off the artefact rather than off your own intention: the video was reported
+at 60 s because that is what the code asked ffmpeg for, and the file was 68. Then clone the repo
+and follow your own README, whose test count was this machine's, not a clean install's.
 
 ## Check what the quantity is made of, not just that the test can fail
 **Why, the test could not fail:** the estimated velocity correlated 0.99995 with the provider's
@@ -19,10 +20,10 @@ carried it (+0.57), `drop` pointed the OTHER WAY (+0.17), and holding both left 
 every PART of a composite quantity before saying what it measures.
 
 ## Never report a pooled number where a per-unit split is possible
-**Why:** F1's partial Spearman was 0.183 over 676 shots, 0.013 held out, negative in three games
-of five. P7.3 repeated it: top-1 passed pooled, held in three of five, five rebounds of 285.
-**How to apply:** split by the unit you generalise across (the game, never the shot). Better,
-put the split INSIDE the bar, as P7.7 did.
+**Why:** F1's partial Spearman was 0.183 over 676 shots and 0.013 held out; P7.3's top-1 passed
+pooled and held in three games of five, five rebounds of 285.
+**How to apply:** split by the unit you generalise across (the game, never the shot), and put
+the split INSIDE the bar, as P7.7 did.
 
 ## Set a threshold from measured evidence, then never move it
 **Why:** a +0.02 bar set knowing nothing, amended to +0.005, missed by 0.0004. P1.5's 0.80 bar
