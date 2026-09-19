@@ -8,10 +8,10 @@
 by 2.6% (sd 4.72 to 4.60 ft fitted, 4.84 to 4.70 held out). The ball's own flight cuts more, and a
 pre-registered test of it passed held out. Then this repository refuted what it meant. The
 quantity was the angle the ball arrives at, arctan(drop / run), and only the denominator predicts:
-how far the ball is still carrying sideways when it reaches rim height (rho +0.57) and how far
-from the rim it gets there (+0.64). Steepness alone points the other way, +0.17 and +0.22. Hold
-those two and the angle keeps **-0.04 and -0.01** of the landing radius, which is nothing. A ball
-still heading outward lands outward: geometry, not a read.
+how far the ball is still carrying sideways when it reaches rim height (+0.57) and how far from
+the rim it gets there (+0.64). Steepness alone points the other way, +0.17 and +0.22. Hold those
+two and the angle keeps **-0.04 and -0.01** of the landing radius, which is nothing. A ball still
+heading outward lands outward: geometry, not a read.
 
 **What a player controls is their heading, inside a small zone.** Within 4 ft of the rim, arriving
 rimward (under 60 deg) lifts the chance of winning the board by **+0.172** on the five calibration
@@ -36,7 +36,7 @@ pooled. Split, the held-out half is monotone and calibration ticks up at the end
 
 ## How it was tested
 
-Ten games, split once, never pooled: **calibration** 114243, 114234, 114169, 114099, 114086;
+Ten games, split once and never pooled: **calibration** 114243, 114234, 114169, 114099, 114086;
 **held out** 178442, 179612, 184439, 188630, 191313. Every parameter and criterion was frozen and
 committed before a held-out game was opened (`1e670ea`, `194f5c6`, `cdb3cd5`).
 
@@ -56,7 +56,7 @@ distance-only model's -1.912, and the gain holds in **five games of five**.
 ## The negatives, which are part of the claim
 
 - **This repository overturned a finding of its own, then refuted the overturn.** Earlier work
-  called the ball useless (+0.018) from an exploration that left no code. Rebuilt as code the
+  called the ball useless (+0.018) from an exploration with no code. Rebuilt as code the
   sign reversed, -0.353 held out, clearing a bar a shuffled angle clears 0 times in 200.
   An adversarial review then showed the angle is a proxy for carry. The pass stands as it
   fell; the reading of it does not.
