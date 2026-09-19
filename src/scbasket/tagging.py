@@ -478,37 +478,49 @@ MIN_ENTRY_FLIGHT_FRAMES = 6
 #: The apex has to clear the rim by this much or the ball never came DOWN to rim height.
 MIN_APEX_CLEARANCE_FT = 0.5
 
-ENTRY_COLUMNS = ("rebound_id", "shot_id", "entry_angle", "apex_ft", "flight_frames", "reason")
+ENTRY_COLUMNS = ("rebound_id", "shot_id", "entry_angle", "apex_ft", "entry_drop_ft",
+                 "entry_run_ft", "cross_dist_ft", "flight_frames", "reason")
 
 
-def _entry_angle_of(ball: np.ndarray) -> tuple[float, float, str]:
-    """(angle, apex, reason) for one flight's (K, 3) ball track, from release to rebound.
+def _entry_angle_of(ball: np.ndarray) -> dict:
+    """The angle, and the two legs it is built from, for one (K, 3) ball track.
 
-    The angle is measured where the ball first falls back through rim height AFTER its apex,
-    so it is the INCOMING trajectory: the ball has not touched the rim yet. Measuring after
-    the bounce would predict the landing spot from the ball already on its way there, which
-    is circular, and that is the one mistake this function exists to avoid.
+    The angle is measured at the FIRST downward crossing of rim height after the apex, so a
+    bounce that sends the ball back up cannot be mistaken for the arrival: measuring the
+    departure would predict the landing spot from the ball already travelling there.
+
+    What it does NOT guarantee, measured on 2026-09-19 and stated here because the earlier
+    version of this docstring claimed the opposite: the ball may ALREADY be in contact with
+    the rim at that crossing. On 15.3% of calibration rows and 12.6% of held-out rows the
+    ball centre is within a ball plus a rim radius of the rim axis, or the fitted window
+    falls less than half a foot, which is a ball rolling on the ring rather than arriving at
+    it. `cross_dist` says how far from the rim the measurement was taken, so a caller can
+    exclude those rather than trust the angle blindly; `drop` and `run` are returned for the
+    same reason, because the angle's predictive power turned out to live in `run`.
     """
     z = ball[:, 2]
     apex = int(np.argmax(z))
+    out = {"angle": np.nan, "apex": float(z[apex]), "drop": np.nan, "run": np.nan,
+           "cross_dist": np.nan, "reason": ""}
     if z[apex] < RIM_HEIGHT_FT + MIN_APEX_CLEARANCE_FT:
-        return np.nan, float(z[apex]), "no arc above the rim"
+        return {**out, "reason": "no arc above the rim"}
 
     below = np.flatnonzero(z[apex:] < RIM_HEIGHT_FT)
     if below.size == 0:
-        return np.nan, float(z[apex]), "never falls back to rim height"
+        return {**out, "reason": "never falls back to rim height"}
 
     crossing = apex + int(below[0])
+    out["cross_dist"] = float(np.linalg.norm(ball[crossing, :2] - ATTACKED_HOOP))
     seg = np.arange(max(apex, crossing - ENTRY_WINDOW_FRAMES), crossing + 1)
     if seg.size < 3:
-        return np.nan, float(z[apex]), "fall too short to fit"
+        return {**out, "reason": "fall too short to fit"}
 
     drop = float(z[seg[0]] - z[seg[-1]])
     if drop <= 0:
-        return np.nan, float(z[apex]), "not falling"
+        return {**out, "reason": "not falling"}
     run = float(np.linalg.norm(ball[seg[-1], :2] - ball[seg[0], :2]))
     angle = 90.0 if run == 0 else float(np.degrees(np.arctan2(drop, run)))
-    return angle, float(z[apex]), ""
+    return {**out, "angle": angle, "drop": drop, "run": run}
 
 
 def ball_entry_table(
@@ -517,9 +529,12 @@ def ball_entry_table(
     """One row per rebound: how steeply the ball was falling when it reached rim height.
 
     Columns are `ENTRY_COLUMNS`. `entry_angle` is degrees below horizontal, 0 for a ball
-    arriving flat and 90 for one dropping vertically, measured on the incoming flight before
-    the ball touches anything. `reason` says why an angle is NaN and is empty when there is
-    one, so a caller counts the losses instead of inferring them.
+    arriving flat and 90 for one dropping vertically, measured at the first downward crossing
+    of rim height. `entry_drop_ft` and `entry_run_ft` are the two legs it is built from and
+    `cross_dist_ft` is how far from the rim that crossing happened: all three are published
+    because the angle alone hides which of them is doing the work, and on this data it is
+    `entry_run_ft`. `reason` says why an angle is NaN and is empty when there is one, so a
+    caller counts the losses instead of inferring them.
 
     The flight is the cached live frames from the shot's `endFrame` to the rebound's `frame`.
     Frames D12 already dropped are simply absent, which is why a flight can be too short.
@@ -536,7 +551,8 @@ def ball_entry_table(
         rebounds["id"], rebounds["shotId"], rebounds["frame"], strict=True
     ):
         row = {"rebound_id": rebound_id, "shot_id": shot_id, "entry_angle": np.nan,
-               "apex_ft": np.nan, "flight_frames": 0, "reason": "no shot or no frame"}
+               "apex_ft": np.nan, "entry_drop_ft": np.nan, "entry_run_ft": np.nan,
+               "cross_dist_ft": np.nan, "flight_frames": 0, "reason": "no shot or no frame"}
         release = by_id.get(shot_id, np.nan) if pd.notna(shot_id) else np.nan
         if pd.notna(release) and pd.notna(frame):
             lo, hi = int(release), int(frame)
@@ -547,8 +563,10 @@ def ball_entry_table(
             elif len(want) < MIN_ENTRY_FLIGHT_FRAMES:
                 row["reason"] = "too few cached frames"
             else:
-                angle, apex, reason = _entry_angle_of(ball[want])
-                row.update(entry_angle=angle, apex_ft=apex, reason=reason)
+                got = _entry_angle_of(ball[want])
+                row.update(entry_angle=got["angle"], apex_ft=got["apex"],
+                           entry_drop_ft=got["drop"], entry_run_ft=got["run"],
+                           cross_dist_ft=got["cross_dist"], reason=got["reason"])
         rows.append(row)
     return pd.DataFrame(rows, columns=list(ENTRY_COLUMNS))
 

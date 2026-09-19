@@ -352,6 +352,40 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       breaking is the one already in this file: nothing from the research report reaches the
       README until its primary source has been read. Now it has code and the right population,
       and the claim it supports is a refusal to claim.
+      **REFUTED THE SAME DAY, by the P7.6 adversarial review, lens 2 of 3.** The criterion
+      passed and the pass stands as it fell (D13); what fell is the CLAIM the pass was read
+      as. Every number below was recomputed here independently before being accepted, and the
+      reviewer's and this session's agree to three decimals. The angle is arctan(drop / run)
+      and it predicts through its DENOMINATOR:
+        - rho(run, landing radius) +0.570 / +0.568, rho(cross_dist, landing radius) +0.640 /
+          +0.637, both larger than the angle's own -0.330 / -0.353.
+        - rho(drop, landing radius) **+0.171 / +0.222**: steepness alone, which is what "a
+          flatter ball carries further" was about, points the OTHER WAY in both halves.
+        - partial(angle, landing radius | run) **+0.119 / +0.142**, the sign REVERSING once
+          the run is held; given the crossing point instead, -0.267 / -0.220; given both,
+          **-0.041 / -0.014**, which is nothing.
+        - restricted to crossings that happen at the rim (within two contact radii), rho is
+          -0.235 / -0.180 on 74 and 73 rebounds, and the association grows monotonically with
+          how FAR from the rim the measurement was taken. That gradient is the signature of a
+          third variable, not of an entry angle.
+      So a ball still travelling outward when it reaches rim height lands further out. That is
+      geometry, not a reading of the bounce, and the original thesis is the one that survives:
+      **nobody reads the bounce.** Finding 5's conclusion was right; its number (+0.018) came
+      from a definition that no longer exists, and its replacement was right about the
+      correlation and wrong about what the correlation was.
+      **A false claim in the code, found by the same review and corrected**: `_entry_angle_of`
+      said the ball "has not touched the rim yet... the one mistake this function exists to
+      avoid". Measured: on 15.3% of calibration rows and 12.6% of held-out rows the ball is
+      already within a ball plus a rim radius of the rim axis at the crossing, or the fitted
+      window falls less than half a foot, which is a ball rolling on the ring. The function's
+      BEHAVIOUR is unchanged, because changing it after the held-out read would be fitting the
+      definition to the result; the docstring now states the contamination rate, the table
+      publishes `entry_drop_ft`, `entry_run_ft` and `cross_dist_ft` so a caller can exclude
+      those rows, and two tests pin it.
+      **Ships now**: the diagnostic lives in `carry_diagnostic` and `partial_spearman` in
+      `scripts/rebound_flight.py` and in `reports/rebound_flight_carry.csv`, so the refutation
+      is as reproducible as the claim it refutes. 17 tests on this path, of which one runs on
+      the calibration games.
       **Ships**: `ball_entry_table`, `side_bias_table` and the `ENTRY_*` constants in
       `scbasket.tagging`, `scripts/rebound_flight.py` (`--fit` re-derives the frozen
       coefficients from calibration alone), `reports/rebound_flight.csv` and

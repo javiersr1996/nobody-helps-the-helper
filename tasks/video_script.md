@@ -15,15 +15,15 @@ in the speaker's favour.
 
 **[0:08-0:24] — a still of a shot in flight, the spread numbers on screen**
 
-> Knowing where the shot came from tells you almost nothing about where the ball lands. The
-> angle it arrives at, measured here from broadcast tracking, helps most, and the landing
-> point still moves four and a half feet.
+> Knowing where the shot came from tells you almost nothing about where the ball lands. I
+> measured the ball's own arrival too, and all that predicts is how far it is still carrying
+> sideways. That is geometry, not a read.
 
 **[0:24-0:42] — figure 1 fills the screen**
 
 > So the rebound is not read, it is occupied. Within four feet of the rim, running at it lifts
-> your chance of winning the board seventeen points on the games I fitted, thirty-two on five I
-> never touched. Past twelve feet, nothing.
+> your chance of winning the board seventeen points, and thirty-two on five games I never
+> touched. Past twelve feet, nothing.
 
 **[0:42-0:52] — figure 2**
 
@@ -33,15 +33,16 @@ in the speaker's favour.
 **[0:52-1:00] — the repo, on the commit list**
 
 > Every threshold was frozen and committed before I opened those five games. The ones that
-> failed are in there too, as they fell.
+> failed are in there too.
 
 ---
 
-145 spoken words: 58 s at 150 words per minute, 64 s at 135, which is the realistic pace for a
+141 spoken words: 56 s at 150 words per minute, 63 s at 135, which is the realistic pace for a
 script with numbers in it. Time a first take before recording; if it runs over, the first cut
-is "measured here from broadcast tracking", then "in there too, as they fell" becomes "in there
-too". The last thing to cut is the ball's entry angle: it is the one quantity measured here for
-the first time, and the repository overturned its own earlier finding to get it.
+is "measured here from broadcast tracking", then the last sentence
+loses its ending. The last thing to cut is the ball's arrival: it is the one quantity measured here for the
+first time, and it cost the repository an overturned finding and then a refuted overturn to
+say it honestly.
 
 Do not say "crash", "box out" or "tag up" anywhere in the video. The work measures vectors, not
 intentions, and that ruling holds in the voiceover as much as in the code.

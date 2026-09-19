@@ -125,6 +125,56 @@ def measure(table: pd.DataFrame) -> dict:
     }
 
 
+#: How close the ball's centre can be to the rim axis and still be a clean arrival: a ball
+#: radius (0.394 ft) plus a rim radius (0.75 ft). Inside it the two overlap, so the
+#: "incoming" flight may already be a ball rolling on the ring.
+RIM_CONTACT_FT = 1.144
+
+
+def partial_spearman(frame: pd.DataFrame, a: str, b: str, given: list[str]) -> float:
+    """Spearman of `a` and `b` with the rank effect of every column in `given` removed."""
+    ranks = frame[[a, b] + given].rank()
+    y = ranks[[a, b]].to_numpy()
+    X = np.column_stack([np.ones(len(ranks))] + [ranks[g].to_numpy() for g in given])
+    resid = y - X @ np.linalg.lstsq(X, y, rcond=None)[0]
+    return float(np.corrcoef(resid[:, 0], resid[:, 1])[0, 1])
+
+
+def carry_diagnostic(table: pd.DataFrame) -> pd.Series:
+    """What the entry angle's association with the landing radius is actually made of.
+
+    Added 2026-09-19, after an adversarial review refuted the INTERPRETATION of a P7.7 result
+    that had already passed its frozen criterion. The criterion stands as it fell (D13) and
+    so does the association. What these numbers show is that it passed for a reason the claim
+    got wrong. The angle is `arctan2(drop, run)`, and it is the RUN, how far the ball is
+    still travelling sideways when it reaches rim height, that carries the prediction. `drop`,
+    the steepness the claim was actually about, points the OTHER WAY.
+
+    Read the three rows together: hold the run and the crossing point and the angle's partial
+    correlation with the landing radius is -0.04 and -0.01, which is nothing. A ball that is
+    still moving outward when it arrives lands further out, and that is geometry.
+    """
+    r = table["reb_dist"].to_numpy()
+    near = table[table["cross_dist_ft"] <= RIM_CONTACT_FT * 2]
+    return pd.Series({
+        "n": len(table),
+        "rho_angle": spearman(table["entry_angle"].to_numpy(), r),
+        "rho_run": spearman(table["entry_run_ft"].to_numpy(), r),
+        "rho_drop": spearman(table["entry_drop_ft"].to_numpy(), r),
+        "rho_cross_dist": spearman(table["cross_dist_ft"].to_numpy(), r),
+        "partial_angle_given_run": partial_spearman(
+            table, "entry_angle", "reb_dist", ["entry_run_ft"]),
+        "partial_angle_given_cross": partial_spearman(
+            table, "entry_angle", "reb_dist", ["cross_dist_ft"]),
+        "partial_angle_given_both": partial_spearman(
+            table, "entry_angle", "reb_dist", ["entry_run_ft", "cross_dist_ft"]),
+        "n_crossing_at_the_rim": len(near),
+        "rho_angle_at_the_rim": spearman(near["entry_angle"].to_numpy(),
+                                         near["reb_dist"].to_numpy()),
+        "share_measured_in_contact_range": float(
+            (table["cross_dist_ft"] <= RIM_CONTACT_FT).mean()),
+    })
+
 def side_shares(table: pd.DataFrame) -> pd.DataFrame:
     """Share landing opposite the shooter's side, by shot-distance band and half.
 
@@ -194,6 +244,15 @@ def main() -> int:
               ", ".join(f"{g}: {v:+.3f}" for g, v in s["_by_game"].items()))
 
     print("\n" + "=" * 78)
+    print("What the angle is made of: the refutation of P7.7's INTERPRETATION")
+    print("=" * 78)
+    carry = pd.DataFrame({half: carry_diagnostic(part)
+                          for half, part in usable.groupby("half", observed=True)})
+    print(carry.round(3).to_string())
+    print("  The angle predicts through its denominator. Hold the run and the crossing point")
+    print("  and nothing is left: this is carry and geometry, not a reading of the bounce.")
+
+    print("\n" + "=" * 78)
     print("Which side it lands on, the shooter's or the other (finding 4, rebuilt)")
     print("=" * 78)
     print(side_shares(table).round(3).to_string())
@@ -201,6 +260,7 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     table.to_csv(args.out / "rebound_flight.csv", index=False)
     frame.to_csv(args.out / "rebound_flight_criterion.csv")
+    carry.to_csv(args.out / "rebound_flight_carry.csv")
 
     if not args.fit:
         held = stats.get("held out")

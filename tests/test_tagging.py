@@ -1002,6 +1002,37 @@ def test_every_rebound_keeps_its_row_and_the_frozen_columns():
     assert list(out["rebound_id"]) == ["a", "b", "c"]
 
 
+def test_the_two_legs_and_the_crossing_point_are_published_next_to_the_angle():
+    """The angle hides which leg is doing the work, and on this data it is the run. A caller
+    that cannot see `entry_run_ft` and `cross_dist_ft` cannot tell an arrival at the rim from
+    a ball still carrying across it, which is exactly what went wrong on 2026-09-19."""
+    out = ball_entry_table(_ball_flight(_fall(1.0, 2.0)), _entry_shots(), _entry_rebounds(7))
+    assert out.loc[0, "entry_drop_ft"] == pytest.approx(5.0), "five frames of one foot"
+    assert out.loc[0, "entry_run_ft"] == pytest.approx(10.0), "five frames of two feet"
+    assert out.loc[0, "entry_angle"] == pytest.approx(
+        np.degrees(np.arctan2(out.loc[0, "entry_drop_ft"], out.loc[0, "entry_run_ft"])))
+
+
+def test_where_the_ball_crossed_rim_height_is_reported_so_a_rim_roll_can_be_excluded():
+    """A ball loitering at rim height ON the ring still gets an angle: the function does not
+    refuse it, and the honest answer is to say where the measurement was taken. Pinned here
+    because the docstring once claimed the ball could not have touched the rim."""
+    n = 8
+    z = np.full(n, RIM_HEIGHT_FT + 0.6)
+    z[-1] = RIM_HEIGHT_FT - 0.05                       # it finally drops through
+    x = np.full(n, ATTACKED_HOOP[0] + 0.2)             # a fifth of a foot from the rim axis
+    rolling = np.column_stack([x, np.full(n, ATTACKED_HOOP[1]), z])
+    out = ball_entry_table(_ball_flight(rolling), _entry_shots(), _entry_rebounds(n - 1))
+    assert not np.isnan(out.loc[0, "entry_angle"]), "it is measured, not refused"
+    assert out.loc[0, "cross_dist_ft"] == pytest.approx(0.2, abs=1e-5), "and it says where"
+
+    away = _fall(1.0, 1.0)
+    away[:, 0] += ATTACKED_HOOP[0] + 12.0
+    away[:, 1] = ATTACKED_HOOP[1]
+    far = ball_entry_table(_ball_flight(away), _entry_shots(), _entry_rebounds(7))
+    assert far.loc[0, "cross_dist_ft"] > 10.0, "a crossing far from the rim reads far"
+
+
 # ------------------------------------------------------- which side it lands on (P7.7)
 
 
