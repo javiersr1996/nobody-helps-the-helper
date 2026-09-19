@@ -170,16 +170,34 @@ def assemble(out: Path, paths: list[tuple[Path, int]]) -> bool:
     listing = out / "slides.txt"
     body = "".join(f"file '{p.name}'\nduration {s}\n" for p, s in paths)
     listing.write_text(body + f"file '{paths[-1][0].name}'\n", encoding="utf-8")
+    # The concat demuxer honours the last entry's duration only if the file is repeated,
+    # and the repeat then PLAYS again: the cut ran 68 s against the intended 60 until -t
+    # closed it. The length is read back below rather than assumed.
+    total = sum(s for _, s in paths)
     mp4 = out / "nobody_reads_the_bounce.mp4"
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
-           "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "medium",
+           "-t", str(total), "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "medium",
            "-crf", "20", str(mp4)]
     done = subprocess.run(cmd, capture_output=True, text=True)
     if done.returncode != 0:
         print(done.stderr[-800:], file=sys.stderr)
         return False
-    print(f"wrote {mp4} ({mp4.stat().st_size / 1e6:.1f} MB, {sum(s for _, s in paths)} s)")
+    print(f"wrote {mp4} ({mp4.stat().st_size / 1e6:.1f} MB, {measured(mp4)}, "
+          f"{total} s intended)")
     return True
+
+
+def measured(mp4: Path) -> str:
+    """What the file ACTUALLY is, read back with ffprobe rather than assumed."""
+    if shutil.which("ffprobe") is None:
+        return "length not checked: no ffprobe"
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                          "-of", "default=nw=1:nk=1", str(mp4)],
+                         capture_output=True, text=True)
+    try:
+        return f"{float(out.stdout.strip()):.1f} s measured"
+    except ValueError:
+        return "length not readable"
 
 
 def main() -> int:
