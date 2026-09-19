@@ -3,7 +3,7 @@
 Usage: uv run python scripts/rebound_flight.py [--root DIR] [--cache DIR] [--out DIR] [--fit]
 
 Findings 4 and 5 of the record ("the ball does not help further" and the side bias) had NO
-code behind them: commit 580f6b7 added fifty lines of `tasks/todo.md` and not one line of
+code behind them: commit 111a9ac added fifty lines of `tasks/todo.md` and not one line of
 source, and the word "descent" never appeared in `src/`. So nothing in this repository
 reproduced the two numbers the README opens with, which is the same hole P7.2 had to fill for
 findings 1 and 3. This script is that code, and it does not agree with the record.

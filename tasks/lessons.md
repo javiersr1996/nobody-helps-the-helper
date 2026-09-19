@@ -1,7 +1,7 @@
 # Lessons
 
 ## A number with no code behind it is not a finding
-**Why:** findings 4 and 5 opened the README with no source anywhere in the repo (commit 580f6b7:
+**Why:** findings 4 and 5 opened the README with no source anywhere in the repo (commit 111a9ac:
 50 lines of prose, zero code). Rebuilt, finding 5 REVERSED, +0.018 becoming -0.353 held out in
 five games of five, and finding 4 was answering a question Goldsberry never asked. P7.2 had
 already fixed this for findings 1 and 3 and nobody swept the rest.

@@ -273,9 +273,13 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
 - [x] **P7.7 The ball, rebuilt as code.** OPENED 2026-09-19 by the P7.6 verification pass,
       which found that three groups of README numbers had no code anywhere in the repository,
       ever: the descent angle, the sd chain 4.97 -> 4.76 -> 4.64 (the "4%" and "2.5%" the
-      README and the video OPEN with), and the Goldsberry side bias. Commit 580f6b7 added
+      README and the video OPEN with), and the Goldsberry side bias. Commit 111a9ac added
       fifty lines of this file and not one line of source, and the word "descent" never
-      appeared in `src/`, `scripts/` or `tests/` in the whole history. It is exactly the hole
+      appeared in `src/`, `scripts/` or `tests/` in the whole history. (Corrected 2026-09-19:
+      this entry, the script's docstring, `lessons.md` and the messages of commits cdb3cd5 and
+      32c30ec first cited 580f6b7, which is a different commit and did ship 179 lines of
+      `angle_tradeoff.py`. The zero-code commit is 111a9ac, exactly as the P7.2 entry above
+      already said. The commit messages stay as they fell; this correction is the record.) It is exactly the hole
       P7.2 had to fill for findings 1 and 3, left open in the two places that carry the
       headline. Javier's call, with the three options measured: rebuild, freeze, and spend a
       held-out read on it.
