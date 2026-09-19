@@ -1,7 +1,7 @@
 [project]
 name = "scbasket"
 version = "0.1.0"
-description = "Shot-value-weighted space control model built on SkillCorner's basketball open data"
+description = "Rebound approach kinematics from SkillCorner's open basketball tracking: heading, speed and the shot-scaled zone"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

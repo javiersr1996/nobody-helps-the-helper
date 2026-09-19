@@ -223,10 +223,48 @@ held out of sample: `area_valuable` alone separates "a shot follows within 3 s" 
       what ships, not the images.
       **Found while drawing it**: finding 2's monotone claim is pooled over the halves. See
       the qualification added above; the figure states it rather than hiding it.
-- [ ] **P7.5 README (1000 words maximum), the 1-minute video, package name, licence check.**
-- [ ] **Pendiente de decidir: dos negativos medidos el 2026-09-17 que aún no están en el
-      registro de P7.3.** (a) La etiqueta de punteo del proveedor se probó como variable del
-      modelo condicional: coeficiente -0.178 y la log-verosimilitud sube de -1.8583 a -1.8571,
+- [x] **P7.5 README, video script, package name, licence check.** DONE 2026-09-19.
+      **README rewritten** from the superseded space-control project to this one: 995 words
+      counting the code block, the alt text and the URLs, against a bar of 1000, and the two
+      figures the rules allow. Its numbers were REGENERATED for it rather than copied out of
+      this record: `scripts/figures.py` reprints the six lift values (0.172/0.322, 0.145/0.053,
+      0.042/-0.008, 0.026/0.020, 0.007/0.031, 0.007/-0.003) and the five pooled angle values
+      (0.251, 0.213, 0.136, 0.071, 0.056) to the digit, and the zone and contest figures come
+      from `reports/rebound_zone_criterion.csv` and `reports/rebound_contest_criterion.csv`.
+      The three qualifications travel INTO the README instead of staying in the record: the
+      descent angle failing out of sample, top-1 as a pooled artefact holding in three games of
+      five, and the retired condition named as retired. The four negative defensive-help probes
+      ship there too, which is where that direction ends up.
+      **The two figures are now versioned.** `reports/figures/` was gitignored on the rule that
+      the script ships and the images do not. That rule is right for reproducibility and wrong
+      for a README a judge reads on GitHub, where an unversioned PNG is a broken image. The
+      gitignore now un-ignores exactly those two files by name, so any other figure stays
+      ignored and the script is still what regenerates them.
+      **Package name: `scbasket` kept.** Free on PyPI (404 on the JSON endpoint, checked
+      2026-09-19), accurate for what the package now is, and renaming would touch every import
+      and every test for nothing. What WAS stale is the description: `pyproject.toml` and the
+      package docstring still advertised "shot-value-weighted space control", the project that
+      F2 superseded. Both now say rebound approach kinematics, with the definition-not-detector
+      ruling written into the docstring.
+      **Licence check, all four layers.** This repo MIT (LICENSE, `pyproject.toml`). The data
+      is SkillCorner's `opendata-basketball`, also MIT, and it is downloaded rather than
+      versioned, so nothing of theirs is redistributed here. Dependencies: pandas BSD-3, numpy
+      BSD-3 (with 0BSD, MIT, Zlib and CC0 components), scikit-learn BSD-3, pytest MIT, ruff MIT,
+      matplotlib under its own PSF-style licence, which is BSD-compatible. Every one is an open
+      licence and the competition's open-source-only rule is met. Versions in the environment
+      that produced the figures: Python 3.14.3, pandas 3.0.5, numpy 2.5.3, matplotlib 3.11.2.
+      **The video is a SCRIPT, not a recording**: `tasks/video_script.md`, 144 spoken words with
+      the shot list and the timings, which is 58 s at 150 words per minute and 64 s at 135, the
+      realistic pace for a script with numbers in it. It carries the cut order for a take that
+      runs long and the ruling that "crash", "box out" and "tag up" are not said aloud either.
+      Recording it is Javier's, and it is the one deliverable a session cannot produce.
+- [x] **RESUELTO 2026-09-19: dos negativos medidos el 2026-09-17.** Quedaron en el registro
+      en el commit 531f90f, y el (b) además SALE en el README, en la lista de negativos: una
+      dirección cerrada con cuatro sondas es entregable, no un descarte que se esconde.
+      El (a) se queda en el registro y en la memoria, porque es un coeficiente dentro de un
+      modelo que sí ship, no una dirección. El detalle de los dos:
+      (a) La etiqueta de punteo del proveedor se probó como variable del modelo condicional:
+      coeficiente -0.178 y la log-verosimilitud sube de -1.8583 a -1.8571,
       +0.001 por rebote. Puntear cuesta rebote a través de la posición, que el modelo ya ve, y
       la variable no se gana el sitio. (b) La dirección de ayudas defensivas se exploró con
       cuatro sondas y se cerró, todas negativas. Ambas son calibración, nada congelado, ningún

@@ -1,4 +1,7 @@
-"""Shot-value-weighted space control on SkillCorner's basketball open data."""
+"""Rebound approach kinematics on SkillCorner's open basketball tracking.
+
+A definition, never a detector: it measures vectors, not intentions. See the README.
+"""
 
 from scbasket.io import (
     Dataset,

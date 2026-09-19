@@ -16,6 +16,9 @@ build/
 # Notebooks
 .ipynb_checkpoints/
 
-# Outputs
-reports/figures/
+# Outputs. The figures are regenerable (scripts/figures.py) and the script is what ships,
+# but the README shows the two the competition allows, so those two are versioned.
+reports/figures/*
+!reports/figures/figure_1_lift_by_distance.png
+!reports/figures/figure_2_pwin_by_angle.png
 *.log
