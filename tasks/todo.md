@@ -196,7 +196,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       `help_sensitivity.csv`, none typed; looked at before accepting, as in W2. Accept:
       `reports/figures/wind_figure_2_*.png` rebuilt, every number on it greps back to a CSV
       column, Javier has looked at it.
-- [ ] A6 Memoria v0.2 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
+- [ ] A6 Memoria v0.3 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
       (the new figure 2); new section 13 "La segunda ayuda: una ausencia medida" (the council's
       37/100 and why points per chance has no power; the placebo design; the three results; the
       pass; the X-out as a limit) reading `second_help_*.csv`; section 10 replaced by this
@@ -250,7 +250,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       >= 16 px, canvas inside the viewport. Lesson 4: run once against a template with one
       typed number and one broken `seek`; it must fail both (recorded here), then reverted.
       Accept: exit 0 on the built page, exit 1 on each mutation.
-- [ ] B6 Memoria v0.3 [sonnet]: section 14 "La página" (what the storyboard decided, what the
+- [ ] B6 Memoria v0.4 [sonnet]: section 14 "La página" (what the storyboard decided, what the
       console check asserts, the mutations it fails on), index and version row; rebuild, PDF,
       look. Accept: as A6.
 - [ ] B7 Phase close [haiku]: ruff + pytest exit 0; Javier opens the page on his own machine.
@@ -275,7 +275,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       scripts/help_figures.py`, the page build, the memoria build, all from the committed CSVs
       and no dataset. Accept: the five commands exit 0 in the clone and the README's "Run it"
       block is the list actually run.
-- [ ] C4 Memoria v0.4 [sonnet]: section 15 "El repositorio público y el README" (decision D2,
+- [ ] C4 Memoria v0.5 [sonnet]: section 15 "El repositorio público y el README" (decision D2,
       what moved, the clean-clone result), index and version row; rebuild, PDF, look.
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
@@ -291,7 +291,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       built file; every number on a slide greps to a CSV.
 - [ ] D3 Voice [haiku]: Javier records one pass over the silent cut; mux with ffmpeg; `ffprobe`
       duration read back and written here. Accept: 58-62 s, voice audible on a phone speaker.
-- [ ] D4 Memoria v0.5 [sonnet]: section 16 "El vídeo", index and version row; rebuild, PDF,
+- [ ] D4 Memoria v0.6 [sonnet]: section 16 "El vídeo", index and version row; rebuild, PDF,
       look.
 - [ ] D5 Phase close [haiku]: ruff + pytest exit 0; Javier watches the video once through.
 
