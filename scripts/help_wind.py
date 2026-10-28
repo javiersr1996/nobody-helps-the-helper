@@ -56,6 +56,8 @@ def summarise(table: pd.DataFrame, help_ft: float, open_ft: float) -> dict:
     ok = table[table["status"] == "ok"]
     helped = ok[ok["helper_help_move"] >= help_ft]
     left = helped.dropna(subset=["left_nearest1"])
+    # The base rate: the same columns for the man of the largest mover UNDER the threshold.
+    comparable = ok[ok["helper_help_move"] < help_ft].dropna(subset=["left_nearest1"])
     return {
         "n_drives": int(len(table)),
         "n_resolved": int(len(ok)),
@@ -68,6 +70,9 @@ def summarise(table: pd.DataFrame, help_ft: float, open_ft: float) -> dict:
         "left_sep1": float(left["left_sep1"].median()),
         "left_nearest1": float(left["left_nearest1"].median()),
         "left_open_share": float((left["left_nearest1"] >= open_ft).mean()),
+        "left_open_share_no_helper": float((comparable["left_nearest1"] >= open_ft).mean()),
+        "left_open0_share": float((left["left_nearest0"] >= open_ft).mean()),
+        "left_open0_share_no_helper": float((comparable["left_nearest0"] >= open_ft).mean()),
         "left_hoop1": float(left["left_hoop1"].median()),
         "left_beyond_arc": float(left["left_zone1"].isin(THREE_ZONES).mean()),
     }
@@ -135,9 +140,9 @@ def main() -> int:
         {g: summarise(t, HELP_FT, OPEN_FT) for g, t in zip(dataset.game_ids, tables, strict=True)}
     ).T.rename_axis("game").reset_index()
     by_game.to_csv(args.out / "help_by_game.csv", index=False)
-    print("\nper game: share with a helper / left open / beyond the arc")
+    print("\nper game: share with a helper / left open (and with no helper) / beyond the arc")
     print(by_game[["game", "n_resolved", "share_with_helper", "left_open_share",
-                   "left_beyond_arc"]].to_string(index=False))
+                   "left_open_share_no_helper", "left_beyond_arc"]].to_string(index=False))
 
     rows = []
     for horizon_s in SENSITIVITY_HORIZON_S:
@@ -156,9 +161,10 @@ def main() -> int:
     sensitivity = pd.DataFrame(rows)
     sensitivity.to_csv(args.out / "help_sensitivity.csv", index=False)
     print("\nsensitivity (horizon x threshold): share with helper / from the middle / "
-          "from the corner side / left open / beyond the arc")
+          "from the corner side / left open (and with no helper) / beyond the arc")
     print(sensitivity[["horizon_s", "help_ft", "share_with_helper", "helper_from_middle",
-                       "helper_from_corner_side", "left_open_share", "left_beyond_arc"]]
+                       "helper_from_corner_side", "left_open_share",
+                       "left_open_share_no_helper", "left_beyond_arc"]]
           .to_string(index=False))
 
     print(f"\nflow field: {len(flow)} cells with >= 15 vectors; consistency median "

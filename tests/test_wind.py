@@ -149,6 +149,15 @@ def test_open_flag_follows_the_nearest_defender_not_the_helper():
     assert not row["left_open"]
 
 
+def test_open_at_the_start_is_read_at_the_start_not_at_the_horizon():
+    start, end = START.copy(), END.copy()
+    start[8] = [-20.0, -17.0]  # 3.6 ft from the man left at 0 s, then it walks off to (-12, -13)
+    row = help_table(_scene(start=start, end=end), _drives()).iloc[0]
+    assert row["left_nearest0"] == pytest.approx(np.hypot(2.0, 3.0), abs=1e-3)
+    assert row["left_nearest1"] == pytest.approx(np.hypot(6.0, 7.0), abs=1e-3)
+    assert not row["left_open0"] and row["left_open"]
+
+
 def test_threshold_only_changes_the_flag_not_the_measurement():
     row = help_table(_scene(), _drives(), help_ft=6.0).iloc[0]
     assert not row["has_helper"]
@@ -174,6 +183,7 @@ def test_a_helper_with_no_assigned_attacker_leaves_nan_not_a_guess():
     row = help_table(_scene(matchup=matchup), _drives()).iloc[0]
     assert row["helper_def_slot"] == 1  # the geometry is unchanged
     assert row["left_slot"] == -1 and np.isnan(row["left_sep1"]) and not row["left_open"]
+    assert np.isnan(row["left_nearest0"]) and not row["left_open0"]
 
 
 # ---------------------------------------------------------------- unresolved drives

@@ -23,7 +23,8 @@ Definitions, fixed once and reported with a sensitivity table next to every head
   be swept afterwards without recomputing anything.
 - **The man he leaves.** The attacker the provider's `matchups` table assigns to the helper
   at `startFrame`: his separation from the helper at both ends, his distance to ANY
-  defender at the horizon, and whether that distance is at least OPEN_FT ("open").
+  defender at the horizon (and at the start, `left_nearest0`, the base to read it against),
+  and whether that distance is at least OPEN_FT ("open").
 
 Every drive keeps its row; the ones the cache cannot resolve carry a `status` other than
 "ok" and NaN measurements, so the denominator is always visible.
@@ -143,7 +144,7 @@ def _scene(frames: GameFrames, matchup0: np.ndarray, r0: int, r1: int, s: int) -
 
     left = {
         "left_slot": -1, "left_id": -1, "left_sep0": np.nan, "left_sep1": np.nan,
-        "left_nearest1": np.nan, "left_hoop1": np.nan, "left_zone1": "",
+        "left_nearest0": np.nan, "left_nearest1": np.nan, "left_hoop1": np.nan, "left_zone1": "",
         "left_x1": np.nan, "left_y1": np.nan,
     }
     guarded = np.flatnonzero(raw_matchup == j)
@@ -155,6 +156,7 @@ def _scene(frames: GameFrames, matchup0: np.ndarray, r0: int, r1: int, s: int) -
             "left_id": int(frames.off_ids[r0, k]),
             "left_sep0": float(np.linalg.norm(xy0[k] - xy0[N_SIDE + j])),
             "left_sep1": float(np.linalg.norm(a1 - xy1[N_SIDE + j])),
+            "left_nearest0": float(np.linalg.norm(xy0[N_SIDE:] - xy0[k], axis=1).min()),
             "left_nearest1": float(np.linalg.norm(xy1[N_SIDE:] - a1, axis=1).min()),
             "left_hoop1": float(np.linalg.norm(a1 - HOOP)),
             "left_zone1": _zone(a1),
@@ -215,16 +217,18 @@ def help_table(
 ) -> pd.DataFrame:
     """One row per drive: the largest mover among the non-matchup defenders, and the man he left.
 
-    `has_helper` applies `help_ft` to `helper_help_move`; `left_open` applies `open_ft` to
-    `left_nearest1`. Both are recomputable from the row, which is how the sensitivity sweep
-    works. Unresolved drives keep their row with `status` set and NaN measurements.
+    `has_helper` applies `help_ft` to `helper_help_move`; `left_open` and `left_open0` apply
+    `open_ft` to `left_nearest1` and `left_nearest0`. All are recomputable from the row, which
+    is how the sensitivity sweep works. Unresolved drives keep their row with `status` set and
+    NaN measurements.
     """
     rows, _ = _measure(frames, drives, horizon_frames)
     table = pd.DataFrame(rows)
-    for column in ("helper_help_move", "left_nearest1"):  # absent when no drive resolved
+    for column in ("helper_help_move", "left_nearest0", "left_nearest1"):  # absent if none resolved
         if column not in table:
             table[column] = np.nan
     table["has_helper"] = table["helper_help_move"] >= help_ft
+    table["left_open0"] = table["left_nearest0"] >= open_ft
     table["left_open"] = table["left_nearest1"] >= open_ft
     return table
 
