@@ -413,6 +413,13 @@ ZONE_COVERAGE = 0.75
 ZONE_INTERCEPT_FT = 5.40
 ZONE_SLOPE = 0.180
 
+#: The constant zone P7.2 replaces, in feet, and how far the scaled zone's overall coverage
+#: may sit from ZONE_COVERAGE on the held-out games. Frozen with the coefficients above and
+#: committed before a held-out game was read. `scripts/rebound_zone.py` grades against them
+#: and the page states them; neither owns them.
+FLAT_ZONE_FT = 8.0
+MAX_COVERAGE_GAP = 0.03
+
 
 def zone_radius(shot_distance) -> np.ndarray:
     """Feet from the rim of the zone a shot taken `shot_distance` feet out earns.
@@ -429,13 +436,27 @@ def zone_radius(shot_distance) -> np.ndarray:
     return ZONE_INTERCEPT_FT + ZONE_SLOPE * np.asarray(shot_distance, dtype=np.float64)
 
 
+def _coordinates(location: pd.Series) -> np.ndarray:
+    """(N, 2) of each published location, NaN where it is null.
+
+    The same source `hoop_distance` reduces to a distance, kept whole so a court can be
+    drawn from it. Already in the attacking frame (court.py), so nothing is re-oriented.
+    """
+    out = np.full((len(location), 2), np.nan)
+    valid = location.notna().to_numpy()
+    if valid.any():
+        out[valid] = np.array(location[valid].tolist(), dtype=float)
+    return out
+
+
 def rebound_zone_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFrame:
     """One row per rebound: where it landed, and the zone the shot it came from earned.
 
     Columns: `rebound_id`, `shot_id`, `reb_dist` (feet from the attacked rim to the rebound's
     published location), `shot_dist` (the same for the shot), `zone_ft`, `zone_ratio`
-    (`reb_dist` in units of that zone, so 1.0 is exactly on its edge), `in_zone`, `three` and
-    `defensive`.
+    (`reb_dist` in units of that zone, so 1.0 is exactly on its edge), the coordinates those
+    two distances are measured from (`reb_x`, `reb_y`, `shot_x`, `shot_y`, which the page
+    draws a court out of), `in_zone`, `three` and `defensive`.
 
     Both locations come from the event tables, which court.py establishes are already in the
     attacking frame, so neither is re-oriented here. A rebound with no location, or whose shot
@@ -448,11 +469,17 @@ def rebound_zone_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFr
     shot_dist = hoop_distance(rebounds["shotId"].map(by_id["location"]))
     zone_ft = zone_radius(shot_dist)
     ratio = reb_dist / zone_ft
+    reb_xy = _coordinates(rebounds["location"])
+    shot_xy = _coordinates(rebounds["shotId"].map(by_id["location"]))
     return pd.DataFrame({
         "rebound_id": rebounds["id"].to_numpy(),
         "shot_id": rebounds["shotId"].to_numpy(),
         "reb_dist": reb_dist,
         "shot_dist": shot_dist,
+        "reb_x": reb_xy[:, 0],
+        "reb_y": reb_xy[:, 1],
+        "shot_x": shot_xy[:, 0],
+        "shot_y": shot_xy[:, 1],
         "zone_ft": zone_ft,
         "zone_ratio": ratio,
         "in_zone": pd.Series(ratio <= 1.0, dtype="boolean").mask(np.isnan(ratio)),
@@ -586,15 +613,8 @@ def side_bias_table(shots: pd.DataFrame, rebounds: pd.DataFrame) -> pd.DataFrame
     `opposite` is pd.NA where either location is missing or either y is exactly zero.
     """
     by_id = shots.set_index("id")
-    loc = rebounds["shotId"].map(by_id["location"])
-    shot_xy = np.full((len(rebounds), 2), np.nan)
-    have = loc.notna().to_numpy()
-    if have.any():
-        shot_xy[have] = np.array(loc[have].tolist(), dtype=float)
-    reb_xy = np.full((len(rebounds), 2), np.nan)
-    have_reb = rebounds["location"].notna().to_numpy()
-    if have_reb.any():
-        reb_xy[have_reb] = np.array(rebounds["location"][have_reb].tolist(), dtype=float)
+    shot_xy = _coordinates(rebounds["shotId"].map(by_id["location"]))
+    reb_xy = _coordinates(rebounds["location"])
 
     shot_y, reb_y = shot_xy[:, 1], reb_xy[:, 1]
     opposite = np.sign(shot_y) != np.sign(reb_y)

@@ -44,6 +44,8 @@ import pandas as pd
 
 from scbasket.io import Dataset
 from scbasket.tagging import (
+    FLAT_ZONE_FT,
+    MAX_COVERAGE_GAP,
     ZONE_COVERAGE,
     ZONE_INTERCEPT_FT,
     ZONE_SLOPE,
@@ -52,13 +54,10 @@ from scbasket.tagging import (
 )
 from scbasket.validation import CALIBRATION_GAMES, VALIDATION_GAMES, spearman
 
-#: The constant zone P7.2 replaces, in feet, and the frozen reporting bands the drift is
-#: measured over: the paint-ish shot, mid-range, the long two, and the three.
-FLAT_ZONE_FT = 8.0
+#: The frozen reporting bands the drift is measured over: the paint-ish shot, mid-range, the
+#: long two, and the three. FLAT_ZONE_FT and MAX_COVERAGE_GAP live in `scbasket.tagging`
+#: with the zone they grade, because the page states them too.
 SHOT_BANDS = [0.0, 8.0, 16.0, 22.15, 200.0]
-
-#: Frozen with the coefficients, before the held-out games were read.
-MAX_COVERAGE_GAP = 0.03
 
 
 def build(dataset: Dataset, game_id: int) -> pd.DataFrame:

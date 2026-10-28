@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nobody reads the bounce</title>
+<meta name="description" content="The eight feet where the rebound is decided. Ten ACB games of SkillCorner's open tracking, replayed on the court. Every number is read from a reports/*.csv in the repository.">
+<style>
+:root{
+  --bg:#000000; --panel:#0b0d0b; --panel-2:#101310; --line:#1f251f; --line-2:#2c342c;
+  --ink:#f2f4f0; --ink-dim:#9ba79b; --ink-faint:#6a756a;
+  --lime:#c8ff6a;                  /* SkillCorner accent: interface, attackers, the zone */
+  --cal:#2f9bd6; --held:#00a82f;   /* the two halves, validated for contrast and for CVD */
+  --ball:#f0a33c; --warn:#d8a13a; --def:#7d8c9e;
+  --sans:"Shentox","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+  --wrap:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+     font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--lime);text-decoration:none;border-bottom:1px solid #3c5522}
+a:hover{border-bottom-color:var(--lime)}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 22px}
+.eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{letter-spacing:-.015em}
+
+/* ------------------------------------------------------------------- buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--lime);
+     background:var(--lime);color:#0a0f04;font:inherit;font-weight:700;font-size:15px;
+     padding:13px 22px;cursor:pointer;border-radius:2px;transition:transform .12s,
+     box-shadow .12s,background .12s;text-transform:uppercase;letter-spacing:.06em}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(200,255,106,.22)}
+.btn.ghost{background:transparent;color:var(--lime);border-color:#3c5522}
+.btn.ghost:hover{border-color:var(--lime);box-shadow:none}
+.btn.small{padding:8px 14px;font-size:12.5px}
+.btn[disabled]{opacity:.4;cursor:default;transform:none;box-shadow:none}
+
+/* ---------------------------------------------------------------------- hero */
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+      padding:26px 0 30px;position:relative;
+      background:radial-gradient(1200px 520px at 78% 18%,#101710 0%,#000 62%)}
+.hero .wrap{display:grid;grid-template-columns:1.06fr .94fr;gap:44px;align-items:center}
+.brandbar{display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.dot{width:9px;height:9px;background:var(--lime);border-radius:50%;flex:none;
+     box-shadow:0 0 0 0 rgba(200,255,106,.6);animation:pulse 2.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 12px rgba(200,255,106,0)}
+                 100%{box-shadow:0 0 0 0 rgba(200,255,106,0)}}
+h1{font-size:clamp(44px,6.6vw,84px);line-height:.94;margin:0;font-weight:800;
+   text-transform:uppercase}
+h1 span{display:block;color:var(--lime)}
+.claim{font-size:clamp(18px,2.1vw,23px);color:var(--ink-dim);max-width:34ch;margin:22px 0 0}
+.claim b{color:var(--ink);font-weight:700}
+.cta{display:flex;gap:14px;margin:30px 0 0;flex-wrap:wrap}
+.hero .byline{margin:28px 0 0;color:var(--ink-faint);font-size:12.5px;max-width:52ch}
+.hero .byline a{color:var(--ink-dim);border-bottom-color:var(--line)}
+.scrolldown{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+            color:var(--ink-faint);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+            animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translate(-50%,7px)}}
+
+/* --------------------------------------------------------------------- court */
+.stage{background:var(--panel);border:1px solid var(--line);padding:14px;position:relative}
+.stage svg{display:block;width:100%;height:auto;max-height:62vh}
+.stagebar{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;
+          font-size:12.5px;color:var(--ink-dim)}
+.stagebar .who{margin-left:auto;text-align:right;font-size:12px;color:var(--ink-faint)}
+.track{flex:1;min-width:90px;height:4px;background:var(--line);position:relative;
+       cursor:pointer}
+.track .head{position:absolute;top:0;left:0;height:4px;background:var(--lime)}
+.iconbtn{border:1px solid var(--line-2);background:transparent;color:var(--ink);
+         width:34px;height:34px;cursor:pointer;border-radius:2px;font-size:13px;flex:none}
+.iconbtn:hover{border-color:var(--lime);color:var(--lime)}
+.court-line{fill:none;stroke:#2a332a;stroke-width:.35}
+.court-out{fill:#080a08;stroke:#39443a;stroke-width:.45}
+.rim{fill:none;stroke:var(--ball);stroke-width:.4}
+.zonering{fill:var(--lime);opacity:.07;stroke:var(--lime);stroke-opacity:.5;stroke-width:.25}
+.flat{fill:none;stroke:var(--ink-faint);stroke-width:.22;stroke-dasharray:1.1 .9}
+.trail{fill:none;stroke-width:.34;opacity:.5}
+.pl{stroke:#000;stroke-width:.18}
+.pl.off{fill:var(--lime)} .pl.def{fill:var(--def)}
+.winner-ring{fill:none;stroke:var(--lime);stroke-width:.45}
+.ballmark{fill:var(--ball)}
+.ballshadow{fill:#000;opacity:.45}
+.spot{fill:none;stroke-width:.3}
+.label{font-family:var(--mono);font-size:1.5px;fill:var(--ink-faint)}
+.pnum{font-family:var(--mono);font-size:1.7px;fill:#0a0f04;font-weight:700;
+      text-anchor:middle}
+.pick{cursor:pointer}
+.pick:hover .halo{opacity:.45}
+.halo{fill:var(--lime);opacity:0;transition:opacity .15s}
+
+/* ------------------------------------------------------------------ sections */
+section{padding:86px 0 30px;border-top:1px solid var(--line);position:relative}
+.kicker{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.kicker i{width:34px;height:3px;background:var(--lime);display:block}
+h2{font-size:clamp(27px,3.9vw,42px);line-height:1.06;margin:0;font-weight:800;max-width:19ch}
+h2.wide{max-width:26ch}
+.body{max-width:66ch;color:var(--ink-dim);margin:18px 0 0;font-size:16.5px}
+.body b{color:var(--ink);font-weight:600}
+.body .num{color:var(--ink)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;margin-top:34px}
+.split.narrow{grid-template-columns:.85fr 1.15fr}
+
+/* -------------------------------------------------------------------- tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;
+       background:var(--line);border:1px solid var(--line);margin-top:34px}
+.tile{background:var(--panel);padding:18px 20px 20px}
+.tile .k{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+         min-height:29px}
+.tile .v{font-family:var(--mono);font-size:29px;margin-top:10px;display:flex;
+         align-items:baseline;gap:10px;flex-wrap:wrap}
+.tile .v i{font-style:normal;font-size:13px;color:var(--ink-faint)}
+.tile .note{font-size:12px;color:var(--ink-faint);margin-top:8px}
+.swatch{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
+.sw-cal{background:var(--cal)} .sw-held{background:var(--held)}
+
+/* -------------------------------------------------------------------- filter */
+.filter{position:sticky;top:0;z-index:30;background:rgba(0,0,0,.9);
+        border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.filter .wrap{display:flex;align-items:center;gap:14px;padding-top:9px;padding-bottom:9px;
+              flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{background:transparent;border:0;color:var(--ink-dim);font:inherit;font-size:13px;
+            padding:6px 14px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--lime);color:#0a0f04;font-weight:700}
+.seg button:hover:not([aria-pressed=true]){color:var(--ink)}
+
+/* -------------------------------------------------------------------- charts */
+figure{margin:30px 0 0;background:var(--panel);border:1px solid var(--line);padding:18px}
+figcaption{font-size:12.5px;color:var(--ink-faint);margin-top:14px;max-width:84ch}
+.figtitle{font-size:15px;font-weight:700;margin-bottom:2px}
+.figsub{font-size:12.5px;color:var(--ink-faint);margin-bottom:12px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.grid{stroke:#1b211b;stroke-width:1}
+.axis{stroke:var(--line-2);stroke-width:1}
+.tick{fill:var(--ink-faint);font-size:11px;font-family:var(--mono)}
+.axlab{fill:var(--ink-faint);font-size:11px;letter-spacing:.09em;text-transform:uppercase}
+.s0{--c:var(--cal)} .s1{--c:var(--held)}
+.ln{fill:none;stroke:var(--c);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}
+.ar{fill:var(--c);opacity:.13}
+.mk{fill:var(--c);stroke:var(--panel);stroke-width:2}
+.dlab{fill:var(--c);font-size:12px;font-weight:700}
+.reflab{fill:var(--ink-faint);font-size:11px;font-family:var(--mono)}
+.cross{stroke:var(--ink-faint);stroke-width:1;stroke-dasharray:3 3}
+.legend{display:flex;gap:18px;font-size:12.5px;color:var(--ink-dim);margin:14px 0 0;
+        flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.tip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-118%);
+     background:#0a0c0a;border:1px solid var(--line-2);border-left:2px solid var(--lime);
+     padding:8px 10px;font-size:12.5px;white-space:nowrap;z-index:5;transition:opacity .09s}
+.tip .r{display:flex;justify-content:space-between;gap:14px}
+.tip .h{color:var(--ink-faint);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+        margin-bottom:5px}
+/* the lines draw themselves in when the chart first comes into view */
+.draw .ln{stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
+.draw.in .ln{transition:stroke-dashoffset 1.05s ease-out;stroke-dashoffset:0}
+.draw .mk,.draw .ar,.draw .dlab{opacity:0;transition:opacity .5s ease-out .55s}
+.draw.in .mk,.draw.in .dlab{opacity:1}
+.draw.in .ar{opacity:.13}
+
+/* ---------------------------------------------------------------------- bars */
+.bars{margin:22px 0 0}
+.bar{display:grid;grid-template-columns:minmax(140px,1.1fr) 1.5fr auto;gap:16px;
+     align-items:center;padding:6px 0}
+.bar.pair{border-top:1px solid var(--line);padding-top:12px;margin-top:6px}
+.bar .lbl{font-size:13.5px;color:var(--ink-dim)}
+.bar .track2{position:relative;height:12px;background:var(--panel-2)}
+.bar .fill{position:absolute;top:0;height:12px;width:0;transition:width .9s cubic-bezier(.2,.7,.3,1)}
+.bar .zero{position:absolute;top:-3px;height:18px;width:1px;background:#39423a}
+.bar .val{font-family:var(--mono);font-size:13px;min-width:64px;text-align:right}
+
+/* -------------------------------------------------------------------- tables */
+details{margin:14px 0 0;font-size:13px}
+summary{cursor:pointer;color:var(--ink-faint);font-size:11px;letter-spacing:.1em;
+        text-transform:uppercase;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"+ ";color:var(--lime)}
+details[open] summary:before{content:"- "}
+table{border-collapse:collapse;width:100%;margin-top:12px;font-size:13px}
+th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--ink-faint);font-weight:500;font-size:10.5px;letter-spacing:.1em;
+         text-transform:uppercase}
+td.num{font-family:var(--mono)}
+tbody tr:hover{background:var(--panel-2)}
+
+/* ------------------------------------------------------------------ the game */
+.scoreline{display:flex;gap:26px;margin:22px 0 0;flex-wrap:wrap}
+.score{background:var(--panel-2);border:1px solid var(--line);padding:12px 18px;min-width:128px}
+.score .k{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+.score .v{font-family:var(--mono);font-size:25px;margin-top:4px}
+.verdict{margin:18px 0 0;font-size:15px;min-height:52px;color:var(--ink-dim)}
+.verdict b{color:var(--lime)}
+.verdict .wrong{color:var(--warn)}
+ul.neg{list-style:none;padding:0;margin:30px 0 0;max-width:80ch}
+ul.neg li{border-left:2px solid var(--warn);padding:2px 0 2px 18px;margin-bottom:22px;
+          color:var(--ink-dim)}
+ul.neg b{color:var(--ink);font-weight:700;display:block;margin-bottom:3px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;
+      margin:28px 0 0}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px 18px}
+.card h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+         margin:0 0 12px;font-weight:500}
+.log{font-family:var(--mono);font-size:12.5px;line-height:1.9}
+.log .sha{color:var(--lime)}
+.log .sub{color:var(--ink-dim)}
+pre{background:var(--panel-2);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);margin:16px 0 0}
+.endcta{text-align:center;padding:70px 0 80px}
+.endcta h2{margin:0 auto;max-width:22ch}
+.endcta .cta{justify-content:center;margin-top:28px}
+footer{padding:40px 0;color:var(--ink-faint);font-size:12.5px;border-top:1px solid var(--line);
+       background:#050705}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s,transform .6s}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .hero .wrap,.split,.split.narrow{grid-template-columns:1fr}
+  .hero{min-height:auto;padding-top:20px}
+  section{padding-top:58px}
+  .bar{grid-template-columns:1fr auto}
+  .bar .track2{grid-column:1 / -1}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none;transition:none}
+  .dot,.scrolldown{animation:none}
+  .draw .ln{stroke-dasharray:none;stroke-dashoffset:0}
+  .draw .mk,.draw .ar,.draw .dlab{opacity:1;transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================== hero -->
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <div class="brandbar">
+        <span class="dot"></span>
+        <span class="eyebrow">PySport &times; SkillCorner Analytics Cup 2.0</span>
+      </div>
+      <h1>Nobody reads<span>the bounce</span></h1>
+      <p class="claim">Coaches say the best rebounders read the bounce. On ten ACB games of
+        SkillCorner's open tracking, <b>nobody does</b>. The rebound is not read, it is
+        occupied.</p>
+      <div class="cta">
+        <button class="btn" id="hero-play">&#9654;&nbsp; Replay the rebound</button>
+        <a class="btn ghost" href="#game">Beat the model &darr;</a>
+      </div>
+      <p class="byline">Real tracking, not an illustration: every clip on this page is a
+        rebound from the open bundle, drawn from the cached frames. Built on
+        <a href="https://github.com/SkillCorner/opendata-basketball">SkillCorner's open
+        basketball data</a>, ships as <span class="num">scbasket</span> under MIT. Every
+        number in the charts and the tables below is read out of a
+        <span class="num">reports/*.csv</span> when the page is built; the few inside the
+        prose are quoted from the repository's own record, which says where each was
+        printed. Built <span class="num" id="built"></span>.</p>
+    </div>
+    <div>
+      <div class="stage">
+        <div id="hero-court"></div>
+        <div class="stagebar">
+          <button class="iconbtn" id="hero-toggle" aria-label="play or pause">&#9208;</button>
+          <div class="track" id="hero-track"><div class="head" id="hero-head"></div></div>
+          <button class="iconbtn" id="hero-next" aria-label="next rebound">&#9197;</button>
+          <div class="who" id="hero-meta"></div>
+        </div>
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <span><i style="background:var(--lime)"></i>attacking five</span>
+        <span><i style="background:var(--def)"></i>defending five</span>
+        <span><i style="background:var(--ball)"></i>the ball</span>
+        <span><i style="background:var(--lime);opacity:.35"></i>the zone this shot earns</span>
+      </div>
+    </div>
+  </div>
+  <div class="scrolldown">scroll</div>
+</div>
+
+<!-- ============================================================== the game -->
+<section id="game">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">01 &mdash; half a second before the
+      ball is won</span></div>
+    <h2 class="wide">Pick the player who wins this rebound.</h2>
+    <p class="body">The clip is stopped <span class="num" id="lead-seconds"></span> seconds
+      before the ball is won, which is the only thing the model ever sees. Click a player.
+      Then the model's ranking and what actually happened are both revealed, and you can
+      keep score against it over the eight rebounds on this page.</p>
+
+    <div class="split narrow">
+      <div>
+        <div class="scoreline">
+          <div class="score"><div class="k">you</div><div class="v" id="score-you">0 / 0</div></div>
+          <div class="score"><div class="k">the model</div><div class="v" id="score-model">0 / 0</div></div>
+        </div>
+        <div class="verdict" id="verdict">Click any player on the court.</div>
+        <div class="cta">
+          <button class="btn small" id="game-reveal">Show the model's pick</button>
+          <button class="btn small ghost" id="game-next">Next rebound</button>
+        </div>
+        <p class="body" style="font-size:14px">The ten probabilities sum to one by
+          construction, because exactly one of the ten wins the board. That is the whole
+          reason the model is a conditional logit over the players present rather than ten
+          independent guesses.</p>
+      </div>
+      <div class="stage">
+        <div id="game-court"></div>
+        <div class="stagebar">
+          <button class="iconbtn" id="game-toggle" aria-label="play or pause">&#9654;</button>
+          <div class="track" id="game-track"><div class="head" id="game-head"></div></div>
+          <div class="who" id="game-meta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="filter">
+  <div class="wrap">
+    <span class="eyebrow">which half of the data</span>
+    <div class="seg" role="group" aria-label="Which half of the data to show">
+      <button data-half="both" aria-pressed="true">Both</button>
+      <button data-half="calibration" aria-pressed="false">Calibration</button>
+      <button data-half="held out" aria-pressed="false">Held out</button>
+    </div>
+    <span class="eyebrow" id="filter-note"></span>
+  </div>
+</div>
+
+<div class="wrap"><div class="tiles reveal" id="tiles"></div></div>
+
+<!-- ============================================================== the lift -->
+<section id="lift">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">02 &mdash; what a player controls</span></div>
+    <h2>Inside the zone the heading decides. Outside it, nothing.</h2>
+    <p class="body">What a player controls is their heading, and it is worth something only
+      inside a small zone. The lift is the share of rebounds won by attackers arriving
+      <b>rimward</b> &mdash; under <span class="num" id="angle-deg"></span> degrees, measured
+      half a second before the ball is won &mdash; minus the share won by everyone else at the
+      same distance. Both halves are drawn on the same axes, because <b>the replication is the
+      argument</b>.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Lift of a rimward heading, by distance to the rim</div>
+      <div class="figsub">Hover a band for its interval and the players behind it.</div>
+      <div class="chart"><div id="lift-chart"></div><div class="tip" id="lift-tip"></div></div>
+      <div class="legend" id="lift-legend"></div>
+      <figcaption>Source <span class="num">reports/angle_players.csv</span>, tables from
+        <span class="num">scbasket.report</span>. Bands are a cluster bootstrap over the five
+        games of each half, not over rebounds, which are not independent inside a game. Five
+        clusters is few, so the bands are crude: they are there to stop a small band from
+        reading as solidly as a large one.</figcaption>
+      <details><summary>the numbers</summary><div id="lift-table"></div></details>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the control -->
+<section id="curve">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">03 &mdash; the control</span></div>
+    <h2>Not proximity relabelled</h2>
+    <p class="body">Players arriving rimward are also nearer the rim, so the lift alone cannot
+      separate heading from proximity. Hold the distance inside a fixed band and vary only the
+      angle: zero degrees is driving at the rim, 180 is running away from it.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">P(this attacker wins the rebound) by approach angle</div>
+      <div class="figsub" id="curve-sub"></div>
+      <div class="chart"><div id="curve-chart"></div><div class="tip" id="curve-tip"></div></div>
+      <div class="legend" id="curve-legend"></div>
+      <figcaption>Pooled over both halves the curve falls monotonically; split, the held-out
+        half is monotone and calibration ticks up in the last band. Both are shown rather than
+        the friendlier one.</figcaption>
+      <details><summary>the numbers, and the pooled curve the record quotes</summary>
+        <div id="curve-table"></div></details>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the zone -->
+<section id="zone">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">04 &mdash; the zone a shot earns</span></div>
+    <h2 class="wide">Move the shot. The zone moves with it.</h2>
+    <p class="body">Rebounds land close to the rim, and how close depends on where the shot
+      was taken. The zone is <span class="num" id="zone-formula"></span>, fitted by pinball
+      loss on the calibration half alone and frozen before a held-out game was opened. Click
+      anywhere on the court to shoot from there: the ring is the zone that shot earns, and the
+      dots are the <b>real rebounds</b> off shots within two feet of it.</p>
+
+    <div class="split">
+      <div class="stage">
+        <div id="zone-court"></div>
+        <div class="stagebar">
+          <span class="eyebrow">click the court to move the shot</span>
+          <span class="who" id="zone-meta"></span>
+        </div>
+      </div>
+      <div>
+        <div class="tiles" id="zone-tiles" style="margin-top:0"></div>
+        <p class="body">It does not cover more ground than the flat
+          <span class="num" id="flat-ft"></span> ft band it replaces: it
+          covers the <b>same share of rebounds evenly across shot distances</b> instead of
+          bunching that coverage at one end. That is the condition it was graded on, and it
+          passed on the held-out games by a wider margin than on the ones it was fitted on.</p>
+        <details><summary>the numbers</summary><div id="zone-table"></div></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== the ball -->
+<section id="ball">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">05 &mdash; what the ball says</span></div>
+    <h2 class="wide">The ball is barely legible, and what it does say is geometry</h2>
+    <p class="body">The ball's own arrival predicts where it lands, and a pre-registered test
+      of it passed on games never touched. Then this repository refuted what the pass meant.
+      The quantity was the angle the ball arrives at,
+      <span class="num">arctan(drop / run)</span>, and <b>only the denominator predicts</b>:
+      how far the ball is still carrying sideways when it reaches rim height, and how far from
+      the rim it gets there. Steepness alone points the other way. Hold those two and the
+      angle keeps nothing.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Rank correlation with how far the rebound lands</div>
+      <div class="figsub">Spearman, per half. Positive means the ball lands further out.</div>
+      <div class="bars" id="carry-bars"></div>
+      <div class="legend" id="carry-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_flight_carry.csv</span>, written by
+        <span class="num">scripts/rebound_flight.py</span>. The last row holds both legs at
+        once: what is left of the arrival angle is the finding this repository overturned, and
+        then refuted.</figcaption>
+      <details><summary>the numbers</summary><div id="carry-table"></div></details>
+    </figure>
+
+    <figure class="reveal">
+      <div class="figtitle">Spread of the landing radius, in feet</div>
+      <div class="figsub">Standard deviation of the residual. Lower is more predictable.</div>
+      <div class="bars" id="spread-bars"></div>
+      <div class="legend" id="spread-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_flight_criterion.csv</span>.
+        Knowing nothing, then knowing where the shot came from, then adding the ball's
+        arrival.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the contest -->
+<section id="contest">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">06 &mdash; the contest</span></div>
+    <h2>Exactly one of ten wins the board</h2>
+    <p class="body">Ten independent probabilities is the wrong structure for a rebound, and
+      ten such numbers do not sum to one. This is the model you played against: a conditional
+      logit over the ten on court, scored half a second before the ball is won, on distance in
+      zone units, heading, speed and whether the player is attacking or defending. The
+      coefficients were fitted on calibration, frozen, committed, and <b>never refitted</b>.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Log probability put on the player who actually won, per rebound</div>
+      <div class="figsub">Further right is better. The floor is knowing nothing at all.</div>
+      <div class="bars" id="contest-bars"></div>
+      <div class="legend" id="contest-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_contest_criterion.csv</span>, written
+        by <span class="num">scripts/rebound_contest.py</span>. The middle bar of each group is
+        what distance and side alone achieve; the frozen model beats it on the held-out games,
+        which is condition 1 of the pre-registration.</figcaption>
+      <details><summary>the numbers, including the top-1 rates</summary>
+        <div id="contest-table"></div></details>
+    </figure>
+
+    <div class="cols">
+      <div class="card">
+        <h3>The frozen coefficients</h3>
+        <div class="bars" id="beta-bars"></div>
+      </div>
+      <div class="card">
+        <h3>Read this way</h3>
+        <p class="body" style="margin-top:0;font-size:14px">A player is better placed the
+          nearer they are <b>in units of the zone their shot earned</b>, the more directly
+          they are heading at the rim, and the faster they are moving. Attackers win about
+          three rebounds in ten, which is what the last coefficient carries. Every feature is
+          a position or a velocity: <b>a definition, never a detector</b>. Nothing here says a
+          player crashed, tagged up or boxed out, and nothing ever will, because tracking
+          cannot see intent. That is SkillCorner's own position, and it closed a whole
+          direction of this project.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== the negatives -->
+<section id="negatives">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">07 &mdash; the part most entries leave
+      out</span></div>
+    <h2>What failed, in its own words</h2>
+    <p class="body">A pre-registered threshold that fails is reported as it fell, and it is
+      never moved to fit a result. These are this repository's, unedited. The numbers in them
+      are the ones the scripts printed when each was graded, and they are kept with their
+      dates in <span class="num">tasks/todo.md</span>.</p>
+
+    <figure class="reveal" style="border-left:2px solid var(--warn)">
+      <div class="figtitle">The one a coach will ask about: what does sending more
+        players at the rim cost you?</div>
+      <div class="figsub">Rebounds bucketed by how many attackers are heading rimward half a
+        second before the ball is won.</div>
+      <div id="cost-table"></div>
+      <figcaption>Source <span class="num">reports/angle_tradeoff.csv</span>, written by
+        <span class="num">scripts/angle_tradeoff.py</span>. <b>The buy replicates and the cost
+        does not exist yet.</b> More attackers heading at the rim does win more offensive
+        rebounds. What it costs in transition was measured two ways and they point in opposite
+        directions: the space the other team then owns over the first four seconds of its break
+        barely moves, about 2%, and the two halves disagree at the bottom of the table; the
+        points they actually score move the other way, downward, which cannot both be true of a
+        cost. Four and five committed attackers have two to four rebounds with a usable break
+        behind them, so the table stops at three. <b>So this entry does not claim the glass is
+        free. It claims a rimward heading wins boards, and says plainly that ten games could
+        not price what it costs.</b> The word for what a player was trying to do does not
+        appear anywhere here, and this is the sentence where it would have been easiest to
+        write.</figcaption>
+    </figure>
+
+    <ul class="neg" id="negatives-list"></ul>
+  </div>
+</section>
+
+<!-- ============================================================== the record -->
+<section id="record">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">08 &mdash; the record</span></div>
+    <h2>Frozen before the held-out games were opened</h2>
+    <p class="body">Ten games, split once and never pooled. Every parameter and every
+      criterion was committed before a held-out game was read, and the commits are in the
+      repository rather than in a sentence about the repository.</p>
+    <div class="cols">
+      <div class="card"><h3>Calibration, fitted on</h3><div class="log" id="games-cal"></div></div>
+      <div class="card"><h3>Held out, read once</h3><div class="log" id="games-held"></div></div>
+    </div>
+    <div class="card" style="margin-top:26px">
+      <h3>The freezes, and the entries that went against us</h3>
+      <div class="log" id="record-log"></div>
+    </div>
+    <pre>uv sync --extra dev
+python scripts/fetch_data.py                   # ~730 MB, needs git-lfs
+uv run python scripts/build_frame_cache.py
+uv run python scripts/rebound_zone.py          # --fit re-derives the zone
+uv run python scripts/rebound_contest.py       # --fit re-derives the betas
+uv run python scripts/rebound_flight.py        # --fit reads calibration only
+uv run python scripts/angle_tradeoff.py
+uv run --extra figures python scripts/figures.py
+uv run python scripts/court_scenes.py          # the clips on this page
+uv run python scripts/report_html.py           # this page</pre>
+  </div>
+</section>
+
+<div class="endcta wrap">
+  <h2 style="margin-inline:auto">Rebounding is not a reading contest. It is an occupation
+    contest.</h2>
+  <div class="cta">
+    <a class="btn" href="#game">Play it again</a>
+    <a class="btn ghost"
+       href="https://github.com/SkillCorner/opendata-basketball">The open data</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>MIT, both ways &middot; this repository and
+      <a href="https://github.com/SkillCorner/opendata-basketball">SkillCorner's open data</a>,
+      downloaded, not versioned here.</span>
+    <span>No player is named, numbered or ranked anywhere on this page.</span>
+  </div>
+</footer>
+
+<script type="application/json" id="payload">{"built": "2026-09-19", "halves": ["calibration", "held out"], "games": {"calibration": [114243, 114234, 114169, 114099, 114086], "held out": [178442, 179612, 184439, 188630, 191313]}, "lift": {"labels": ["0-4", "4-8", "8-12", "12-16", "16-22", "22+"], "rows": [{"half": "calibration", "slot": 0, "band": "0-4", "value": 0.171935, "n": 130, "lo": 0.114854, "hi": 0.240938}, {"half": "calibration", "slot": 1, "band": "4-8", "value": 0.145292, "n": 249, "lo": 0.068067, "hi": 0.225973}, {"half": "calibration", "slot": 2, "band": "8-12", "value": 0.041537, "n": 183, "lo": -0.037415, "hi": 0.121887}, {"half": "calibration", "slot": 3, "band": "12-16", "value": 0.025991, "n": 138, "lo": -0.061502, "hi": 0.151786}, {"half": "calibration", "slot": 4, "band": "16-22", "value": 0.007117, "n": 232, "lo": -0.034483, "hi": 0.035088}, {"half": "calibration", "slot": 5, "band": "22+", "value": 0.007333, "n": 598, "lo": -0.029126, "hi": 0.048412}, {"half": "held out", "slot": 0, "band": "0-4", "value": 0.321981, "n": 108, "lo": 0.23263, "hi": 0.482372}, {"half": "held out", "slot": 1, "band": "4-8", "value": 0.053411, "n": 176, "lo": -0.010272, "hi": 0.126582}, {"half": "held out", "slot": 2, "band": "8-12", "value": -0.007619, "n": 145, "lo": -0.105556, "hi": 0.083333}, {"half": "held out", "slot": 3, "band": "12-16", "value": 0.019816, "n": 132, "lo": -0.057143, "hi": 0.088235}, {"half": "held out", "slot": 4, "band": "16-22", "value": 0.030769, "n": 190, "lo": 0.0, "hi": 0.06383}, {"half": "held out", "slot": 5, "band": "22+", "value": -0.002835, "n": 608, "lo": -0.03012, "hi": 0.016425}]}, "curve": {"labels": ["0-30", "30-60", "60-90", "90-120", "120-180"], "rows": [{"half": "calibration", "slot": 0, "band": "0-30", "value": 0.236559, "n": 93, "lo": 0.16, "hi": 0.333333}, {"half": "calibration", "slot": 1, "band": "30-60", "value": 0.217391, "n": 69, "lo": 0.180556, "hi": 0.280702}, {"half": "calibration", "slot": 2, "band": "60-90", "value": 0.133333, "n": 45, "lo": 0.044444, "hi": 0.238095}, {"half": "calibration", "slot": 3, "band": "90-120", "value": 0.050847, "n": 59, "lo": 0.0, "hi": 0.107692}, {"half": "calibration", "slot": 4, "band": "120-180", "value": 0.061947, "n": 113, "lo": 0.023438, "hi": 0.1125}, {"half": "held out", "slot": 0, "band": "0-30", "value": 0.27027, "n": 74, "lo": 0.184615, "hi": 0.337349}, {"half": "held out", "slot": 1, "band": "30-60", "value": 0.206897, "n": 58, "lo": 0.145455, "hi": 0.283333}, {"half": "held out", "slot": 2, "band": "60-90", "value": 0.139535, "n": 43, "lo": 0.06, "hi": 0.25}, {"half": "held out", "slot": 3, "band": "90-120", "value": 0.115385, "n": 26, "lo": 0.043478, "hi": 0.2}, {"half": "held out", "slot": 4, "band": "120-180", "value": 0.048193, "n": 83, "lo": 0.013333, "hi": 0.081395}]}, "pooled": [{"band": "0-30", "n": 167, "value": 0.251497}, {"band": "30-60", "n": 127, "value": 0.212598}, {"band": "60-90", "n": 88, "value": 0.136364}, {"band": "90-120", "n": 85, "value": 0.070588}, {"band": "120-180", "n": 196, "value": 0.056122}], "committed_angle": 60.0, "fixed_band_ft": 8.0, "ball": {"carry": {"calibration": {"n": 256.0, "rho_angle": -0.3295519569695582, "rho_run": 0.570438029297322, "rho_drop": 0.1714738683740949, "rho_cross_dist": 0.6398696784161135, "partial_angle_given_run": 0.1191852123966701, "partial_angle_given_cross": -0.2665923394479788, "partial_angle_given_both": -0.0406036061394034, "n_crossing_at_the_rim": 74.0, "rho_angle_at_the_rim": -0.2352758237689744, "share_measured_in_contact_range": 0.1015625}, "held out": {"n": 236.0, "rho_angle": -0.353312913400923, "rho_run": 0.5678938406971383, "rho_drop": 0.2220505846871396, "rho_cross_dist": 0.6368325672054668, "partial_angle_given_run": 0.1416000081908961, "partial_angle_given_cross": -0.2204307205209054, "partial_angle_given_both": -0.0143732545920143, "n_crossing_at_the_rim": 73.0, "rho_angle_at_the_rim": -0.1799333580155498, "share_measured_in_contact_range": 0.1016949152542373}}, "spread": {"calibration": {"n": 256.0, "sd_none": 4.724858242038505, "sd_shot": 4.604309899252644, "sd_shot_entry": 4.2759216073737525, "rho_angle_radius": -0.3295519569695582, "games_negative": 5.0}, "held out": {"n": 236.0, "sd_none": 4.838851993034801, "sd_shot": 4.700472665041424, "sd_shot_entry": 4.511465380229292, "rho_angle_radius": -0.353312913400923, "games_negative": 5.0}}}, "cost": [{"n_committed": 0, "half": "calibration", "rebounds": 87, "off_reb_rate": 0.16092, "break_area": 515.582022, "break_area_n": 59, "next_pts": 0.919355}, {"n_committed": 0, "half": "held out", "rebounds": 90, "off_reb_rate": 0.2, "break_area": 490.565429, "break_area_n": 51, "next_pts": 1.150943}, {"n_committed": 1, "half": "calibration", "rebounds": 142, "off_reb_rate": 0.197183, "break_area": 512.215776, "break_area_n": 96, "next_pts": 0.715686}, {"n_committed": 1, "half": "held out", "rebounds": 103, "off_reb_rate": 0.145631, "break_area": 504.208537, "break_area_n": 75, "next_pts": 0.896104}, {"n_committed": 2, "half": "calibration", "rebounds": 82, "off_reb_rate": 0.353659, "break_area": 524.013077, "break_area_n": 47, "next_pts": 0.5625}, {"n_committed": 2, "half": "held out", "rebounds": 67, "off_reb_rate": 0.313433, "break_area": 523.147792, "break_area_n": 40, "next_pts": 0.452381}, {"n_committed": 3, "half": "calibration", "rebounds": 41, "off_reb_rate": 0.219512, "break_area": 525.302809, "break_area_n": 31, "next_pts": 0.5}, {"n_committed": 3, "half": "held out", "rebounds": 41, "off_reb_rate": 0.317073, "break_area": 522.808549, "break_area_n": 25, "next_pts": 0.846154}, {"n_committed": 4, "half": "calibration", "rebounds": 10, "off_reb_rate": 0.6, "break_area": 522.225248, "break_area_n": 4, "next_pts": 1.25}, {"n_committed": 4, "half": "held out", "rebounds": 10, "off_reb_rate": 0.5, "break_area": 495.079208, "break_area_n": 3, "next_pts": 1.5}, {"n_committed": 5, "half": "calibration", "rebounds": 3, "off_reb_rate": 0.666667, "break_area": 580.178218, "break_area_n": 2, "next_pts": 0.0}, {"n_committed": 5, "half": "held out", "rebounds": 2, "off_reb_rate": 1.0, "break_area": 574.0, "break_area_n": 1, "next_pts": 0.0}], "zone": {"intercept": 5.4, "slope": 0.18, "coverage": 0.75, "flat_ft": 8.0, "max_gap": 0.03, "example": [-18.759999999999998, 0.0], "points": {"x": [-33.6, -41.2, -36.8, -39.0, -41.0, -39.0, -38.6, -38.6, -40.2, -38.7, -38.3, -40.9, -37.3, -36.4, -38.6, -35.9, -34.5, -39.3, -36.8, -44.4, -40.9, -42.9, -36.5, -37.1, -28.1, -36.1, -42.9, -38.0, -34.7, -37.1, -38.2, -26.1, -38.4, -37.2, -39.3, -34.7, -35.4, -30.0, -37.2, -41.4, -20.0, -41.5, -38.9, -39.1, -39.7, -31.2, -37.6, -34.3, -39.7, -39.5, -36.3, -39.4, -38.3, -37.9, -37.7, -39.8, -42.3, -13.9, -39.2, -35.5, -41.7, -38.5, -43.7, -38.7, -38.7, -28.0, -40.3, -33.7, -37.6, -40.7, -31.1, -39.3, -41.3, -19.8, -36.5, -24.8, -39.5, -38.0, -34.2, -42.1, -40.3, -35.2, -36.4, -41.2, -36.2, -41.2, -39.9, -42.2, -29.1, -39.3, -39.8, -39.3, -37.6, -32.3, -34.6, -40.8, -25.2, -33.8, -38.7, -43.4, -41.7, -42.7, -39.0, -41.2, -39.5, -40.1, -44.8, -35.5, -35.0, -28.8, -37.6, -39.8, -39.2, -25.9, -34.4, -38.3, -38.4, -39.0, -36.8, -39.9, -41.2, -37.6, -38.7, -40.4, -38.8, -38.8, -38.3, -37.3, -32.1, -34.5, -39.4, -35.7, -37.1, -36.5, -37.4, -35.5, -40.9, -40.8, -38.2, -42.0, -42.9, -31.5, -32.4, -35.3, -36.6, -31.5, -38.7, -39.4, -28.4, -38.2, -41.2, -40.5, -35.6, -39.3, -39.4, -40.2, -43.1, -38.7, -41.0, -39.9, -38.4, -40.9, -37.1, -36.2, -38.9, -40.1, -29.4, -37.2, -33.2, -38.5, -41.0, -40.9, -38.2, -41.2, -34.4, -38.9, -26.9, -38.2, -30.7, -43.6, -37.3, -36.6, -27.6, -39.6, -37.1, -38.1, -40.4, -41.5, -34.9, -33.9, -35.6, -36.9, -40.0, -42.2, -32.9, -40.9, -37.4, -40.4, -33.2, -38.1, -40.0, -34.9, -39.9, -38.1, -31.3, -29.4, -36.6, -39.3, -41.1, -39.4, -40.7, -30.4, -40.0, -39.8, -41.2, -35.5, -38.3, -36.9, -38.6, -32.9, -42.7, -41.1, -42.7, -36.8, -40.6, -45.1, -39.0, -40.5, -40.3, -37.1, -35.7, -40.2, -37.3, -31.3, -38.0, -35.5, -41.0, -39.0, -35.9, -35.0, -38.2, -36.0, -38.9, -23.2, -36.4, -34.1, -30.6, -40.9, -34.5, -37.6, -38.1, -41.5, -42.2, -29.5, -31.6, -41.5, -42.1, -39.1, -26.8, -39.9, -25.9, -39.5, -40.3, -37.6, -38.8, -33.0, -35.4, -37.9, -36.6, -37.0, -39.1, -31.3, -41.3, -41.7, -32.3, -41.3, -37.6, -37.9, -36.7, -36.7, -33.2, -41.8, -35.8, -35.1, -39.9, -40.2, -41.7, -36.8, -34.5, -39.1, -41.3, -40.8, -36.9, -39.0, -35.6, -40.7, -36.7, -40.4, -37.1, -40.4, -35.9, -39.3, -39.9, -37.7, -38.5, -40.1, -40.2, -38.4, -40.3, -39.9, -37.0, -39.6, -41.8, -36.4, -40.2, -39.1, -12.4, -36.6, -40.6, -32.6, -35.9, -36.7, -40.2, -39.0, -40.2, -33.7, -43.0, -40.7, -43.0, -40.1, -43.4, -38.7, -40.0, -40.7, -42.2, -38.9, -42.6, -24.7, -40.6, -29.1, -13.7, -41.3, -37.7, -33.3, -41.7, -38.1, -43.0, -38.3, -33.8, -39.6, -31.2, -39.0, -37.9, -36.6, -36.9, -38.9, -36.1, -37.7, -26.5, -38.8, -37.6, -37.1, -34.0, -38.0, -39.9, -39.2, -41.4, -39.4, -29.4, -41.2, -33.8, -31.9, -31.0, -38.8, -38.8, -39.8, -40.8, -36.2, -37.6, -30.2, -33.4, -42.0, -27.7, -39.7, -27.2, -38.7, -36.0, -42.8, -37.5, -41.4, -37.8, -41.5, -38.5, -36.3, -40.0, -40.2, -39.2, -33.6, -38.7, -38.9, -30.1, -30.3, -38.2, -36.4, -36.4, -35.7, -38.0, -42.1, -34.6, -39.1, -37.7, -39.6, -31.9, -37.1, -38.3, -43.2, -35.4, -38.1, -42.4, -41.4, -20.4, -42.3, -34.5, -31.0, -39.2, -33.1, -33.9, -41.3, -38.0, -37.7, -37.0, -21.1, -40.6, -30.0, -41.7, -40.6, -39.8, -41.4, -39.7, -40.8, -26.7, -37.1, -38.4, -38.9, -42.6, -40.3, -33.8, -36.4, -35.5, -41.2, -42.0, -41.2, -41.1, -30.3, -32.3, -37.0, -44.2, -40.5, -26.8, -39.1, -41.8, -37.9, -37.6, -37.8, -37.8, -36.4, -38.9, -41.6, -41.6, -40.5, -31.4, -36.6, -40.4, -39.3, -41.9, -32.3, -41.9, -32.0, -38.7, -41.4, -39.5, -39.8, -40.0, -37.9, -42.4, -28.3, -42.2, -40.1, -32.9, -37.7, -39.2, -38.2, -33.5, -41.5, -39.9, -39.4, -42.2, -35.6, -33.2, -33.6, -38.8, -37.3, -40.9, -41.2, -39.5, -39.6, -38.7, -38.9, -37.9, -37.8, -42.4, -41.2, -38.9, -41.1, -34.5, -39.8, -40.4, -41.6, -34.1, -42.4, -33.7, -34.8, -40.6, -37.5, -36.0, -38.7, -33.0, -38.9, -38.1, -40.2, -41.6, -37.6, -40.7, -37.2, -38.7, -33.8, -39.3, -26.7, -41.1, -39.6, -40.5, -32.5, -41.0, -38.9, -36.1, -39.0, -38.4, -39.8, -37.6, -39.5, -36.9, -39.5, -35.7, -41.3, -36.8, -41.7, -22.1, -34.2, -37.5, -35.3, -36.9, -41.1, -38.1, -39.9, -41.3, -39.6, -24.5, -39.3, -38.9, -39.6, -39.1, -41.8, -40.3, -34.9, -31.6, -40.6, -39.8, -38.8, -36.7, -39.7, -28.3, -36.1, -39.7, -39.7, -26.8, -40.0, -39.4, -40.3, -38.1, -45.4, -18.4, -31.7, -40.8, -40.6, -34.5, -26.6, -32.6, -39.1, -40.7, -36.8, -39.7, -22.1, -40.7, -42.1, -37.0, -34.9, -41.8, -38.5, -34.3, -35.7, -35.5, -34.1, -35.5], "y": [11.3, -0.7, 2.7, 0.3, -4.2, 2.7, 1.0, -0.4, 4.0, -3.8, -2.9, -3.1, -5.1, 0.8, -13.3, 3.6, -0.7, 2.9, 0.7, 5.9, 4.1, -2.2, 5.8, -6.1, -8.8, 0.6, 2.1, -2.3, -5.0, 10.7, 5.4, 3.5, 3.4, 1.8, 7.9, 11.2, 7.3, -4.9, -8.9, 1.4, -12.3, -4.1, 0.6, -2.6, -1.2, -3.5, -4.5, 3.6, -2.6, 2.9, -8.9, 2.8, 1.8, 1.7, 0.3, 4.7, 8.0, -15.4, 0.2, 4.8, -1.8, 6.0, -3.9, -4.2, -0.1, 1.7, 0.6, -3.0, 8.4, -3.3, 5.5, -1.2, -2.0, 13.4, 2.5, -4.3, 1.3, -17.3, 6.4, -0.7, -3.8, 14.0, 11.4, 2.9, -2.7, -1.5, 1.4, -8.3, -6.5, -6.5, -1.7, 5.6, -4.7, 0.8, 1.8, 5.8, 4.4, 0.7, 1.8, -4.7, -0.5, -5.6, -3.0, -2.6, 4.8, -0.8, 1.3, -3.3, -1.3, 5.7, -6.3, -2.5, -0.3, -6.4, 7.9, -2.2, 3.1, -3.6, -4.3, 2.2, 1.0, 2.5, 2.1, 1.9, 3.2, 10.4, 6.1, -0.7, 0.2, -3.5, -3.9, -6.6, -1.1, -5.6, 0.3, 6.3, 9.5, -3.7, -5.7, 6.0, 2.0, 8.5, 1.1, -0.2, 0.9, -0.9, -2.3, -8.9, 12.7, 3.6, 3.3, -2.4, -6.7, 2.5, -0.9, -4.0, -4.2, -1.4, -5.1, 3.3, 3.7, -0.3, -5.2, 1.7, -3.3, -4.7, -6.3, 1.9, 4.9, 5.8, 1.4, 1.2, 1.5, -4.5, 6.0, -4.7, 13.4, -1.2, -9.2, -6.3, -0.4, -2.2, 1.0, -0.3, 1.5, 2.6, -2.0, -0.3, 0.6, 0.9, 2.7, 1.4, -1.3, -18.1, 6.9, -13.6, -9.6, 4.8, 3.8, -6.3, 4.3, 3.5, -2.1, -2.6, -1.2, 8.4, -5.7, 0.3, -3.7, -1.3, 2.6, -5.2, -2.2, -0.8, -2.0, -3.9, -2.0, 5.3, 3.4, 12.4, -0.1, -3.4, 5.3, 2.0, -3.0, 1.1, 0.1, 5.6, -7.0, 1.2, 1.1, -5.4, -5.0, -1.4, -12.5, 0.4, -1.0, 8.8, 12.2, 1.9, -4.1, -7.2, -0.5, -1.0, 1.8, -6.1, -8.0, -3.8, 3.1, 0.2, 5.6, -19.7, 0.1, 5.2, 5.8, -10.0, 3.5, -3.0, 14.3, 1.6, 6.4, 2.6, 0.1, 0.6, -5.5, -10.4, 1.3, -1.0, 0.3, 3.6, -6.4, 5.7, -3.0, -6.1, 0.8, 0.4, -3.5, -11.7, -2.7, -2.1, -0.7, 1.7, 8.8, 4.4, -4.0, 1.3, 3.6, -2.8, 3.5, -2.0, 12.2, -2.0, -9.0, 2.3, 1.7, -3.0, 3.1, -3.1, 10.2, -7.6, -1.0, 0.9, 4.2, 3.3, 0.7, -1.1, -0.1, 1.4, 4.2, -9.3, 2.2, 0.9, 3.6, -8.2, -3.3, -2.7, 4.2, 0.5, 10.6, -10.8, -2.4, 5.5, 4.7, 2.0, -6.5, -0.5, -5.2, -3.7, -2.5, 13.0, 1.0, -7.4, -3.2, 18.8, -5.7, 2.9, 1.4, 0.8, -2.3, 8.9, -0.9, -2.8, 10.7, 5.3, -1.8, -2.1, -0.5, -5.4, 2.7, -7.6, 9.3, 3.8, 2.0, -1.0, -4.8, 9.2, -3.3, -3.1, 13.7, 0.0, -5.2, -0.1, 9.3, 1.3, 0.6, 20.6, -4.7, 6.9, -0.5, 0.4, 7.3, -11.7, -3.0, 1.3, 1.2, -3.1, 0.5, -6.2, 1.8, -0.9, 12.0, 0.8, 3.3, 11.9, -7.5, 2.2, -5.7, -2.4, 1.5, 1.4, 2.6, -2.6, 3.3, 4.0, 2.2, 2.3, -0.3, -2.2, -5.9, -1.2, 2.7, 5.8, -5.9, 4.1, 3.3, 4.0, 3.3, 2.2, -2.8, 6.2, 5.2, 0.9, -11.9, -4.9, 4.9, -0.8, 3.8, 18.0, -4.6, 2.7, -8.8, -6.8, -15.2, -0.8, 1.1, -4.5, -1.4, -1.9, -5.7, -1.9, 2.6, -12.6, -0.9, 5.1, -5.2, -2.1, -2.2, -0.6, 3.4, 3.6, 0.9, 5.9, 2.7, -13.4, 3.3, -1.0, 10.4, -4.7, 8.4, -0.8, -23.4, 1.0, 7.7, -4.5, 16.4, 2.0, -4.9, 8.6, -1.6, -1.8, -2.5, 3.7, -7.3, -4.0, 0.5, 2.5, 1.4, 0.5, 0.2, 0.8, 2.3, 3.7, 1.3, 0.9, -8.1, 8.0, 5.5, 0.4, 7.8, -1.6, 0.6, 1.1, 0.8, -0.2, -3.8, 0.5, 1.9, -1.5, 6.4, -3.3, -1.2, -3.5, 2.2, -9.6, 0.0, -1.4, -0.4, -5.5, -2.4, 1.0, -0.8, -10.3, -2.3, 3.1, -2.3, 1.9, 3.7, 7.0, 0.8, -4.3, 4.1, -0.2, -3.9, -11.4, 0.8, -0.9, -2.1, -2.6, -1.4, -6.9, -2.8, -4.0, 0.1, 0.1, -1.3, -1.5, 4.5, 4.1, 0.7, -4.9, -2.8, 9.4, 2.8, 0.3, -4.9, -4.7, 3.4, 10.9, -3.0, -0.2, -5.9, 3.4, 0.3, 0.2, 4.4, 0.2, -6.0, -0.4, 1.5, -4.4, -6.3, -4.6, 6.4, -3.2, -2.1, -4.2, 7.9, -6.7, 5.7, -10.1, 1.8, 3.2, 1.5, -3.8, -0.4, 1.6, -3.2, -2.6, 2.6, -5.9, 0.3, -3.6, -2.6, -1.2, -2.0, -5.5, 8.2, 7.4, -2.8, 1.9, -1.8, 6.7, 1.7, -2.2, -17.7, -3.3, -5.6, -0.1, -0.7, -5.9, -13.3, -0.5, -5.0, -0.1, 9.8, -6.0, 3.0, 0.3, 3.3, 8.9, -0.5, 21.1, 11.1, 1.5, -0.4, 2.8, 3.8, 4.9, -0.2, -0.5, -2.6, 4.8, -5.5], "shot_dist": [18.5, 13.5, 23.9, 1.8, 22.3, 1.7, 22.9, 6.9, 6.3, 11.5, 24.0, 10.0, 0.3, 22.7, 21.0, 23.9, 27.5, 22.1, 4.9, 23.5, 3.4, 7.2, 18.5, 11.7, 24.4, 25.9, 23.5, 24.5, 6.2, 26.4, 15.1, 23.4, 6.8, 13.3, 14.4, 23.1, 18.5, 18.2, 10.9, 5.2, 15.4, 22.7, 6.4, 27.5, 22.3, 19.2, 23.3, 25.5, 1.0, 2.9, 2.4, 6.1, 3.0, 4.8, 5.4, 2.9, 23.5, 22.2, 7.8, 27.7, 2.7, 16.2, 11.3, 24.1, 5.3, 22.7, 9.7, 24.3, 23.2, 4.5, 2.3, 5.8, 4.5, 25.4, 23.6, 24.4, 8.9, 13.8, 4.7, 7.6, 21.9, 25.9, 17.6, 0.7, 23.1, 2.8, 1.6, 2.5, 24.1, 22.8, 0.2, 1.9, 22.3, 23.2, 26.6, 16.4, 24.0, 4.1, 6.6, 2.4, 22.3, 3.0, 22.8, 5.9, 23.1, 13.0, 22.4, 24.3, 23.3, 22.3, 2.9, 23.3, 23.0, 11.6, 3.9, 22.4, 11.9, 6.8, 22.2, 1.8, 16.3, 12.9, 4.9, 7.2, 14.3, 23.3, 2.7, 23.7, 22.9, 23.9, 4.2, 23.0, 2.5, 11.2, 6.5, 29.6, 22.3, 25.2, 8.1, 22.5, 25.8, 8.2, 25.2, 22.3, 10.9, 27.3, 1.9, 10.4, 22.6, 23.0, 23.2, 3.6, 22.8, 3.2, 2.9, 7.9, 5.4, 9.8, 22.6, 11.4, 3.3, 8.4, 25.8, 7.4, 15.3, 10.8, 5.0, 23.7, 10.7, 13.0, 7.7, 14.9, 19.0, 17.0, 13.8, 22.4, 11.9, 6.9, 10.4, 4.4, 6.6, 19.4, 23.5, 24.5, 3.4, 23.1, 6.3, 7.6, 23.4, 25.2, 6.3, 22.0, 2.8, 23.9, 6.9, 22.8, 25.0, 22.3, 25.6, 25.9, 18.1, 4.0, 1.4, 23.7, 20.3, 22.2, 24.7, 22.5, 1.2, 14.3, 2.8, 5.0, 1.4, 3.7, 2.0, 22.6, 15.8, 16.1, 3.6, 8.5, 15.3, 2.1, 23.1, 16.2, 23.0, 0.2, 16.6, 22.9, 26.4, 22.3, 26.0, 24.4, 26.8, 22.7, 23.5, 2.9, 6.3, 23.6, 2.8, 25.3, 1.1, 23.5, 16.3, 7.0, 24.6, 13.0, 27.3, 1.7, 27.0, 1.0, 2.9, 21.6, 16.8, 25.8, 25.0, 3.9, 24.3, 6.7, 22.1, 22.2, 7.8, 24.2, 11.0, 3.4, 15.8, 22.3, 8.8, 6.8, 24.0, 2.4, 17.3, 4.8, 5.3, 22.0, 24.8, 2.2, 26.4, 23.0, 6.2, 1.7, 8.5, 22.4, 24.4, 23.6, 22.6, 10.5, 21.5, 23.1, 22.7, 23.0, 21.8, 11.3, 23.2, 1.8, 23.7, 7.8, 23.4, 5.2, 14.8, 7.0, 22.8, 23.4, 3.2, 6.4, 8.1, 7.4, 2.0, 4.7, 23.2, 8.1, 4.2, 22.4, 1.2, 24.1, 22.3, 14.3, 9.1, 23.3, 11.2, 13.6, 24.9, 7.4, 5.8, 3.9, 25.8, 22.6, 23.9, 22.4, 3.3, 2.1, 10.4, 23.2, 14.9, 2.2, 22.4, 5.0, 27.1, 22.6, 22.3, 13.8, 11.7, 3.8, 22.8, 25.0, 11.2, 22.4, 2.6, 1.9, 27.2, 22.4, 22.2, 8.0, 22.4, 6.9, 24.7, 12.3, 25.2, 11.8, 25.2, 6.3, 22.4, 15.2, 10.3, 21.1, 3.2, 25.4, 25.2, 24.4, 23.5, 8.0, 22.5, 23.8, 22.1, 4.7, 8.3, 6.4, 22.3, 23.3, 14.8, 26.4, 6.5, 3.1, 11.7, 12.1, 24.4, 0.8, 24.3, 22.0, 7.2, 22.7, 23.7, 13.1, 23.6, 22.3, 2.6, 18.0, 22.1, 25.9, 15.5, 1.2, 22.3, 17.0, 23.5, 24.7, 22.7, 8.1, 4.9, 17.7, 21.9, 17.8, 8.5, 1.2, 29.2, 28.2, 23.6, 4.8, 22.4, 23.1, 3.8, 9.5, 27.8, 22.3, 22.3, 30.2, 6.7, 26.4, 22.0, 2.8, 22.8, 22.1, 3.1, 25.8, 7.2, 28.4, 25.9, 4.6, 9.8, 23.6, 24.6, 13.1, 23.2, 29.6, 1.6, 15.9, 26.1, 1.1, 23.4, 21.6, 22.7, 9.5, 24.6, 3.4, 22.4, 18.4, 5.3, 23.9, 6.3, 23.4, 23.2, 24.0, 1.7, 3.2, 24.4, 12.0, 25.3, 15.3, 22.4, 1.8, 1.0, 0.9, 23.9, 21.1, 9.9, 1.2, 23.6, 24.1, 23.9, 7.5, 14.9, 15.1, 3.2, 7.0, 2.6, 3.6, 22.2, 16.7, 23.3, 24.8, 22.2, 23.6, 3.6, 2.7, 22.3, 21.9, 2.1, 25.5, 14.3, 22.4, 1.8, 23.4, 18.7, 4.6, 22.0, 4.8, 27.8, 2.2, 10.5, 24.2, 8.1, 24.5, 3.0, 18.8, 27.3, 25.8, 2.5, 8.4, 23.8, 23.9, 25.7, 10.4, 12.8, 24.9, 2.3, 6.8, 23.2, 23.7, 6.7, 2.8, 30.0, 10.6, 8.4, 24.7, 21.8, 5.0, 23.4, 24.4, 14.9, 24.3, 7.5, 2.1, 26.6, 27.0, 22.3, 2.7, 21.8, 9.8, 21.8, 8.7, 22.7, 21.6, 16.7, 12.6, 9.3, 23.2, 3.5, 6.8, 5.0, 26.1, 2.4, 21.7, 4.7, 3.4, 4.1, 22.4, 2.2, 27.5, 24.8, 21.5, 26.2, 13.4, 23.5, 21.9, 3.8, 16.2, 17.2, 22.9, 10.5, 18.6, 11.0, 23.8, 24.0, 2.0, 6.3, 22.3, 5.0, 1.6, 22.3, 2.9, 21.3, 3.3, 24.6, 14.1, 22.9, 3.8, 6.4, 23.7, 3.4, 2.8, 23.6, 2.4, 22.3, 23.3, 22.5, 3.0, 24.2, 23.1, 22.6, 24.2, 25.7, 22.5, 11.4, 22.0, 22.2], "half": ["calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "calibration", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out", "held out"], "inside": [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}, "criterion": {"calibration": {"n": 325.0, "scaled_spread": 0.1249, "flat_spread": 0.2298, "scaled_overall": 0.7477, "flat_overall": 0.7446, "scaled_area": 211.2269, "flat_area": 201.0619, "equal_cov_radius": 8.1626, "equal_cov_area": 209.3193, "share_under_flat": 0.4831}, "held out": {"n": 288.0, "scaled_spread": 0.0391, "flat_spread": 0.1676, "scaled_overall": 0.7604, "flat_overall": 0.7431, "scaled_area": 222.9145, "flat_area": 201.0619, "equal_cov_radius": 8.2218, "equal_cov_area": 212.3652, "share_under_flat": 0.4132}}}, "court": {"geometry": {"hoop_x": -40.76, "three_radius_ft": 22.15, "corner_line_y_ft": 21.65, "half_length_ft": 45.93, "half_width_ft": 24.605, "paint_half_width_ft": 8.04, "paint_length_ft": 19.03, "bounds_margin_ft": 1.0, "far_dist_ft": 32.0, "ra_radius_ft": 4.1, "corner_angle_deg": 78.0, "wing_top_angle_deg": 22.5}, "hoop_x": -40.76, "lead_frames": 12, "stride": 2, "fps": 12.5, "scenes": [{"half": "calibration", "defensive": true, "three": false, "shot": [-33.84, -11.61], "landing": [-41.24, -0.66], "zone": 7.83, "won_at": 25, "winner": 6, "p": [0.0976, 0.0154, 0.0269, 0.0974, 0.0183, 0.2887, 0.2999, 0.0591, 0.0215, 0.0752], "xy": [[[-37.400001525878906, 1.5], [-30.299999237060547, 19.399999618530273], [-34.29999923706055, -10.800000190734863], [-40.79999923706055, -21.200000762939453], [-35.79999923706055, -18.399999618530273], [-38.79999923706055, -11.0], [-35.900001525878906, -0.6000000238418579], [-38.0, 7.699999809265137], [-27.399999618530273, -13.699999809265137], [-36.0, -9.699999809265137]], [[-37.70000076293945, 1.399999976158142], [-29.899999618530273, 19.399999618530273], [-34.5, -10.199999809265137], [-40.70000076293945, -21.200000762939453], [-35.599998474121094, -18.899999618530273], [-38.900001525878906, -10.5], [-36.29999923706055, -0.800000011920929], [-38.099998474121094, 7.400000095367432], [-27.600000381469727, -14.0], [-36.099998474121094, -9.5]], [[-38.0, 1.399999976158142], [-29.5, 19.299999237060547], [-34.5, -9.5], [-40.70000076293945, -21.200000762939453], [-35.29999923706055, -19.5], [-39.099998474121094, -10.100000381469727], [-36.70000076293945, -0.8999999761581421], [-38.20000076293945, 7.099999904632568], [-27.799999237060547, -14.300000190734863], [-36.20000076293945, -9.199999809265137]], [[-38.20000076293945, 1.2999999523162842], [-29.100000381469727, 19.200000762939453], [-34.5, -8.899999618530273], [-40.599998474121094, -21.200000762939453], [-35.099998474121094, -20.0], [-39.29999923706055, -9.699999809265137], [-37.099998474121094, -1.100000023841858], [-38.400001525878906, 6.900000095367432], [-28.0, -14.600000381469727], [-36.20000076293945, -9.0]], [[-38.400001525878906, 1.2999999523162842], [-28.799999237060547, 19.0], [-34.400001525878906, -8.199999809265137], [-40.5, -21.100000381469727], [-34.79999923706055, -20.399999618530273], [-39.5, -9.300000190734863], [-37.400001525878906, -1.2000000476837158], [-38.5, 6.599999904632568], [-28.200000762939453, -14.899999618530273], [-36.099998474121094, -8.699999809265137]], [[-38.5, 1.2999999523162842], [-28.5, 18.899999618530273], [-34.20000076293945, -7.5], [-40.5, -21.0], [-34.400001525878906, -20.799999237060547], [-39.70000076293945, -8.899999618530273], [-37.70000076293945, -1.2000000476837158], [-38.70000076293945, 6.5], [-28.5, -15.199999809265137], [-36.099998474121094, -8.399999618530273]], [[-38.70000076293945, 1.2999999523162842], [-28.100000381469727, 18.700000762939453], [-34.0, -6.800000190734863], [-40.400001525878906, -20.899999618530273], [-33.900001525878906, -21.100000381469727], [-39.79999923706055, -8.600000381469727], [-38.0, -1.2999999523162842], [-38.900001525878906, 6.300000190734863], [-28.700000762939453, -15.5], [-35.900001525878906, -8.199999809265137]], [[-38.900001525878906, 1.2999999523162842], [-27.799999237060547, 18.5], [-33.70000076293945, -6.099999904632568], [-40.29999923706055, -20.700000762939453], [-33.5, -21.299999237060547], [-40.0, -8.199999809265137], [-38.20000076293945, -1.2999999523162842], [-39.099998474121094, 6.199999809265137], [-28.899999618530273, -15.699999809265137], [-35.79999923706055, -8.0]], [[-39.0, 1.399999976158142], [-27.5, 18.299999237060547], [-33.400001525878906, -5.5], [-40.29999923706055, -20.5], [-33.0, -21.5], [-40.099998474121094, -7.800000190734863], [-38.400001525878906, -1.2999999523162842], [-39.29999923706055, 6.0], [-29.100000381469727, -16.0], [-35.70000076293945, -7.699999809265137]], [[-39.20000076293945, 1.399999976158142], [-27.299999237060547, 18.100000381469727], [-33.099998474121094, -4.800000190734863], [-40.20000076293945, -20.299999237060547], [-32.400001525878906, -21.700000762939453], [-40.29999923706055, -7.400000095367432], [-38.599998474121094, -1.2000000476837158], [-39.5, 5.900000095367432], [-29.299999237060547, -16.200000762939453], [-35.5, -7.5]], [[-39.29999923706055, 1.5], [-27.100000381469727, 17.899999618530273], [-32.79999923706055, -4.199999809265137], [-40.099998474121094, -20.0], [-31.899999618530273, -21.700000762939453], [-40.400001525878906, -7.099999904632568], [-38.79999923706055, -1.2000000476837158], [-39.70000076293945, 5.800000190734863], [-29.5, -16.399999618530273], [-35.400001525878906, -7.400000095367432]], [[-39.5, 1.5], [-26.799999237060547, 17.600000381469727], [-32.400001525878906, -3.5999999046325684], [-40.099998474121094, -19.600000381469727], [-31.299999237060547, -21.700000762939453], [-40.5, -6.699999809265137], [-39.0, -1.100000023841858], [-39.79999923706055, 5.699999809265137], [-29.700000762939453, -16.600000381469727], [-35.29999923706055, -7.300000190734863]], [[-39.599998474121094, 1.600000023841858], [-26.600000381469727, 17.399999618530273], [-32.099998474121094, -3.0999999046325684], [-40.0, -19.200000762939453], [-30.700000762939453, -21.600000381469727], [-40.599998474121094, -6.300000190734863], [-39.099998474121094, -1.100000023841858], [-39.900001525878906, 5.599999904632568], [-29.799999237060547, -16.700000762939453], [-35.20000076293945, -7.199999809265137]], [[-39.79999923706055, 1.600000023841858], [-26.5, 17.200000762939453], [-31.700000762939453, -2.5], [-39.79999923706055, -18.700000762939453], [-30.100000381469727, -21.5], [-40.70000076293945, -5.900000095367432], [-39.29999923706055, -1.0], [-40.0, 5.599999904632568], [-29.899999618530273, -16.899999618530273], [-35.099998474121094, -7.199999809265137]], [[-40.0, 1.7000000476837158], [-26.299999237060547, 17.0], [-31.399999618530273, -2.0], [-39.70000076293945, -18.200000762939453], [-29.5, -21.299999237060547], [-40.79999923706055, -5.599999904632568], [-39.400001525878906, -0.8999999761581421], [-40.099998474121094, 5.699999809265137], [-30.0, -17.0], [-35.0, -7.199999809265137]], [[-40.20000076293945, 1.7000000476837158], [-26.100000381469727, 16.799999237060547], [-31.0, -1.600000023841858], [-39.5, -17.700000762939453], [-28.899999618530273, -21.100000381469727], [-40.900001525878906, -5.199999809265137], [-39.599998474121094, -0.8999999761581421], [-40.099998474121094, 5.800000190734863], [-30.0, -17.100000381469727], [-34.900001525878906, -7.199999809265137]], [[-40.400001525878906, 1.7000000476837158], [-26.0, 16.600000381469727], [-30.700000762939453, -1.2000000476837158], [-39.29999923706055, -17.100000381469727], [-28.299999237060547, -20.799999237060547], [-41.0, -4.900000095367432], [-39.70000076293945, -0.800000011920929], [-40.099998474121094, 5.900000095367432], [-30.0, -17.200000762939453], [-34.79999923706055, -7.199999809265137]], [[-40.599998474121094, 1.7000000476837158], [-25.799999237060547, 16.399999618530273], [-30.399999618530273, -0.800000011920929], [-39.0, -16.399999618530273], [-27.700000762939453, -20.5], [-41.099998474121094, -4.599999904632568], [-39.900001525878906, -0.699999988079071], [-40.0, 6.0], [-30.0, -17.299999237060547], [-34.70000076293945, -7.300000190734863]], [[-40.79999923706055, 1.7000000476837158], [-25.700000762939453, 16.200000762939453], [-30.100000381469727, -0.5], [-38.70000076293945, -15.800000190734863], [-27.100000381469727, -20.100000381469727], [-41.20000076293945, -4.300000190734863], [-40.099998474121094, -0.699999988079071], [-39.900001525878906, 6.199999809265137], [-29.899999618530273, -17.299999237060547], [-34.599998474121094, -7.300000190734863]], [[-41.099998474121094, 1.7000000476837158], [-25.600000381469727, 16.0], [-29.799999237060547, -0.20000000298023224], [-38.400001525878906, -15.100000381469727], [-26.600000381469727, -19.700000762939453], [-41.29999923706055, -4.0], [-40.29999923706055, -0.6000000238418579], [-39.70000076293945, 6.5], [-29.899999618530273, -17.399999618530273], [-34.5, -7.400000095367432]], [[-41.29999923706055, 1.7000000476837158], [-25.5, 15.800000190734863], [-29.600000381469727, 0.0], [-38.099998474121094, -14.399999618530273], [-26.0, -19.200000762939453], [-41.400001525878906, -3.700000047683716], [-40.400001525878906, -0.6000000238418579], [-39.400001525878906, 6.699999809265137], [-29.899999618530273, -17.399999618530273], [-34.400001525878906, -7.5]], [[-41.599998474121094, 1.7000000476837158], [-25.5, 15.5], [-29.399999618530273, 0.20000000298023224], [-37.900001525878906, -13.699999809265137], [-25.399999618530273, -18.799999237060547], [-41.5, -3.4000000953674316], [-40.599998474121094, -0.6000000238418579], [-39.20000076293945, 7.0], [-29.899999618530273, -17.5], [-34.400001525878906, -7.5]], [[-41.900001525878906, 1.7000000476837158], [-25.5, 15.300000190734863], [-29.299999237060547, 0.30000001192092896], [-37.599998474121094, -12.899999618530273], [-24.799999237060547, -18.299999237060547], [-41.5, -3.0999999046325684], [-40.79999923706055, -0.6000000238418579], [-38.900001525878906, 7.400000095367432], [-29.799999237060547, -17.5], [-34.29999923706055, -7.599999904632568]], [[-42.20000076293945, 1.7000000476837158], [-25.399999618530273, 15.100000381469727], [-29.200000762939453, 0.30000001192092896], [-37.400001525878906, -12.100000381469727], [-24.100000381469727, -17.799999237060547], [-41.599998474121094, -2.9000000953674316], [-41.0, -0.6000000238418579], [-38.5, 7.699999809265137], [-29.799999237060547, -17.600000381469727], [-34.29999923706055, -7.599999904632568]], [[-42.400001525878906, 1.7000000476837158], [-25.399999618530273, 14.899999618530273], [-29.200000762939453, 0.30000001192092896], [-37.20000076293945, -11.300000190734863], [-23.5, -17.299999237060547], [-41.5, -2.700000047683716], [-41.099998474121094, -0.6000000238418579], [-38.20000076293945, 8.100000381469727], [-29.799999237060547, -17.600000381469727], [-34.29999923706055, -7.699999809265137]], [[-42.70000076293945, 1.7000000476837158], [-25.399999618530273, 14.699999809265137], [-29.100000381469727, 0.30000001192092896], [-37.099998474121094, -10.5], [-22.899999618530273, -16.799999237060547], [-41.400001525878906, -2.5], [-41.20000076293945, -0.699999988079071], [-37.79999923706055, 8.5], [-29.799999237060547, -17.600000381469727], [-34.29999923706055, -7.800000190734863]]], "ball": [[-34.0, -10.399999618530273, 8.699999809265137], [-34.599998474121094, -9.699999809265137, 9.600000381469727], [-35.29999923706055, -8.899999618530273, 10.5], [-36.20000076293945, -8.0, 11.300000190734863], [-37.099998474121094, -7.099999904632568, 12.199999809265137], [-38.0, -6.099999904632568, 12.800000190734863], [-39.0, -5.199999809265137, 13.300000190734863], [-39.79999923706055, -4.300000190734863, 13.5], [-40.599998474121094, -3.4000000953674316, 13.399999618530273], [-41.5, -2.5, 13.100000381469727], [-42.0, -1.7000000476837158, 12.699999809265137], [-42.400001525878906, -1.100000023841858, 12.0], [-42.20000076293945, -0.699999988079071, 11.399999618530273], [-41.900001525878906, -0.5, 11.0], [-41.79999923706055, -0.4000000059604645, 10.800000190734863], [-42.20000076293945, -0.30000001192092896, 11.0], [-42.5, -0.10000000149011612, 11.300000190734863], [-42.5, -0.20000000298023224, 11.300000190734863], [-42.400001525878906, -0.30000001192092896, 11.0], [-42.0, -0.5, 10.699999809265137], [-41.79999923706055, -0.5, 10.5], [-41.900001525878906, -0.4000000059604645, 10.399999618530273], [-41.79999923706055, -0.4000000059604645, 10.300000190734863], [-41.70000076293945, -0.4000000059604645, 10.0], [-41.5, -0.4000000059604645, 9.5], [-41.20000076293945, -0.5, 9.0]]}, {"half": "calibration", "defensive": true, "three": true, "shot": [-17.47, -5.42], "landing": [-36.83, 2.68], "zone": 9.7, "won_at": 19, "winner": 5, "p": [0.1354, 0.2667, 0.0081, 0.0104, 0.0513, 0.2531, 0.021, 0.1901, 0.0227, 0.0413], "xy": [[[-24.799999237060547, 2.299999952316284], [-40.599998474121094, 18.200000762939453], [-18.100000381469727, -5.699999809265137], [-22.299999237060547, 15.800000190734863], [-36.900001525878906, -22.299999237060547], [-27.700000762939453, -1.7999999523162842], [-17.0, -5.800000190734863], [-35.20000076293945, 11.5], [-28.100000381469727, 9.199999809265137], [-29.799999237060547, -13.800000190734863]], [[-25.799999237060547, 2.5], [-40.79999923706055, 17.399999618530273], [-18.200000762939453, -5.900000095367432], [-21.799999237060547, 15.600000381469727], [-36.79999923706055, -22.0], [-28.399999618530273, -1.399999976158142], [-17.700000762939453, -6.099999904632568], [-35.5, 11.0], [-27.700000762939453, 9.300000190734863], [-30.200000762939453, -13.699999809265137]], [[-26.700000762939453, 2.700000047683716], [-40.900001525878906, 16.700000762939453], [-18.100000381469727, -6.0], [-21.299999237060547, 15.5], [-36.79999923706055, -21.700000762939453], [-29.0, -1.100000023841858], [-18.399999618530273, -6.300000190734863], [-35.79999923706055, 10.5], [-27.299999237060547, 9.300000190734863], [-30.700000762939453, -13.699999809265137]], [[-27.600000381469727, 2.799999952316284], [-41.0, 15.800000190734863], [-18.0, -6.199999809265137], [-20.799999237060547, 15.300000190734863], [-36.70000076293945, -21.299999237060547], [-29.700000762939453, -0.800000011920929], [-19.0, -6.599999904632568], [-36.20000076293945, 9.899999618530273], [-27.0, 9.399999618530273], [-31.100000381469727, -13.699999809265137]], [[-28.5, 3.0], [-41.099998474121094, 15.0], [-17.799999237060547, -6.400000095367432], [-20.299999237060547, 15.100000381469727], [-36.5, -20.799999237060547], [-30.299999237060547, -0.5], [-19.5, -6.800000190734863], [-36.5, 9.399999618530273], [-26.600000381469727, 9.399999618530273], [-31.600000381469727, -13.699999809265137]], [[-29.299999237060547, 3.0999999046325684], [-41.20000076293945, 14.100000381469727], [-17.600000381469727, -6.5], [-19.799999237060547, 14.899999618530273], [-36.29999923706055, -20.399999618530273], [-30.899999618530273, -0.30000001192092896], [-20.100000381469727, -6.900000095367432], [-36.79999923706055, 8.899999618530273], [-26.200000762939453, 9.399999618530273], [-32.099998474121094, -13.699999809265137]], [[-30.100000381469727, 3.299999952316284], [-41.29999923706055, 13.300000190734863], [-17.299999237060547, -6.699999809265137], [-19.200000762939453, 14.600000381469727], [-36.0, -19.899999618530273], [-31.5, -0.0], [-20.5, -7.0], [-37.099998474121094, 8.5], [-25.899999618530273, 9.399999618530273], [-32.5, -13.600000381469727]], [[-30.899999618530273, 3.4000000953674316], [-41.29999923706055, 12.399999618530273], [-16.899999618530273, -6.800000190734863], [-18.700000762939453, 14.399999618530273], [-35.70000076293945, -19.399999618530273], [-32.099998474121094, 0.20000000298023224], [-21.0, -7.099999904632568], [-37.400001525878906, 8.0], [-25.5, 9.300000190734863], [-32.900001525878906, -13.600000381469727]], [[-31.600000381469727, 3.5999999046325684], [-41.400001525878906, 11.600000381469727], [-16.5, -6.900000095367432], [-18.200000762939453, 14.100000381469727], [-35.400001525878906, -18.899999618530273], [-32.70000076293945, 0.5], [-21.299999237060547, -7.300000190734863], [-37.599998474121094, 7.699999809265137], [-25.200000762939453, 9.300000190734863], [-33.20000076293945, -13.600000381469727]], [[-32.20000076293945, 3.700000047683716], [-41.5, 10.699999809265137], [-16.100000381469727, -7.0], [-17.700000762939453, 13.899999618530273], [-35.099998474121094, -18.399999618530273], [-33.29999923706055, 0.699999988079071], [-21.700000762939453, -7.400000095367432], [-37.900001525878906, 7.300000190734863], [-24.799999237060547, 9.199999809265137], [-33.400001525878906, -13.600000381469727]], [[-32.79999923706055, 3.799999952316284], [-41.599998474121094, 9.899999618530273], [-15.600000381469727, -7.099999904632568], [-17.100000381469727, 13.600000381469727], [-34.70000076293945, -17.899999618530273], [-33.79999923706055, 0.8999999761581421], [-21.899999618530273, -7.599999904632568], [-38.099998474121094, 7.0], [-24.5, 9.199999809265137], [-33.5, -13.600000381469727]], [[-33.29999923706055, 3.9000000953674316], [-41.79999923706055, 9.100000381469727], [-15.0, -7.099999904632568], [-16.600000381469727, 13.300000190734863], [-34.400001525878906, -17.399999618530273], [-34.29999923706055, 1.100000023841858], [-22.100000381469727, -7.699999809265137], [-38.29999923706055, 6.800000190734863], [-24.100000381469727, 9.100000381469727], [-33.400001525878906, -13.600000381469727]], [[-33.79999923706055, 4.0], [-41.900001525878906, 8.300000190734863], [-14.5, -7.199999809265137], [-16.0, 13.100000381469727], [-34.0, -17.0], [-34.70000076293945, 1.2999999523162842], [-22.200000762939453, -7.900000095367432], [-38.5, 6.599999904632568], [-23.700000762939453, 9.0], [-33.20000076293945, -13.600000381469727]], [[-34.29999923706055, 4.0], [-41.900001525878906, 7.5], [-13.899999618530273, -7.199999809265137], [-15.5, 12.800000190734863], [-33.70000076293945, -16.600000381469727], [-35.20000076293945, 1.5], [-22.200000762939453, -8.0], [-38.79999923706055, 6.400000095367432], [-23.299999237060547, 8.899999618530273], [-33.0, -13.5]], [[-34.70000076293945, 4.099999904632568], [-42.0, 6.800000190734863], [-13.199999809265137, -7.199999809265137], [-14.899999618530273, 12.5], [-33.29999923706055, -16.100000381469727], [-35.5, 1.7000000476837158], [-22.200000762939453, -8.199999809265137], [-39.0, 6.199999809265137], [-22.899999618530273, 8.800000190734863], [-32.70000076293945, -13.399999618530273]], [[-35.0, 4.099999904632568], [-42.0, 6.0], [-12.600000381469727, -7.199999809265137], [-14.300000190734863, 12.300000190734863], [-33.0, -15.800000190734863], [-35.900001525878906, 1.899999976158142], [-22.100000381469727, -8.399999618530273], [-39.099998474121094, 6.099999904632568], [-22.5, 8.699999809265137], [-32.29999923706055, -13.199999809265137]], [[-35.400001525878906, 4.199999809265137], [-42.0, 5.300000190734863], [-11.899999618530273, -7.099999904632568], [-13.699999809265137, 12.0], [-32.599998474121094, -15.399999618530273], [-36.20000076293945, 2.0999999046325684], [-22.0, -8.600000381469727], [-39.29999923706055, 6.0], [-22.100000381469727, 8.699999809265137], [-32.0, -13.0]], [[-35.599998474121094, 4.199999809265137], [-41.900001525878906, 4.699999809265137], [-11.300000190734863, -7.099999904632568], [-13.100000381469727, 11.800000190734863], [-32.29999923706055, -15.0], [-36.400001525878906, 2.299999952316284], [-21.799999237060547, -8.800000190734863], [-39.5, 5.900000095367432], [-21.600000381469727, 8.600000381469727], [-31.700000762939453, -12.699999809265137]], [[-35.900001525878906, 4.199999809265137], [-41.79999923706055, 4.0], [-10.600000381469727, -7.0], [-12.5, 11.5], [-32.0, -14.600000381469727], [-36.599998474121094, 2.5], [-21.700000762939453, -9.0], [-39.599998474121094, 5.800000190734863], [-21.100000381469727, 8.600000381469727], [-31.399999618530273, -12.399999618530273]], [[-36.099998474121094, 4.199999809265137], [-41.599998474121094, 3.4000000953674316], [-9.899999618530273, -6.900000095367432], [-11.899999618530273, 11.300000190734863], [-31.700000762939453, -14.199999809265137], [-36.79999923706055, 2.700000047683716], [-21.5, -9.199999809265137], [-39.70000076293945, 5.699999809265137], [-20.600000381469727, 8.600000381469727], [-31.100000381469727, -12.0]]], "ball": [[-20.100000381469727, -7.599999904632568, 12.399999618530273], [-21.600000381469727, -7.0, 13.300000190734863], [-23.100000381469727, -6.5, 14.100000381469727], [-24.600000381469727, -5.900000095367432, 14.600000381469727], [-26.100000381469727, -5.300000190734863, 15.100000381469727], [-27.700000762939453, -4.699999809265137, 15.199999809265137], [-29.200000762939453, -4.099999904632568, 15.300000190734863], [-30.700000762939453, -3.5999999046325684, 15.0], [-32.20000076293945, -3.0, 14.699999809265137], [-33.70000076293945, -2.5, 14.300000190734863], [-35.20000076293945, -1.899999976158142, 13.5], [-36.599998474121094, -1.2999999523162842, 12.699999809265137], [-38.0, -0.699999988079071, 11.699999809265137], [-39.20000076293945, -0.10000000149011612, 10.800000190734863], [-40.099998474121094, 0.30000001192092896, 10.5], [-39.79999923706055, 0.699999988079071, 10.300000190734863], [-39.20000076293945, 0.8999999761581421, 10.100000381469727], [-38.5, 1.100000023841858, 9.899999618530273], [-37.79999923706055, 1.2000000476837158, 9.600000381469727], [-37.0, 1.2999999523162842, 9.199999809265137]]}, {"half": "calibration", "defensive": false, "three": false, "shot": [-40.57, -1.77], "landing": [-38.95, 0.3], "zone": 5.72, "won_at": 16, "winner": 0, "p": [0.2228, 0.0098, 0.0057, 0.0456, 0.057, 0.1205, 0.0158, 0.1889, 0.0582, 0.2757], "xy": [[[-30.5, 6.099999904632568], [-40.599998474121094, 12.5], [-39.20000076293945, -23.299999237060547], [-37.900001525878906, -16.200000762939453], [-36.20000076293945, -2.700000047683716], [-34.70000076293945, -0.699999988079071], [-30.0, -13.300000190734863], [-35.70000076293945, 7.900000095367432], [-36.599998474121094, -8.800000190734863], [-28.200000762939453, -2.0]], [[-31.399999618530273, 5.900000095367432], [-40.29999923706055, 13.399999618530273], [-39.5, -23.399999618530273], [-37.79999923706055, -16.100000381469727], [-37.099998474121094, -2.5], [-35.5, -0.699999988079071], [-30.200000762939453, -13.199999809265137], [-35.70000076293945, 8.300000190734863], [-36.70000076293945, -8.699999809265137], [-29.200000762939453, -1.7000000476837158]], [[-32.29999923706055, 5.699999809265137], [-39.900001525878906, 14.199999809265137], [-39.79999923706055, -23.399999618530273], [-37.79999923706055, -16.0], [-38.099998474121094, -2.200000047683716], [-36.400001525878906, -0.699999988079071], [-30.399999618530273, -13.100000381469727], [-35.70000076293945, 8.600000381469727], [-36.79999923706055, -8.600000381469727], [-30.200000762939453, -1.399999976158142]], [[-33.20000076293945, 5.400000095367432], [-39.5, 15.100000381469727], [-40.0, -23.399999618530273], [-37.79999923706055, -15.800000190734863], [-39.0, -2.0], [-37.20000076293945, -0.699999988079071], [-30.5, -13.0], [-35.79999923706055, 8.800000190734863], [-36.900001525878906, -8.5], [-31.200000762939453, -1.100000023841858]], [[-34.0, 5.199999809265137], [-39.0, 15.800000190734863], [-40.099998474121094, -23.399999618530273], [-37.79999923706055, -15.600000381469727], [-39.79999923706055, -1.899999976158142], [-38.0, -0.699999988079071], [-30.600000381469727, -12.800000190734863], [-35.900001525878906, 8.800000190734863], [-37.0, -8.399999618530273], [-32.099998474121094, -0.8999999761581421]], [[-34.79999923706055, 4.900000095367432], [-38.5, 16.600000381469727], [-40.20000076293945, -23.399999618530273], [-37.900001525878906, -15.300000190734863], [-40.599998474121094, -1.7999999523162842], [-38.79999923706055, -0.800000011920929], [-30.600000381469727, -12.699999809265137], [-36.0, 8.699999809265137], [-37.099998474121094, -8.300000190734863], [-32.900001525878906, -0.699999988079071]], [[-35.400001525878906, 4.599999904632568], [-38.0, 17.200000762939453], [-40.20000076293945, -23.399999618530273], [-38.0, -15.0], [-41.29999923706055, -1.7000000476837158], [-39.400001525878906, -0.800000011920929], [-30.600000381469727, -12.5], [-36.20000076293945, 8.5], [-37.20000076293945, -8.199999809265137], [-33.70000076293945, -0.5]], [[-36.0, 4.300000190734863], [-37.29999923706055, 17.799999237060547], [-40.099998474121094, -23.399999618530273], [-38.099998474121094, -14.600000381469727], [-42.0, -1.600000023841858], [-40.099998474121094, -0.8999999761581421], [-30.600000381469727, -12.399999618530273], [-36.400001525878906, 8.199999809265137], [-37.20000076293945, -8.199999809265137], [-34.400001525878906, -0.4000000059604645]], [[-36.599998474121094, 3.9000000953674316], [-36.70000076293945, 18.299999237060547], [-39.900001525878906, -23.299999237060547], [-38.20000076293945, -14.199999809265137], [-42.70000076293945, -1.600000023841858], [-40.599998474121094, -1.0], [-30.5, -12.199999809265137], [-36.70000076293945, 7.800000190734863], [-37.20000076293945, -8.100000381469727], [-35.0, -0.30000001192092896]], [[-37.099998474121094, 3.5], [-35.900001525878906, 18.700000762939453], [-39.599998474121094, -23.200000762939453], [-38.29999923706055, -13.800000190734863], [-43.29999923706055, -1.7000000476837158], [-41.20000076293945, -1.100000023841858], [-30.299999237060547, -12.100000381469727], [-36.900001525878906, 7.400000095367432], [-37.20000076293945, -8.0], [-35.5, -0.20000000298023224]], [[-37.5, 3.0], [-35.099998474121094, 19.100000381469727], [-39.20000076293945, -23.100000381469727], [-38.400001525878906, -13.399999618530273], [-43.900001525878906, -1.7000000476837158], [-41.70000076293945, -1.2999999523162842], [-30.100000381469727, -11.899999618530273], [-37.099998474121094, 6.900000095367432], [-37.099998474121094, -7.900000095367432], [-36.0, -0.20000000298023224]], [[-37.900001525878906, 2.5999999046325684], [-34.29999923706055, 19.299999237060547], [-38.70000076293945, -23.0], [-38.5, -12.899999618530273], [-44.29999923706055, -1.7999999523162842], [-42.099998474121094, -1.399999976158142], [-29.799999237060547, -11.800000190734863], [-37.400001525878906, 6.400000095367432], [-37.0, -7.800000190734863], [-36.400001525878906, -0.20000000298023224]], [[-38.099998474121094, 2.0999999046325684], [-33.5, 19.399999618530273], [-38.20000076293945, -22.799999237060547], [-38.5, -12.399999618530273], [-44.79999923706055, -1.899999976158142], [-42.400001525878906, -1.5], [-29.600000381469727, -11.600000381469727], [-37.599998474121094, 6.0], [-36.900001525878906, -7.699999809265137], [-36.79999923706055, -0.30000001192092896]], [[-38.400001525878906, 1.600000023841858], [-32.599998474121094, 19.5], [-37.599998474121094, -22.600000381469727], [-38.599998474121094, -11.899999618530273], [-45.20000076293945, -2.0], [-42.79999923706055, -1.7000000476837158], [-29.299999237060547, -11.5], [-37.79999923706055, 5.5], [-36.79999923706055, -7.599999904632568], [-37.20000076293945, -0.4000000059604645]], [[-38.599998474121094, 1.2000000476837158], [-31.799999237060547, 19.5], [-36.900001525878906, -22.399999618530273], [-38.599998474121094, -11.5], [-45.599998474121094, -2.0999999046325684], [-43.099998474121094, -1.7999999523162842], [-29.0, -11.399999618530273], [-38.0, 5.0], [-36.599998474121094, -7.5], [-37.599998474121094, -0.4000000059604645]], [[-38.70000076293945, 0.699999988079071], [-30.899999618530273, 19.399999618530273], [-36.099998474121094, -22.200000762939453], [-38.70000076293945, -11.0], [-46.0, -2.200000047683716], [-43.29999923706055, -1.7999999523162842], [-28.700000762939453, -11.300000190734863], [-38.20000076293945, 4.599999904632568], [-36.5, -7.400000095367432], [-37.900001525878906, -0.5]], [[-39.0, 0.30000001192092896], [-30.100000381469727, 19.200000762939453], [-35.29999923706055, -22.0], [-38.70000076293945, -10.5], [-46.20000076293945, -2.299999952316284], [-43.5, -1.899999976158142], [-28.399999618530273, -11.199999809265137], [-38.400001525878906, 4.199999809265137], [-36.400001525878906, -7.300000190734863], [-38.29999923706055, -0.6000000238418579]]], "ball": [[-34.70000076293945, -3.9000000953674316, 6.300000190734863], [-36.0, -4.0, 7.400000095367432], [-37.20000076293945, -4.099999904632568, 8.300000190734863], [-38.29999923706055, -4.099999904632568, 9.100000381469727], [-39.099998474121094, -3.799999952316284, 9.800000190734863], [-39.5, -3.4000000953674316, 10.600000381469727], [-39.900001525878906, -2.9000000953674316, 11.300000190734863], [-40.20000076293945, -2.5, 11.699999809265137], [-40.400001525878906, -2.200000047683716, 11.899999618530273], [-40.599998474121094, -1.7999999523162842, 12.0], [-40.599998474121094, -1.600000023841858, 11.899999618530273], [-40.599998474121094, -1.399999976158142, 11.600000381469727], [-40.400001525878906, -1.2999999523162842, 11.199999809265137], [-40.0, -1.2000000476837158, 11.0], [-39.599998474121094, -1.100000023841858, 11.0], [-39.20000076293945, -1.0, 11.0], [-38.900001525878906, -1.0, 11.0]]}, {"half": "calibration", "defensive": true, "three": true, "shot": [-21.85, 11.8], "landing": [-41.02, -4.24], "zone": 9.41, "won_at": 23, "winner": 6, "p": [0.0332, 0.0121, 0.0047, 0.1684, 0.0209, 0.183, 0.2819, 0.0098, 0.1103, 0.1759], "xy": [[[-31.700000762939453, 15.600000381469727], [-17.5, -15.0], [-22.0, 10.800000190734863], [-39.79999923706055, -20.5], [-8.100000381469727, 3.4000000953674316], [-32.599998474121094, 10.699999809265137], [-24.700000762939453, -10.5], [-23.600000381469727, 10.300000190734863], [-37.5, -10.5], [-18.200000762939453, 5.0]], [[-31.600000381469727, 15.600000381469727], [-17.600000381469727, -14.899999618530273], [-21.799999237060547, 10.899999618530273], [-39.79999923706055, -20.100000381469727], [-8.199999809265137, 3.299999952316284], [-32.599998474121094, 10.699999809265137], [-25.200000762939453, -10.399999618530273], [-23.5, 10.5], [-37.599998474121094, -10.600000381469727], [-18.899999618530273, 4.599999904632568]], [[-31.5, 15.5], [-17.700000762939453, -14.899999618530273], [-21.5, 11.0], [-39.70000076293945, -19.5], [-8.399999618530273, 3.200000047683716], [-32.70000076293945, 10.699999809265137], [-25.700000762939453, -10.199999809265137], [-23.399999618530273, 10.699999809265137], [-37.70000076293945, -10.600000381469727], [-19.5, 4.199999809265137]], [[-31.299999237060547, 15.399999618530273], [-17.799999237060547, -14.800000190734863], [-21.200000762939453, 11.100000381469727], [-39.599998474121094, -18.899999618530273], [-8.5, 3.0999999046325684], [-32.79999923706055, 10.699999809265137], [-26.299999237060547, -9.899999618530273], [-23.299999237060547, 11.0], [-37.79999923706055, -10.600000381469727], [-20.200000762939453, 3.9000000953674316]], [[-31.100000381469727, 15.199999809265137], [-17.899999618530273, -14.600000381469727], [-20.799999237060547, 11.300000190734863], [-39.599998474121094, -18.299999237060547], [-8.800000190734863, 3.0], [-33.0, 10.5], [-27.0, -9.699999809265137], [-23.299999237060547, 11.300000190734863], [-37.900001525878906, -10.5], [-21.0, 3.5]], [[-30.799999237060547, 15.0], [-18.0, -14.5], [-20.5, 11.399999618530273], [-39.599998474121094, -17.600000381469727], [-9.0, 2.9000000953674316], [-33.20000076293945, 10.300000190734863], [-27.700000762939453, -9.399999618530273], [-23.299999237060547, 11.600000381469727], [-38.0, -10.5], [-21.700000762939453, 3.0999999046325684]], [[-30.5, 14.699999809265137], [-18.200000762939453, -14.199999809265137], [-20.100000381469727, 11.600000381469727], [-39.70000076293945, -16.799999237060547], [-9.199999809265137, 2.799999952316284], [-33.400001525878906, 10.0], [-28.399999618530273, -9.100000381469727], [-23.399999618530273, 12.0], [-38.20000076293945, -10.399999618530273], [-22.5, 2.799999952316284]], [[-30.200000762939453, 14.399999618530273], [-18.299999237060547, -14.0], [-19.700000762939453, 11.800000190734863], [-39.79999923706055, -15.899999618530273], [-9.5, 2.799999952316284], [-33.70000076293945, 9.600000381469727], [-29.200000762939453, -8.800000190734863], [-23.5, 12.399999618530273], [-38.29999923706055, -10.300000190734863], [-23.200000762939453, 2.5]], [[-29.899999618530273, 14.0], [-18.299999237060547, -13.699999809265137], [-19.299999237060547, 12.0], [-39.900001525878906, -15.0], [-9.800000190734863, 2.700000047683716], [-33.900001525878906, 9.199999809265137], [-30.0, -8.5], [-23.600000381469727, 12.800000190734863], [-38.400001525878906, -10.100000381469727], [-24.0, 2.0999999046325684]], [[-29.700000762939453, 13.600000381469727], [-18.399999618530273, -13.399999618530273], [-18.899999618530273, 12.300000190734863], [-40.0, -14.100000381469727], [-10.199999809265137, 2.5999999046325684], [-34.20000076293945, 8.800000190734863], [-30.799999237060547, -8.199999809265137], [-23.700000762939453, 13.199999809265137], [-38.599998474121094, -10.0], [-24.799999237060547, 1.7999999523162842]], [[-29.399999618530273, 13.199999809265137], [-18.5, -13.0], [-18.399999618530273, 12.5], [-40.099998474121094, -13.100000381469727], [-10.5, 2.5], [-34.5, 8.300000190734863], [-31.600000381469727, -7.900000095367432], [-23.799999237060547, 13.600000381469727], [-38.79999923706055, -9.800000190734863], [-25.600000381469727, 1.5]], [[-29.200000762939453, 12.699999809265137], [-18.5, -12.699999809265137], [-17.899999618530273, 12.699999809265137], [-40.20000076293945, -12.100000381469727], [-10.899999618530273, 2.5], [-34.79999923706055, 7.800000190734863], [-32.5, -7.599999904632568], [-23.799999237060547, 14.100000381469727], [-39.099998474121094, -9.5], [-26.299999237060547, 1.100000023841858]], [[-29.0, 12.199999809265137], [-18.5, -12.199999809265137], [-17.399999618530273, 12.899999618530273], [-40.20000076293945, -11.199999809265137], [-11.399999618530273, 2.4000000953674316], [-35.099998474121094, 7.300000190734863], [-33.400001525878906, -7.300000190734863], [-23.899999618530273, 14.5], [-39.29999923706055, -9.300000190734863], [-27.100000381469727, 0.800000011920929]], [[-28.799999237060547, 11.699999809265137], [-18.399999618530273, -11.800000190734863], [-16.899999618530273, 13.199999809265137], [-40.20000076293945, -10.199999809265137], [-11.800000190734863, 2.200000047683716], [-35.400001525878906, 6.800000190734863], [-34.20000076293945, -7.0], [-23.899999618530273, 14.899999618530273], [-39.5, -9.100000381469727], [-27.799999237060547, 0.4000000059604645]], [[-28.600000381469727, 11.199999809265137], [-18.399999618530273, -11.399999618530273], [-16.299999237060547, 13.399999618530273], [-40.20000076293945, -9.300000190734863], [-12.300000190734863, 2.0999999046325684], [-35.599998474121094, 6.300000190734863], [-35.099998474121094, -6.699999809265137], [-23.899999618530273, 15.399999618530273], [-39.79999923706055, -8.800000190734863], [-28.600000381469727, 0.10000000149011612]], [[-28.399999618530273, 10.699999809265137], [-18.200000762939453, -10.899999618530273], [-15.699999809265137, 13.600000381469727], [-40.20000076293945, -8.300000190734863], [-12.800000190734863, 2.0], [-35.79999923706055, 5.800000190734863], [-35.900001525878906, -6.5], [-23.899999618530273, 15.800000190734863], [-39.900001525878906, -8.600000381469727], [-29.200000762939453, -0.30000001192092896]], [[-28.200000762939453, 10.199999809265137], [-18.100000381469727, -10.399999618530273], [-15.100000381469727, 13.800000190734863], [-40.20000076293945, -7.5], [-13.300000190734863, 1.7999999523162842], [-36.0, 5.300000190734863], [-36.79999923706055, -6.199999809265137], [-23.799999237060547, 16.200000762939453], [-40.099998474121094, -8.399999618530273], [-29.899999618530273, -0.699999988079071]], [[-28.0, 9.699999809265137], [-17.899999618530273, -10.0], [-14.5, 13.899999618530273], [-40.20000076293945, -6.800000190734863], [-13.899999618530273, 1.600000023841858], [-36.20000076293945, 4.800000190734863], [-37.5, -5.900000095367432], [-23.700000762939453, 16.700000762939453], [-40.099998474121094, -8.199999809265137], [-30.5, -1.2000000476837158]], [[-27.700000762939453, 9.199999809265137], [-17.700000762939453, -9.5], [-13.800000190734863, 14.100000381469727], [-40.099998474121094, -6.199999809265137], [-14.399999618530273, 1.399999976158142], [-36.29999923706055, 4.400000095367432], [-38.29999923706055, -5.599999904632568], [-23.5, 17.100000381469727], [-40.099998474121094, -8.0], [-31.100000381469727, -1.7000000476837158]], [[-27.5, 8.699999809265137], [-17.399999618530273, -9.0], [-13.199999809265137, 14.199999809265137], [-40.29999923706055, -5.699999809265137], [-15.0, 1.2000000476837158], [-36.29999923706055, 3.9000000953674316], [-39.0, -5.300000190734863], [-23.299999237060547, 17.5], [-40.099998474121094, -7.800000190734863], [-31.600000381469727, -2.200000047683716]], [[-27.100000381469727, 8.199999809265137], [-17.100000381469727, -8.5], [-12.5, 14.300000190734863], [-40.29999923706055, -5.300000190734863], [-15.5, 1.0], [-36.29999923706055, 3.5], [-39.599998474121094, -5.0], [-22.899999618530273, 17.799999237060547], [-39.900001525878906, -7.699999809265137], [-32.099998474121094, -2.700000047683716]], [[-26.700000762939453, 7.800000190734863], [-16.799999237060547, -7.900000095367432], [-11.699999809265137, 14.300000190734863], [-40.5, -4.800000190734863], [-16.0, 0.800000011920929], [-36.20000076293945, 3.0999999046325684], [-40.20000076293945, -4.699999809265137], [-22.5, 18.200000762939453], [-39.79999923706055, -7.599999904632568], [-32.5, -3.299999952316284]], [[-26.299999237060547, 7.400000095367432], [-16.5, -7.400000095367432], [-11.0, 14.300000190734863], [-40.599998474121094, -4.400000095367432], [-16.5, 0.5], [-36.0, 2.5999999046325684], [-40.79999923706055, -4.400000095367432], [-22.0, 18.399999618530273], [-39.599998474121094, -7.5], [-32.79999923706055, -4.0]], [[-25.899999618530273, 7.0], [-16.100000381469727, -6.900000095367432], [-10.300000190734863, 14.199999809265137], [-40.79999923706055, -4.099999904632568], [-17.0, 0.30000001192092896], [-35.70000076293945, 2.200000047683716], [-41.20000076293945, -4.099999904632568], [-21.399999618530273, 18.700000762939453], [-39.29999923706055, -7.5], [-33.099998474121094, -4.699999809265137]]], "ball": [[-25.600000381469727, 11.399999618530273, 14.300000190734863], [-26.799999237060547, 10.699999809265137, 15.100000381469727], [-28.0, 10.0, 15.699999809265137], [-29.100000381469727, 9.199999809265137, 16.0], [-30.200000762939453, 8.399999618530273, 16.0], [-31.399999618530273, 7.599999904632568, 15.899999618530273], [-32.5, 6.699999809265137, 15.699999809265137], [-33.79999923706055, 5.900000095367432, 15.399999618530273], [-35.0, 5.099999904632568, 15.100000381469727], [-36.29999923706055, 4.300000190734863, 14.899999618530273], [-37.599998474121094, 3.4000000953674316, 13.899999618530273], [-38.70000076293945, 2.5, 13.0], [-39.79999923706055, 1.600000023841858, 12.199999809265137], [-40.70000076293945, 0.699999988079071, 11.5], [-41.29999923706055, 0.10000000149011612, 11.699999809265137], [-41.70000076293945, -0.30000001192092896, 11.899999618530273], [-41.900001525878906, -0.699999988079071, 12.0], [-41.70000076293945, -1.100000023841858, 12.0], [-41.20000076293945, -1.399999976158142, 11.800000190734863], [-40.70000076293945, -1.7000000476837158, 11.5], [-40.0, -2.0, 11.0], [-39.5, -2.299999952316284, 10.300000190734863], [-39.400001525878906, -2.4000000953674316, 9.600000381469727], [-39.70000076293945, -2.4000000953674316, 8.699999809265137]]}, {"half": "held out", "defensive": true, "three": true, "shot": [-23.65, -14.78], "landing": [-33.75, -0.51], "zone": 9.47, "won_at": 23, "winner": 8, "p": [0.011, 0.0357, 0.0291, 0.0704, 0.0124, 0.384, 0.0371, 0.0416, 0.282, 0.0966], "xy": [[[-24.200000762939453, -14.600000381469727], [-35.400001525878906, -22.899999618530273], [-42.70000076293945, 12.199999809265137], [-17.5, -12.100000381469727], [-22.200000762939453, 20.0], [-24.299999237060547, -12.699999809265137], [-29.5, 12.399999618530273], [-30.399999618530273, 8.100000381469727], [-23.399999618530273, -7.099999904632568], [-31.899999618530273, -15.100000381469727]], [[-24.399999618530273, -14.600000381469727], [-35.400001525878906, -22.899999618530273], [-42.400001525878906, 12.899999618530273], [-18.200000762939453, -11.899999618530273], [-22.0, 19.799999237060547], [-25.200000762939453, -12.399999618530273], [-29.5, 12.5], [-30.200000762939453, 8.199999809265137], [-24.0, -6.900000095367432], [-32.20000076293945, -15.199999809265137]], [[-24.399999618530273, -14.699999809265137], [-35.29999923706055, -22.899999618530273], [-42.20000076293945, 13.600000381469727], [-18.799999237060547, -11.600000381469727], [-21.899999618530273, 19.5], [-26.100000381469727, -12.100000381469727], [-29.5, 12.600000381469727], [-30.0, 8.300000190734863], [-24.700000762939453, -6.699999809265137], [-32.5, -15.199999809265137]], [[-24.399999618530273, -14.800000190734863], [-35.29999923706055, -22.899999618530273], [-41.79999923706055, 14.300000190734863], [-19.5, -11.300000190734863], [-21.700000762939453, 19.200000762939453], [-26.899999618530273, -11.899999618530273], [-29.399999618530273, 12.699999809265137], [-29.700000762939453, 8.399999618530273], [-25.299999237060547, -6.400000095367432], [-32.900001525878906, -15.199999809265137]], [[-24.399999618530273, -14.899999618530273], [-35.20000076293945, -22.799999237060547], [-41.5, 15.0], [-20.100000381469727, -10.899999618530273], [-21.5, 18.899999618530273], [-27.700000762939453, -11.600000381469727], [-29.399999618530273, 12.800000190734863], [-29.5, 8.5], [-25.899999618530273, -6.199999809265137], [-33.20000076293945, -15.199999809265137]], [[-24.299999237060547, -15.0], [-35.099998474121094, -22.799999237060547], [-41.20000076293945, 15.600000381469727], [-20.700000762939453, -10.5], [-21.200000762939453, 18.700000762939453], [-28.600000381469727, -11.300000190734863], [-29.399999618530273, 12.899999618530273], [-29.100000381469727, 8.600000381469727], [-26.399999618530273, -6.0], [-33.5, -15.100000381469727]], [[-24.200000762939453, -15.199999809265137], [-34.900001525878906, -22.700000762939453], [-40.79999923706055, 16.299999237060547], [-21.299999237060547, -10.0], [-20.899999618530273, 18.399999618530273], [-29.399999618530273, -11.0], [-29.299999237060547, 12.899999618530273], [-28.799999237060547, 8.600000381469727], [-26.899999618530273, -5.699999809265137], [-33.900001525878906, -14.899999618530273]], [[-24.0, -15.399999618530273], [-34.79999923706055, -22.600000381469727], [-40.5, 16.799999237060547], [-21.899999618530273, -9.600000381469727], [-20.600000381469727, 18.100000381469727], [-30.200000762939453, -10.699999809265137], [-29.299999237060547, 12.899999618530273], [-28.5, 8.699999809265137], [-27.399999618530273, -5.5], [-34.20000076293945, -14.699999809265137]], [[-23.899999618530273, -15.600000381469727], [-34.70000076293945, -22.399999618530273], [-40.099998474121094, 17.399999618530273], [-22.5, -9.0], [-20.200000762939453, 17.799999237060547], [-30.899999618530273, -10.399999618530273], [-29.200000762939453, 12.899999618530273], [-28.299999237060547, 8.800000190734863], [-27.799999237060547, -5.199999809265137], [-34.5, -14.5]], [[-23.600000381469727, -15.699999809265137], [-34.599998474121094, -22.299999237060547], [-39.70000076293945, 17.899999618530273], [-23.100000381469727, -8.5], [-19.799999237060547, 17.5], [-31.700000762939453, -10.0], [-29.100000381469727, 12.899999618530273], [-28.0, 8.800000190734863], [-28.200000762939453, -4.900000095367432], [-34.79999923706055, -14.199999809265137]], [[-23.399999618530273, -15.899999618530273], [-34.400001525878906, -22.100000381469727], [-39.20000076293945, 18.399999618530273], [-23.600000381469727, -8.0], [-19.399999618530273, 17.200000762939453], [-32.400001525878906, -9.600000381469727], [-29.0, 12.899999618530273], [-27.799999237060547, 8.800000190734863], [-28.600000381469727, -4.699999809265137], [-35.0, -13.899999618530273]], [[-23.0, -16.100000381469727], [-34.29999923706055, -21.899999618530273], [-38.70000076293945, 18.799999237060547], [-24.100000381469727, -7.400000095367432], [-18.899999618530273, 16.899999618530273], [-33.099998474121094, -9.199999809265137], [-28.899999618530273, 12.899999618530273], [-27.600000381469727, 8.800000190734863], [-28.899999618530273, -4.400000095367432], [-35.29999923706055, -13.600000381469727]], [[-22.700000762939453, -16.299999237060547], [-34.099998474121094, -21.700000762939453], [-38.20000076293945, 19.200000762939453], [-24.600000381469727, -6.900000095367432], [-18.399999618530273, 16.600000381469727], [-33.70000076293945, -8.800000190734863], [-28.700000762939453, 12.800000190734863], [-27.299999237060547, 8.699999809265137], [-29.299999237060547, -4.099999904632568], [-35.5, -13.300000190734863]], [[-22.299999237060547, -16.5], [-34.0, -21.5], [-37.599998474121094, 19.600000381469727], [-25.100000381469727, -6.300000190734863], [-17.899999618530273, 16.200000762939453], [-34.29999923706055, -8.300000190734863], [-28.600000381469727, 12.699999809265137], [-27.200000762939453, 8.600000381469727], [-29.600000381469727, -3.799999952316284], [-35.599998474121094, -13.0]], [[-21.899999618530273, -16.600000381469727], [-33.79999923706055, -21.299999237060547], [-37.099998474121094, 19.899999618530273], [-25.5, -5.800000190734863], [-17.399999618530273, 15.899999618530273], [-34.79999923706055, -7.900000095367432], [-28.399999618530273, 12.600000381469727], [-27.0, 8.5], [-30.0, -3.4000000953674316], [-35.70000076293945, -12.699999809265137]], [[-21.5, -16.700000762939453], [-33.70000076293945, -21.0], [-36.400001525878906, 20.200000762939453], [-25.899999618530273, -5.300000190734863], [-16.899999618530273, 15.600000381469727], [-35.29999923706055, -7.400000095367432], [-28.200000762939453, 12.5], [-26.799999237060547, 8.300000190734863], [-30.299999237060547, -3.0999999046325684], [-35.79999923706055, -12.399999618530273]], [[-21.0, -16.700000762939453], [-33.5, -20.700000762939453], [-35.79999923706055, 20.5], [-26.200000762939453, -4.699999809265137], [-16.299999237060547, 15.300000190734863], [-35.70000076293945, -6.900000095367432], [-28.0, 12.300000190734863], [-26.5, 8.100000381469727], [-30.700000762939453, -2.799999952316284], [-35.900001525878906, -12.199999809265137]], [[-20.5, -16.799999237060547], [-33.29999923706055, -20.399999618530273], [-35.099998474121094, 20.600000381469727], [-26.299999237060547, -4.199999809265137], [-15.699999809265137, 14.899999618530273], [-36.099998474121094, -6.5], [-27.799999237060547, 12.199999809265137], [-26.299999237060547, 7.800000190734863], [-31.100000381469727, -2.4000000953674316], [-35.79999923706055, -11.899999618530273]], [[-20.0, -16.700000762939453], [-33.0, -20.100000381469727], [-34.400001525878906, 20.799999237060547], [-26.399999618530273, -3.700000047683716], [-15.199999809265137, 14.600000381469727], [-36.400001525878906, -6.0], [-27.5, 12.0], [-26.0, 7.599999904632568], [-31.600000381469727, -2.0999999046325684], [-35.70000076293945, -11.800000190734863]], [[-19.5, -16.600000381469727], [-32.79999923706055, -19.799999237060547], [-33.70000076293945, 20.899999618530273], [-26.299999237060547, -3.200000047683716], [-14.600000381469727, 14.300000190734863], [-36.70000076293945, -5.5], [-27.299999237060547, 11.899999618530273], [-25.700000762939453, 7.400000095367432], [-32.0, -1.7999999523162842], [-35.5, -11.600000381469727]], [[-18.899999618530273, -16.5], [-32.5, -19.5], [-32.900001525878906, 21.0], [-26.100000381469727, -2.700000047683716], [-14.0, 14.0], [-37.0, -5.099999904632568], [-27.0, 11.800000190734863], [-25.399999618530273, 7.300000190734863], [-32.400001525878906, -1.399999976158142], [-35.099998474121094, -11.600000381469727]], [[-18.299999237060547, -16.399999618530273], [-32.099998474121094, -19.100000381469727], [-32.099998474121094, 21.0], [-25.700000762939453, -2.299999952316284], [-13.399999618530273, 13.699999809265137], [-37.20000076293945, -4.699999809265137], [-26.700000762939453, 11.600000381469727], [-25.0, 7.199999809265137], [-32.79999923706055, -1.2000000476837158], [-34.70000076293945, -11.600000381469727]], [[-17.600000381469727, -16.200000762939453], [-31.700000762939453, -18.700000762939453], [-31.299999237060547, 21.0], [-25.299999237060547, -1.899999976158142], [-12.800000190734863, 13.399999618530273], [-37.5, -4.300000190734863], [-26.399999618530273, 11.5], [-24.600000381469727, 7.099999904632568], [-33.20000076293945, -0.8999999761581421], [-34.20000076293945, -11.699999809265137]], [[-16.899999618530273, -15.899999618530273], [-31.200000762939453, -18.399999618530273], [-30.399999618530273, 21.0], [-24.799999237060547, -1.600000023841858], [-12.199999809265137, 13.100000381469727], [-37.70000076293945, -4.0], [-26.100000381469727, 11.399999618530273], [-24.100000381469727, 7.099999904632568], [-33.599998474121094, -0.6000000238418579], [-33.70000076293945, -11.800000190734863]]], "ball": [[-24.5, -14.699999809265137, 12.699999809265137], [-25.600000381469727, -13.800000190734863, 13.600000381469727], [-26.700000762939453, -12.800000190734863, 14.399999618530273], [-27.799999237060547, -11.899999618530273, 15.0], [-28.899999618530273, -10.899999618530273, 15.399999618530273], [-30.100000381469727, -10.0, 15.600000381469727], [-31.299999237060547, -9.0, 15.699999809265137], [-32.5, -8.100000381469727, 15.5], [-33.79999923706055, -7.199999809265137, 15.300000190734863], [-35.0, -6.300000190734863, 14.899999618530273], [-36.099998474121094, -5.400000095367432, 14.300000190734863], [-37.20000076293945, -4.400000095367432, 13.600000381469727], [-38.20000076293945, -3.299999952316284, 12.699999809265137], [-39.099998474121094, -2.4000000953674316, 12.0], [-39.599998474121094, -1.600000023841858, 11.800000190734863], [-39.29999923706055, -1.100000023841858, 12.0], [-38.599998474121094, -0.8999999761581421, 12.199999809265137], [-37.900001525878906, -0.800000011920929, 12.300000190734863], [-37.099998474121094, -0.699999988079071, 12.199999809265137], [-36.400001525878906, -0.5, 12.0], [-35.599998474121094, -0.4000000059604645, 11.699999809265137], [-34.900001525878906, -0.20000000298023224, 11.100000381469727], [-34.20000076293945, -0.20000000298023224, 10.5], [-33.70000076293945, -0.10000000149011612, 9.800000190734863]]}, {"half": "held out", "defensive": true, "three": true, "shot": [-29.45, 21.09], "landing": [-42.98, -5.19], "zone": 9.71, "won_at": 27, "winner": 6, "p": [0.0126, 0.0202, 0.0025, 0.0473, 0.1108, 0.0074, 0.6155, 0.0293, 0.1438, 0.0106], "xy": [[[-30.0, 21.200000762939453], [-35.20000076293945, -20.399999618530273], [-15.800000190734863, 3.200000047683716], [-27.899999618530273, -6.5], [-40.5, 22.0], [-22.5, 3.0999999046325684], [-38.099998474121094, 13.800000190734863], [-35.79999923706055, -13.0], [-34.099998474121094, -2.299999952316284], [-27.799999237060547, 19.700000762939453]], [[-30.100000381469727, 21.200000762939453], [-35.0, -20.0], [-15.300000190734863, 3.200000047683716], [-28.299999237060547, -6.199999809265137], [-40.20000076293945, 21.700000762939453], [-22.100000381469727, 3.4000000953674316], [-38.099998474121094, 13.5], [-35.79999923706055, -13.0], [-34.0, -2.4000000953674316], [-27.799999237060547, 20.399999618530273]], [[-30.299999237060547, 21.200000762939453], [-34.79999923706055, -19.5], [-14.699999809265137, 3.299999952316284], [-28.600000381469727, -6.0], [-39.900001525878906, 21.299999237060547], [-21.700000762939453, 3.5999999046325684], [-38.099998474121094, 13.199999809265137], [-35.79999923706055, -13.0], [-34.0, -2.5999999046325684], [-27.799999237060547, 21.100000381469727]], [[-30.399999618530273, 21.299999237060547], [-34.70000076293945, -19.0], [-14.199999809265137, 3.299999952316284], [-29.0, -5.699999809265137], [-39.5, 20.899999618530273], [-21.299999237060547, 3.9000000953674316], [-38.099998474121094, 12.899999618530273], [-35.70000076293945, -12.899999618530273], [-34.0, -2.700000047683716], [-27.799999237060547, 21.700000762939453]], [[-30.399999618530273, 21.299999237060547], [-34.5, -18.5], [-13.600000381469727, 3.299999952316284], [-29.299999237060547, -5.300000190734863], [-39.0, 20.5], [-20.899999618530273, 4.099999904632568], [-38.099998474121094, 12.5], [-35.70000076293945, -12.899999618530273], [-34.099998474121094, -2.799999952316284], [-27.799999237060547, 22.299999237060547]], [[-30.399999618530273, 21.399999618530273], [-34.400001525878906, -17.899999618530273], [-13.100000381469727, 3.299999952316284], [-29.600000381469727, -4.900000095367432], [-38.5, 20.100000381469727], [-20.5, 4.400000095367432], [-38.099998474121094, 12.100000381469727], [-35.599998474121094, -12.800000190734863], [-34.099998474121094, -2.9000000953674316], [-27.799999237060547, 22.899999618530273]], [[-30.299999237060547, 21.399999618530273], [-34.29999923706055, -17.299999237060547], [-12.600000381469727, 3.299999952316284], [-30.0, -4.5], [-38.099998474121094, 19.5], [-20.100000381469727, 4.599999904632568], [-38.099998474121094, 11.699999809265137], [-35.5, -12.800000190734863], [-34.20000076293945, -3.0], [-27.799999237060547, 23.399999618530273]], [[-30.200000762939453, 21.399999618530273], [-34.099998474121094, -16.700000762939453], [-12.100000381469727, 3.4000000953674316], [-30.299999237060547, -4.099999904632568], [-37.599998474121094, 18.899999618530273], [-19.700000762939453, 4.900000095367432], [-38.0, 11.300000190734863], [-35.5, -12.699999809265137], [-34.20000076293945, -3.0999999046325684], [-27.700000762939453, 23.899999618530273]], [[-30.0, 21.5], [-34.0, -16.100000381469727], [-11.600000381469727, 3.4000000953674316], [-30.600000381469727, -3.700000047683716], [-37.099998474121094, 18.299999237060547], [-19.299999237060547, 5.099999904632568], [-38.0, 10.800000190734863], [-35.400001525878906, -12.600000381469727], [-34.29999923706055, -3.0999999046325684], [-27.600000381469727, 24.299999237060547]], [[-29.799999237060547, 21.5], [-33.79999923706055, -15.600000381469727], [-11.199999809265137, 3.4000000953674316], [-30.899999618530273, -3.299999952316284], [-36.599998474121094, 17.600000381469727], [-18.899999618530273, 5.300000190734863], [-38.0, 10.300000190734863], [-35.29999923706055, -12.5], [-34.400001525878906, -3.0999999046325684], [-27.399999618530273, 24.600000381469727]], [[-29.600000381469727, 21.5], [-33.70000076293945, -15.0], [-10.699999809265137, 3.5], [-31.200000762939453, -2.799999952316284], [-36.099998474121094, 16.899999618530273], [-18.399999618530273, 5.599999904632568], [-38.0, 9.800000190734863], [-35.099998474121094, -12.399999618530273], [-34.5, -3.0999999046325684], [-27.100000381469727, 24.799999237060547]], [[-29.399999618530273, 21.5], [-33.5, -14.399999618530273], [-10.300000190734863, 3.5999999046325684], [-31.5, -2.4000000953674316], [-35.70000076293945, 16.100000381469727], [-18.0, 5.800000190734863], [-38.099998474121094, 9.199999809265137], [-35.0, -12.300000190734863], [-34.599998474121094, -3.0], [-26.799999237060547, 24.899999618530273]], [[-29.100000381469727, 21.399999618530273], [-33.29999923706055, -13.899999618530273], [-9.800000190734863, 3.5999999046325684], [-31.799999237060547, -2.0], [-35.29999923706055, 15.300000190734863], [-17.600000381469727, 6.099999904632568], [-38.20000076293945, 8.600000381469727], [-34.900001525878906, -12.199999809265137], [-34.70000076293945, -2.9000000953674316], [-26.399999618530273, 25.0]], [[-28.799999237060547, 21.399999618530273], [-33.0, -13.399999618530273], [-9.399999618530273, 3.700000047683716], [-32.099998474121094, -1.7000000476837158], [-34.900001525878906, 14.399999618530273], [-17.200000762939453, 6.300000190734863], [-38.29999923706055, 8.0], [-34.70000076293945, -12.100000381469727], [-34.900001525878906, -2.700000047683716], [-26.0, 25.100000381469727]], [[-28.399999618530273, 21.299999237060547], [-32.79999923706055, -12.899999618530273], [-8.899999618530273, 3.799999952316284], [-32.400001525878906, -1.2999999523162842], [-34.599998474121094, 13.600000381469727], [-16.799999237060547, 6.599999904632568], [-38.5, 7.300000190734863], [-34.5, -12.0], [-35.099998474121094, -2.5999999046325684], [-25.5, 25.100000381469727]], [[-28.0, 21.200000762939453], [-32.5, -12.5], [-8.5, 3.9000000953674316], [-32.70000076293945, -1.0], [-34.20000076293945, 12.699999809265137], [-16.399999618530273, 6.900000095367432], [-38.70000076293945, 6.699999809265137], [-34.29999923706055, -11.800000190734863], [-35.29999923706055, -2.299999952316284], [-25.0, 25.0]], [[-27.5, 21.0], [-32.099998474121094, -12.100000381469727], [-8.0, 3.9000000953674316], [-32.900001525878906, -0.800000011920929], [-33.900001525878906, 11.699999809265137], [-15.899999618530273, 7.099999904632568], [-39.0, 5.900000095367432], [-34.099998474121094, -11.699999809265137], [-35.5, -2.0], [-24.5, 25.0]], [[-27.0, 20.899999618530273], [-31.799999237060547, -11.800000190734863], [-7.5, 4.0], [-33.20000076293945, -0.5], [-33.599998474121094, 10.800000190734863], [-15.5, 7.400000095367432], [-39.400001525878906, 5.099999904632568], [-33.900001525878906, -11.600000381469727], [-35.70000076293945, -1.7000000476837158], [-23.899999618530273, 24.899999618530273]], [[-26.399999618530273, 20.700000762939453], [-31.399999618530273, -11.5], [-7.0, 4.099999904632568], [-33.400001525878906, -0.30000001192092896], [-33.29999923706055, 9.899999618530273], [-15.100000381469727, 7.699999809265137], [-39.79999923706055, 4.300000190734863], [-33.70000076293945, -11.5], [-36.0, -1.399999976158142], [-23.399999618530273, 24.700000762939453]], [[-25.799999237060547, 20.5], [-31.0, -11.199999809265137], [-6.5, 4.199999809265137], [-33.599998474121094, -0.20000000298023224], [-33.0, 9.0], [-14.600000381469727, 8.0], [-40.20000076293945, 3.5], [-33.400001525878906, -11.399999618530273], [-36.20000076293945, -1.100000023841858], [-22.799999237060547, 24.600000381469727]], [[-25.100000381469727, 20.299999237060547], [-30.600000381469727, -11.0], [-6.0, 4.199999809265137], [-33.70000076293945, -0.0], [-32.70000076293945, 8.0], [-14.199999809265137, 8.300000190734863], [-40.599998474121094, 2.5999999046325684], [-33.20000076293945, -11.300000190734863], [-36.400001525878906, -0.699999988079071], [-22.200000762939453, 24.399999618530273]], [[-24.299999237060547, 20.100000381469727], [-30.100000381469727, -10.899999618530273], [-5.400000095367432, 4.300000190734863], [-33.79999923706055, 0.10000000149011612], [-32.400001525878906, 7.099999904632568], [-13.699999809265137, 8.600000381469727], [-41.0, 1.7000000476837158], [-32.900001525878906, -11.199999809265137], [-36.599998474121094, -0.30000001192092896], [-21.700000762939453, 24.200000762939453]], [[-23.5, 19.899999618530273], [-29.600000381469727, -10.699999809265137], [-4.800000190734863, 4.300000190734863], [-33.70000076293945, 0.20000000298023224], [-32.0, 6.199999809265137], [-13.199999809265137, 8.899999618530273], [-41.400001525878906, 0.699999988079071], [-32.70000076293945, -11.100000381469727], [-36.79999923706055, 0.0], [-21.100000381469727, 24.0]], [[-22.700000762939453, 19.700000762939453], [-29.100000381469727, -10.600000381469727], [-4.199999809265137, 4.300000190734863], [-33.5, 0.4000000059604645], [-31.700000762939453, 5.300000190734863], [-12.699999809265137, 9.199999809265137], [-41.79999923706055, -0.30000001192092896], [-32.5, -11.0], [-36.900001525878906, 0.4000000059604645], [-20.5, 23.799999237060547]], [[-21.799999237060547, 19.5], [-28.600000381469727, -10.5], [-3.5, 4.300000190734863], [-33.29999923706055, 0.5], [-31.299999237060547, 4.400000095367432], [-12.199999809265137, 9.600000381469727], [-42.20000076293945, -1.2999999523162842], [-32.20000076293945, -11.0], [-36.900001525878906, 0.800000011920929], [-19.899999618530273, 23.600000381469727]], [[-20.899999618530273, 19.299999237060547], [-28.100000381469727, -10.399999618530273], [-2.799999952316284, 4.400000095367432], [-33.0, 0.6000000238418579], [-30.899999618530273, 3.5], [-11.699999809265137, 9.899999618530273], [-42.5, -2.4000000953674316], [-32.0, -10.899999618530273], [-37.0, 1.2000000476837158], [-19.200000762939453, 23.299999237060547]], [[-20.0, 19.100000381469727], [-27.5, -10.300000190734863], [-2.0999999046325684, 4.5], [-32.599998474121094, 0.699999988079071], [-30.5, 2.5999999046325684], [-11.100000381469727, 10.199999809265137], [-42.70000076293945, -3.5], [-31.899999618530273, -10.800000190734863], [-36.900001525878906, 1.5], [-18.600000381469727, 23.100000381469727]], [[-19.0, 18.899999618530273], [-27.0, -10.300000190734863], [-1.399999976158142, 4.400000095367432], [-32.20000076293945, 0.800000011920929], [-30.100000381469727, 1.7000000476837158], [-10.5, 10.5], [-42.900001525878906, -4.599999904632568], [-31.700000762939453, -10.699999809265137], [-36.900001525878906, 1.899999976158142], [-18.0, 22.899999618530273]]], "ball": [[-29.799999237060547, 19.799999237060547, 11.5], [-30.5, 18.600000381469727, 12.699999809265137], [-31.299999237060547, 17.200000762939453, 13.600000381469727], [-32.0, 15.899999618530273, 14.399999618530273], [-32.79999923706055, 14.5, 14.899999618530273], [-33.400001525878906, 13.199999809265137, 15.199999809265137], [-34.20000076293945, 11.800000190734863, 15.300000190734863], [-35.0, 10.399999618530273, 15.300000190734863], [-35.79999923706055, 9.100000381469727, 15.199999809265137], [-36.599998474121094, 7.699999809265137, 15.0], [-37.400001525878906, 6.300000190734863, 14.5], [-38.400001525878906, 4.900000095367432, 13.899999618530273], [-39.20000076293945, 3.5, 12.899999618530273], [-40.0, 2.0, 11.600000381469727], [-40.70000076293945, 0.6000000238418579, 10.0], [-41.20000076293945, -0.699999988079071, 8.199999809265137], [-41.400001525878906, -1.5, 6.099999904632568], [-41.599998474121094, -2.0999999046325684, 4.300000190734863], [-41.70000076293945, -2.700000047683716, 2.700000047683716], [-41.79999923706055, -3.200000047683716, 1.899999976158142], [-41.79999923706055, -3.5, 2.5], [-41.900001525878906, -3.799999952316284, 3.799999952316284], [-42.099998474121094, -4.099999904632568, 4.900000095367432], [-42.20000076293945, -4.400000095367432, 5.900000095367432], [-42.29999923706055, -4.900000095367432, 6.800000190734863], [-42.20000076293945, -5.300000190734863, 7.400000095367432], [-42.599998474121094, -5.800000190734863, 8.0], [-43.0, -6.300000190734863, 8.300000190734863]]}, {"half": "held out", "defensive": true, "three": true, "shot": [-26.9, 17.61], "landing": [-40.71, -3.66], "zone": 9.43, "won_at": 26, "winner": 9, "p": [0.0975, 0.0567, 0.1239, 0.0549, 0.0157, 0.1652, 0.011, 0.0852, 0.2396, 0.1503], "xy": [[[-32.29999923706055, 2.5999999046325684], [-17.200000762939453, 4.400000095367432], [-20.5, -12.800000190734863], [-38.0, 3.5], [-27.299999237060547, 17.100000381469727], [-29.600000381469727, -10.5], [-30.0, 17.0], [-24.899999618530273, 3.5999999046325684], [-38.900001525878906, 1.5], [-37.400001525878906, -4.599999904632568]], [[-32.29999923706055, 2.700000047683716], [-17.5, 3.9000000953674316], [-21.0, -12.399999618530273], [-37.900001525878906, 3.5999999046325684], [-27.299999237060547, 17.100000381469727], [-29.299999237060547, -10.399999618530273], [-29.200000762939453, 17.600000381469727], [-25.0, 3.299999952316284], [-38.79999923706055, 1.7999999523162842], [-37.599998474121094, -4.599999904632568]], [[-32.29999923706055, 2.799999952316284], [-17.899999618530273, 3.5], [-21.600000381469727, -12.0], [-37.79999923706055, 3.700000047683716], [-27.299999237060547, 17.100000381469727], [-29.100000381469727, -10.199999809265137], [-28.5, 18.100000381469727], [-25.100000381469727, 3.0], [-38.79999923706055, 2.0999999046325684], [-37.79999923706055, -4.5]], [[-32.400001525878906, 3.0], [-18.299999237060547, 3.200000047683716], [-22.200000762939453, -11.600000381469727], [-37.79999923706055, 3.700000047683716], [-27.200000762939453, 17.0], [-28.899999618530273, -10.0], [-27.799999237060547, 18.600000381469727], [-25.200000762939453, 2.700000047683716], [-38.70000076293945, 2.4000000953674316], [-38.0, -4.400000095367432]], [[-32.5, 3.0999999046325684], [-18.799999237060547, 2.799999952316284], [-22.799999237060547, -11.199999809265137], [-37.70000076293945, 3.799999952316284], [-27.0, 17.0], [-28.799999237060547, -9.899999618530273], [-27.100000381469727, 19.100000381469727], [-25.399999618530273, 2.4000000953674316], [-38.599998474121094, 2.5999999046325684], [-38.20000076293945, -4.300000190734863]], [[-32.599998474121094, 3.200000047683716], [-19.299999237060547, 2.5], [-23.5, -10.699999809265137], [-37.599998474121094, 3.799999952316284], [-26.799999237060547, 17.0], [-28.799999237060547, -9.699999809265137], [-26.399999618530273, 19.5], [-25.5, 2.200000047683716], [-38.5, 2.799999952316284], [-38.400001525878906, -4.300000190734863]], [[-32.70000076293945, 3.4000000953674316], [-19.899999618530273, 2.299999952316284], [-24.100000381469727, -10.300000190734863], [-37.5, 3.799999952316284], [-26.600000381469727, 16.899999618530273], [-28.899999618530273, -9.399999618530273], [-25.700000762939453, 19.899999618530273], [-25.700000762939453, 1.899999976158142], [-38.400001525878906, 2.9000000953674316], [-38.599998474121094, -4.199999809265137]], [[-32.79999923706055, 3.5], [-20.399999618530273, 2.0], [-24.700000762939453, -9.800000190734863], [-37.5, 3.799999952316284], [-26.299999237060547, 16.899999618530273], [-29.0, -9.199999809265137], [-25.0, 20.200000762939453], [-25.899999618530273, 1.7000000476837158], [-38.29999923706055, 2.9000000953674316], [-38.79999923706055, -4.099999904632568]], [[-32.900001525878906, 3.700000047683716], [-21.0, 1.7999999523162842], [-25.299999237060547, -9.399999618530273], [-37.400001525878906, 3.700000047683716], [-26.0, 16.899999618530273], [-29.299999237060547, -8.899999618530273], [-24.299999237060547, 20.299999237060547], [-26.100000381469727, 1.5], [-38.20000076293945, 2.9000000953674316], [-39.0, -4.099999904632568]], [[-33.0, 3.799999952316284], [-21.600000381469727, 1.7000000476837158], [-25.899999618530273, -8.899999618530273], [-37.29999923706055, 3.5999999046325684], [-25.700000762939453, 16.799999237060547], [-29.5, -8.699999809265137], [-23.700000762939453, 20.399999618530273], [-26.299999237060547, 1.399999976158142], [-38.099998474121094, 2.799999952316284], [-39.20000076293945, -4.0]], [[-33.0, 3.9000000953674316], [-22.100000381469727, 1.5], [-26.399999618530273, -8.5], [-37.29999923706055, 3.5], [-25.299999237060547, 16.799999237060547], [-29.799999237060547, -8.300000190734863], [-23.0, 20.399999618530273], [-26.600000381469727, 1.2999999523162842], [-38.099998474121094, 2.799999952316284], [-39.29999923706055, -3.9000000953674316]], [[-33.099998474121094, 4.099999904632568], [-22.600000381469727, 1.399999976158142], [-26.899999618530273, -8.100000381469727], [-37.29999923706055, 3.4000000953674316], [-24.899999618530273, 16.700000762939453], [-30.100000381469727, -7.900000095367432], [-22.399999618530273, 20.399999618530273], [-26.799999237060547, 1.2000000476837158], [-38.0, 2.700000047683716], [-39.5, -3.9000000953674316]], [[-33.20000076293945, 4.199999809265137], [-23.100000381469727, 1.399999976158142], [-27.299999237060547, -7.699999809265137], [-37.20000076293945, 3.299999952316284], [-24.5, 16.600000381469727], [-30.5, -7.599999904632568], [-21.700000762939453, 20.399999618530273], [-27.0, 1.2000000476837158], [-38.0, 2.5999999046325684], [-39.599998474121094, -3.799999952316284]], [[-33.400001525878906, 4.300000190734863], [-23.600000381469727, 1.2999999523162842], [-27.799999237060547, -7.300000190734863], [-37.20000076293945, 3.0999999046325684], [-24.0, 16.5], [-30.799999237060547, -7.300000190734863], [-21.100000381469727, 20.399999618530273], [-27.200000762939453, 1.2000000476837158], [-38.0, 2.5], [-39.599998474121094, -3.799999952316284]], [[-33.5, 4.5], [-24.100000381469727, 1.2999999523162842], [-28.299999237060547, -6.900000095367432], [-37.20000076293945, 3.0], [-23.5, 16.399999618530273], [-31.200000762939453, -7.0], [-20.5, 20.399999618530273], [-27.5, 1.2000000476837158], [-38.0, 2.4000000953674316], [-39.70000076293945, -3.700000047683716]], [[-33.599998474121094, 4.599999904632568], [-24.5, 1.2999999523162842], [-28.700000762939453, -6.599999904632568], [-37.099998474121094, 2.799999952316284], [-23.0, 16.299999237060547], [-31.600000381469727, -6.699999809265137], [-19.799999237060547, 20.399999618530273], [-27.700000762939453, 1.2999999523162842], [-38.0, 2.200000047683716], [-39.70000076293945, -3.700000047683716]], [[-33.79999923706055, 4.699999809265137], [-24.899999618530273, 1.2999999523162842], [-29.200000762939453, -6.300000190734863], [-37.099998474121094, 2.700000047683716], [-22.5, 16.100000381469727], [-31.899999618530273, -6.400000095367432], [-19.200000762939453, 20.5], [-27.899999618530273, 1.2999999523162842], [-38.0, 2.0], [-39.70000076293945, -3.700000047683716]], [[-33.900001525878906, 4.800000190734863], [-25.200000762939453, 1.2999999523162842], [-29.700000762939453, -6.099999904632568], [-37.0, 2.5], [-21.899999618530273, 16.0], [-32.29999923706055, -6.099999904632568], [-18.5, 20.5], [-28.100000381469727, 1.399999976158142], [-38.0, 1.899999976158142], [-39.599998474121094, -3.5999999046325684]], [[-34.099998474121094, 4.900000095367432], [-25.5, 1.399999976158142], [-30.200000762939453, -5.900000095367432], [-36.900001525878906, 2.4000000953674316], [-21.299999237060547, 15.800000190734863], [-32.599998474121094, -5.900000095367432], [-17.899999618530273, 20.5], [-28.200000762939453, 1.5], [-38.099998474121094, 1.7000000476837158], [-39.599998474121094, -3.5999999046325684]], [[-34.29999923706055, 5.0], [-25.799999237060547, 1.5], [-30.700000762939453, -5.800000190734863], [-36.70000076293945, 2.200000047683716], [-20.600000381469727, 15.600000381469727], [-33.0, -5.699999809265137], [-17.200000762939453, 20.600000381469727], [-28.399999618530273, 1.600000023841858], [-38.099998474121094, 1.5], [-39.599998474121094, -3.700000047683716]], [[-34.5, 5.0], [-26.0, 1.5], [-31.200000762939453, -5.800000190734863], [-36.599998474121094, 2.0999999046325684], [-20.0, 15.399999618530273], [-33.20000076293945, -5.699999809265137], [-16.600000381469727, 20.600000381469727], [-28.5, 1.7999999523162842], [-38.20000076293945, 1.2999999523162842], [-39.599998474121094, -3.700000047683716]], [[-34.70000076293945, 5.0], [-26.200000762939453, 1.7000000476837158], [-31.600000381469727, -5.699999809265137], [-36.400001525878906, 2.0], [-19.299999237060547, 15.100000381469727], [-33.5, -5.699999809265137], [-16.0, 20.600000381469727], [-28.600000381469727, 1.899999976158142], [-38.29999923706055, 1.100000023841858], [-39.79999923706055, -3.700000047683716]], [[-34.900001525878906, 4.900000095367432], [-26.299999237060547, 1.7999999523162842], [-32.0, -5.699999809265137], [-36.099998474121094, 1.899999976158142], [-18.600000381469727, 14.800000190734863], [-33.70000076293945, -5.800000190734863], [-15.300000190734863, 20.5], [-28.700000762939453, 2.0], [-38.29999923706055, 0.8999999761581421], [-39.900001525878906, -3.700000047683716]], [[-35.099998474121094, 4.800000190734863], [-26.299999237060547, 1.899999976158142], [-32.400001525878906, -5.800000190734863], [-35.79999923706055, 1.7999999523162842], [-17.899999618530273, 14.5], [-33.79999923706055, -6.0], [-14.699999809265137, 20.5], [-28.700000762939453, 2.200000047683716], [-38.400001525878906, 0.699999988079071], [-40.099998474121094, -3.700000047683716]], [[-35.20000076293945, 4.699999809265137], [-26.299999237060547, 2.0], [-32.70000076293945, -5.800000190734863], [-35.5, 1.7000000476837158], [-17.100000381469727, 14.199999809265137], [-33.900001525878906, -6.300000190734863], [-14.100000381469727, 20.5], [-28.799999237060547, 2.299999952316284], [-38.400001525878906, 0.6000000238418579], [-40.29999923706055, -3.700000047683716]], [[-35.29999923706055, 4.5], [-26.100000381469727, 2.0999999046325684], [-33.0, -5.800000190734863], [-35.20000076293945, 1.600000023841858], [-16.399999618530273, 13.899999618530273], [-34.0, -6.800000190734863], [-13.399999618530273, 20.600000381469727], [-28.799999237060547, 2.5], [-38.29999923706055, 0.4000000059604645], [-40.5, -3.700000047683716]], [[-35.29999923706055, 4.199999809265137], [-25.799999237060547, 2.200000047683716], [-33.099998474121094, -5.900000095367432], [-34.70000076293945, 1.5], [-15.600000381469727, 13.5], [-34.099998474121094, -7.400000095367432], [-12.800000190734863, 20.5], [-28.700000762939453, 2.700000047683716], [-38.29999923706055, 0.10000000149011612], [-40.70000076293945, -3.700000047683716]]], "ball": [[-28.600000381469727, 15.899999618530273, 12.0], [-29.5, 15.0, 13.199999809265137], [-30.399999618530273, 14.100000381469727, 14.0], [-31.299999237060547, 13.100000381469727, 14.699999809265137], [-32.29999923706055, 12.100000381469727, 15.199999809265137], [-33.20000076293945, 11.100000381469727, 15.600000381469727], [-34.20000076293945, 10.100000381469727, 15.699999809265137], [-35.0, 9.100000381469727, 15.5], [-35.79999923706055, 8.0, 15.199999809265137], [-36.70000076293945, 7.0, 14.899999618530273], [-37.599998474121094, 6.099999904632568, 14.5], [-38.70000076293945, 5.099999904632568, 14.0], [-39.5, 4.099999904632568, 13.399999618530273], [-40.29999923706055, 3.0999999046325684, 12.699999809265137], [-41.0, 2.200000047683716, 12.199999809265137], [-41.70000076293945, 1.7000000476837158, 12.600000381469727], [-41.70000076293945, 1.2000000476837158, 12.899999618530273], [-41.5, 0.8999999761581421, 13.199999809265137], [-41.20000076293945, 0.6000000238418579, 13.399999618530273], [-41.0, 0.30000001192092896, 13.5], [-40.900001525878906, -0.10000000149011612, 13.300000190734863], [-40.70000076293945, -0.4000000059604645, 13.0], [-40.400001525878906, -0.699999988079071, 12.5], [-40.099998474121094, -0.8999999761581421, 11.899999618530273], [-39.79999923706055, -1.100000023841858, 11.100000381469727], [-39.400001525878906, -1.2999999523162842, 10.199999809265137], [-39.29999923706055, -1.399999976158142, 9.5]]}, {"half": "held out", "defensive": true, "three": false, "shot": [-41.01, 3.34], "landing": [-43.04, -2.47], "zone": 6.0, "won_at": 23, "winner": 6, "p": [0.0092, 0.0838, 0.0174, 0.0493, 0.0274, 0.0373, 0.2114, 0.04, 0.0478, 0.4764], "xy": [[[-31.799999237060547, 22.899999618530273], [-40.70000076293945, 15.699999809265137], [-36.0, 2.0999999046325684], [-27.600000381469727, -1.399999976158142], [-39.29999923706055, -21.899999618530273], [-29.299999237060547, -3.200000047683716], [-37.79999923706055, -11.300000190734863], [-30.0, 7.0], [-36.099998474121094, -0.800000011920929], [-40.20000076293945, 10.699999809265137]], [[-32.400001525878906, 23.0], [-40.599998474121094, 15.300000190734863], [-37.099998474121094, 2.4000000953674316], [-28.5, -1.0], [-39.099998474121094, -21.700000762939453], [-29.899999618530273, -2.5], [-37.900001525878906, -11.0], [-30.299999237060547, 7.300000190734863], [-36.900001525878906, -0.6000000238418579], [-40.20000076293945, 10.699999809265137]], [[-33.0, 23.100000381469727], [-40.400001525878906, 14.899999618530273], [-38.099998474121094, 2.5999999046325684], [-29.200000762939453, -0.699999988079071], [-38.79999923706055, -21.399999618530273], [-30.5, -1.899999976158142], [-38.0, -10.699999809265137], [-30.5, 7.5], [-37.70000076293945, -0.30000001192092896], [-40.20000076293945, 10.600000381469727]], [[-33.5, 23.200000762939453], [-40.20000076293945, 14.5], [-39.099998474121094, 2.9000000953674316], [-30.0, -0.30000001192092896], [-38.599998474121094, -21.200000762939453], [-31.0, -1.2000000476837158], [-38.099998474121094, -10.300000190734863], [-30.799999237060547, 7.699999809265137], [-38.5, -0.10000000149011612], [-40.29999923706055, 10.399999618530273]], [[-33.900001525878906, 23.200000762939453], [-40.099998474121094, 14.100000381469727], [-40.099998474121094, 3.0999999046325684], [-30.700000762939453, 0.10000000149011612], [-38.29999923706055, -20.799999237060547], [-31.5, -0.6000000238418579], [-38.20000076293945, -9.899999618530273], [-31.0, 7.900000095367432], [-39.20000076293945, 0.20000000298023224], [-40.29999923706055, 10.199999809265137]], [[-34.29999923706055, 23.200000762939453], [-39.900001525878906, 13.699999809265137], [-41.0, 3.299999952316284], [-31.399999618530273, 0.4000000059604645], [-38.099998474121094, -20.5], [-32.0, 0.0], [-38.29999923706055, -9.5], [-31.299999237060547, 8.100000381469727], [-39.900001525878906, 0.4000000059604645], [-40.29999923706055, 9.899999618530273]], [[-34.5, 23.200000762939453], [-39.79999923706055, 13.399999618530273], [-41.900001525878906, 3.5999999046325684], [-32.0, 0.800000011920929], [-37.70000076293945, -20.100000381469727], [-32.5, 0.6000000238418579], [-38.400001525878906, -9.100000381469727], [-31.5, 8.300000190734863], [-40.5, 0.6000000238418579], [-40.400001525878906, 9.5]], [[-34.599998474121094, 23.100000381469727], [-39.599998474121094, 13.0], [-42.79999923706055, 3.799999952316284], [-32.599998474121094, 1.100000023841858], [-37.400001525878906, -19.700000762939453], [-32.900001525878906, 1.2000000476837158], [-38.5, -8.600000381469727], [-31.700000762939453, 8.399999618530273], [-41.099998474121094, 0.699999988079071], [-40.400001525878906, 9.100000381469727]], [[-34.599998474121094, 23.0], [-39.5, 12.699999809265137], [-43.70000076293945, 4.0], [-33.0, 1.5], [-37.0, -19.200000762939453], [-33.29999923706055, 1.7000000476837158], [-38.70000076293945, -8.100000381469727], [-31.899999618530273, 8.5], [-41.599998474121094, 0.800000011920929], [-40.5, 8.600000381469727]], [[-34.5, 22.899999618530273], [-39.29999923706055, 12.399999618530273], [-44.5, 4.300000190734863], [-33.5, 1.7999999523162842], [-36.5, -18.799999237060547], [-33.70000076293945, 2.200000047683716], [-38.79999923706055, -7.599999904632568], [-32.099998474121094, 8.600000381469727], [-42.20000076293945, 1.0], [-40.5, 8.0]], [[-34.29999923706055, 22.700000762939453], [-39.20000076293945, 12.0], [-45.29999923706055, 4.5], [-33.900001525878906, 2.200000047683716], [-36.099998474121094, -18.299999237060547], [-34.099998474121094, 2.5999999046325684], [-38.900001525878906, -7.199999809265137], [-32.29999923706055, 8.600000381469727], [-42.70000076293945, 1.100000023841858], [-40.5, 7.5]], [[-34.099998474121094, 22.5], [-39.099998474121094, 11.699999809265137], [-46.099998474121094, 4.699999809265137], [-34.20000076293945, 2.5], [-35.599998474121094, -17.799999237060547], [-34.400001525878906, 3.0999999046325684], [-39.099998474121094, -6.599999904632568], [-32.5, 8.600000381469727], [-43.20000076293945, 1.2000000476837158], [-40.5, 6.900000095367432]], [[-33.79999923706055, 22.299999237060547], [-39.0, 11.300000190734863], [-46.79999923706055, 4.800000190734863], [-34.400001525878906, 2.700000047683716], [-35.20000076293945, -17.299999237060547], [-34.70000076293945, 3.5], [-39.29999923706055, -6.099999904632568], [-32.70000076293945, 8.600000381469727], [-43.70000076293945, 1.2000000476837158], [-40.5, 6.300000190734863]], [[-33.400001525878906, 22.100000381469727], [-38.900001525878906, 10.899999618530273], [-47.5, 5.0], [-34.599998474121094, 3.0], [-34.70000076293945, -16.799999237060547], [-34.900001525878906, 3.9000000953674316], [-39.599998474121094, -5.599999904632568], [-32.900001525878906, 8.699999809265137], [-44.20000076293945, 1.2000000476837158], [-40.5, 5.699999809265137]], [[-33.099998474121094, 21.799999237060547], [-38.900001525878906, 10.5], [-48.20000076293945, 5.199999809265137], [-34.79999923706055, 3.299999952316284], [-34.20000076293945, -16.200000762939453], [-35.099998474121094, 4.300000190734863], [-40.0, -5.199999809265137], [-33.0, 8.699999809265137], [-44.599998474121094, 1.2000000476837158], [-40.599998474121094, 5.0]], [[-32.70000076293945, 21.5], [-38.79999923706055, 10.100000381469727], [-48.79999923706055, 5.300000190734863], [-34.900001525878906, 3.5], [-33.70000076293945, -15.699999809265137], [-35.20000076293945, 4.599999904632568], [-40.29999923706055, -4.800000190734863], [-33.20000076293945, 8.699999809265137], [-45.0, 1.2000000476837158], [-40.599998474121094, 4.400000095367432]], [[-32.400001525878906, 21.200000762939453], [-38.70000076293945, 9.699999809265137], [-49.400001525878906, 5.5], [-34.900001525878906, 3.700000047683716], [-33.20000076293945, -15.199999809265137], [-35.29999923706055, 5.0], [-40.70000076293945, -4.5], [-33.29999923706055, 8.800000190734863], [-45.400001525878906, 1.100000023841858], [-40.599998474121094, 3.799999952316284]], [[-32.0, 20.799999237060547], [-38.70000076293945, 9.199999809265137], [-49.900001525878906, 5.599999904632568], [-35.0, 3.9000000953674316], [-32.70000076293945, -14.600000381469727], [-35.29999923706055, 5.300000190734863], [-41.0, -4.199999809265137], [-33.400001525878906, 8.899999618530273], [-45.70000076293945, 1.100000023841858], [-40.70000076293945, 3.0999999046325684]], [[-31.600000381469727, 20.399999618530273], [-38.599998474121094, 8.800000190734863], [-50.400001525878906, 5.800000190734863], [-35.0, 4.099999904632568], [-32.099998474121094, -14.100000381469727], [-35.29999923706055, 5.599999904632568], [-41.400001525878906, -3.9000000953674316], [-33.5, 9.100000381469727], [-46.0, 1.0], [-40.70000076293945, 2.5]], [[-31.299999237060547, 20.0], [-38.5, 8.300000190734863], [-50.900001525878906, 5.900000095367432], [-35.0, 4.199999809265137], [-31.600000381469727, -13.600000381469727], [-35.20000076293945, 5.900000095367432], [-41.70000076293945, -3.5999999046325684], [-33.5, 9.199999809265137], [-46.29999923706055, 0.8999999761581421], [-40.70000076293945, 1.7999999523162842]], [[-30.899999618530273, 19.600000381469727], [-38.5, 7.800000190734863], [-51.29999923706055, 6.0], [-34.900001525878906, 4.300000190734863], [-31.100000381469727, -13.0], [-35.099998474121094, 6.199999809265137], [-42.099998474121094, -3.299999952316284], [-33.5, 9.399999618530273], [-46.5, 0.800000011920929], [-40.599998474121094, 1.100000023841858]], [[-30.5, 19.100000381469727], [-38.5, 7.300000190734863], [-51.70000076293945, 6.099999904632568], [-34.79999923706055, 4.300000190734863], [-30.600000381469727, -12.5], [-34.900001525878906, 6.400000095367432], [-42.400001525878906, -3.0999999046325684], [-33.400001525878906, 9.699999809265137], [-46.70000076293945, 0.699999988079071], [-40.599998474121094, 0.4000000059604645]], [[-30.0, 18.700000762939453], [-38.400001525878906, 6.800000190734863], [-52.0, 6.199999809265137], [-34.599998474121094, 4.300000190734863], [-30.100000381469727, -12.0], [-34.70000076293945, 6.699999809265137], [-42.70000076293945, -2.799999952316284], [-33.29999923706055, 9.899999618530273], [-46.900001525878906, 0.6000000238418579], [-40.5, -0.30000001192092896]], [[-29.600000381469727, 18.200000762939453], [-38.400001525878906, 6.300000190734863], [-52.400001525878906, 6.199999809265137], [-34.5, 4.300000190734863], [-29.5, -11.5], [-34.5, 6.900000095367432], [-42.900001525878906, -2.5999999046325684], [-33.099998474121094, 10.199999809265137], [-47.0, 0.4000000059604645], [-40.29999923706055, -1.0]]], "ball": [[-36.0, 3.299999952316284, 4.900000095367432], [-37.5, 3.700000047683716, 5.900000095367432], [-38.900001525878906, 4.0, 7.0], [-40.0, 4.099999904632568, 8.0], [-40.70000076293945, 4.199999809265137, 9.0], [-41.0, 4.0, 10.0], [-41.20000076293945, 3.700000047683716, 10.800000190734863], [-41.5, 3.5, 11.399999618530273], [-41.70000076293945, 3.200000047683716, 11.699999809265137], [-41.70000076293945, 2.799999952316284, 11.899999618530273], [-41.599998474121094, 2.4000000953674316, 11.800000190734863], [-41.20000076293945, 2.0, 11.5], [-40.900001525878906, 1.7000000476837158, 11.100000381469727], [-40.79999923706055, 1.399999976158142, 10.699999809265137], [-41.0, 1.2999999523162842, 10.399999618530273], [-41.29999923706055, 1.2000000476837158, 10.300000190734863], [-41.20000076293945, 0.8999999761581421, 10.5], [-41.0, 0.699999988079071, 10.5], [-40.900001525878906, 0.5, 10.399999618530273], [-40.70000076293945, 0.4000000059604645, 10.300000190734863], [-40.599998474121094, 0.30000001192092896, 10.199999809265137], [-40.400001525878906, 0.20000000298023224, 10.100000381469727], [-40.099998474121094, 0.10000000149011612, 9.899999618530273], [-39.900001525878906, -0.10000000149011612, 9.5]]}]}, "contest": {"criterion": {"calibration": {"n": 324.0, "ll_uniform": -2.302585092994045, "ll_distance_only": -1.9787571821012628, "ll_full": -1.858348892958336, "top1_nearest_rim": 0.2345679012345679, "top1_distance_only": 0.228395061728395, "top1_full": 0.3055555555555556}, "held out": {"n": 285.0, "ll_uniform": -2.302585092994045, "ll_distance_only": -1.911879524479363, "ll_full": -1.8286531651791564, "top1_nearest_rim": 0.2456140350877192, "top1_distance_only": 0.2210526315789473, "top1_full": 0.2631578947368421}}, "features": ["zone_ratio", "rimward", "speed", "no_heading", "offense"], "beta": [-0.871, 0.739, 0.124, 0.317, -0.456], "lead_frames": 12}, "record": [{"sha": "452c30a", "subject": "Refute P7.7's own interpretation: the angle predicts through its denominator"}, {"sha": "32c30ec", "subject": "Read the held-out games once: the ball's entry angle replicates"}, {"sha": "cdb3cd5", "subject": "Freeze the ball's entry angle before reading the held-out games"}, {"sha": "37865f6", "subject": "Grade the conditional model held out: the log probability replicates, top-1 does not"}, {"sha": "194f5c6", "subject": "Freeze the conditional rebound model on calibration, before reading held out"}, {"sha": "8b974f0", "subject": "Retire the area condition as unable to discriminate, and record the rewrite"}, {"sha": "1e670ea", "subject": "Freeze the shot-scaled zone on calibration, before reading held out"}, {"sha": "da17dd7", "subject": "Freeze the forward-label parameters and amend the bar before P1.8"}]}</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+const HALVES = D.halves;
+const SERIES = h => "s" + HALVES.indexOf(h);
+const SVGNS = "http://www.w3.org/2000/svg";
+const DOT_R = 1.15;               // a player on the court, in feet
+const STILL = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let visible = HALVES.slice();
+
+/* ------------------------------------------------------------------ helpers */
+const el = (name, attrs = {}) => {
+  const node = document.createElementNS(SVGNS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  return node;
+};
+const fmt = (v, d = 3, sign = false) =>
+  v === null || v === undefined || Number.isNaN(v) ? "–"
+  : (sign && v > 0 ? "+" : "") + v.toFixed(d);
+const pct = (v, d = 0) => (100 * v).toFixed(d) + "%";
+const html = (id, markup) => { document.getElementById(id).innerHTML = markup; };
+const at = id => document.getElementById(id);
+
+function scale(lo, hi, a, b) { return v => a + (v - lo) / (hi - lo || 1) * (b - a); }
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function ticks(lo, hi, want = 5) {
+  const raw = (hi - lo) / want, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  const out = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(t);
+  return out;
+}
+function text(x, y, content, cls, anchor) {
+  const node = el("text", {x, y, class: cls, "text-anchor": anchor || "start"});
+  node.textContent = content;
+  return node;
+}
+function legend(id, items) {
+  if (!at(id)) return;
+  html(id, items.map(i => `<span><i style="background:${i.colour}"></i>${i.label}</span>`)
+       .join(""));
+}
+function table(columns, rows) {
+  return `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`
+    + rows.map(r => "<tr>" + r.map((c, i) =>
+        `<td class="${i ? "num" : ""}">${c}</td>`).join("") + "</tr>").join("")
+    + "</tbody></table>";
+}
+const colourOf = half => half === HALVES[0] ? "var(--cal)" : "var(--held)";
+
+/* =========================================================================
+   The court. Everything is drawn in FEET, in the attacking frame the data
+   already uses: the attacked hoop at x = HOOP_X, y = 0, the baseline behind
+   it. The view turns that on its side so the hoop sits at the bottom, which
+   is how a rebound is watched.
+   ========================================================================= */
+const GEOMETRY = D.court.geometry;      // scbasket.court.FIBA, as the package holds it
+const COURT = {
+  halfLength: GEOMETRY.half_length_ft, halfWidth: GEOMETRY.half_width_ft,
+  hoopX: GEOMETRY.hoop_x, paintHalf: GEOMETRY.paint_half_width_ft,
+  paintLength: GEOMETRY.paint_length_ft, restricted: GEOMETRY.ra_radius_ft,
+  three: GEOMETRY.three_radius_ft, cornerY: GEOMETRY.corner_line_y_ft,
+  // Drawn, not measured: nothing in the analysis depends on the rim, the ring under it or
+  // the backboard, so these three are the only numbers on this court typed here.
+  rim: 0.75, ftCircle: 5.91, backboard: 2.95,
+};
+//: feet of margin around the drawn half court, so a player behind the baseline still shows
+const MARGIN = 3.2;
+
+/** Build an SVG whose user units ARE feet, cropped to a slice of the half court. */
+function court(host, {fromX = -COURT.halfLength, toX = 0} = {}) {
+  const w = 2 * COURT.halfWidth + 2 * MARGIN;
+  const h = (toX - fromX) + 2 * MARGIN;
+  const svg = el("svg", {viewBox: `0 0 ${w} ${h}`, role: "img",
+                         "aria-label": "half court seen from above, the rim at the bottom"});
+  const node = at(host);
+  node.innerHTML = "";
+  node.appendChild(svg);
+  // court (x, y) -> view (px, py): the length runs down the screen, the width across it
+  const px = y => y + COURT.halfWidth + MARGIN;
+  const py = x => (toX - x) + MARGIN;
+  drawLines(svg, px, py, fromX, toX);
+  return {svg, px, py, width: w, height: h, fromX, toX};
+}
+
+function drawLines(svg, px, py, fromX, toX) {
+  const {halfWidth, hoopX, paintHalf, paintLength, ftCircle, restricted, three,
+         cornerY, backboard, rim} = COURT;
+  const baseline = -COURT.halfLength;
+  svg.appendChild(el("rect", {class: "court-out", x: px(-halfWidth), y: py(Math.min(toX, 0)),
+    width: 2 * halfWidth, height: py(Math.max(fromX, baseline)) - py(Math.min(toX, 0))}));
+  // paint and the free-throw circle
+  svg.appendChild(el("rect", {class: "court-line", x: px(-paintHalf), y: py(baseline +
+    paintLength), width: 2 * paintHalf, height: paintLength}));
+  svg.appendChild(el("circle", {class: "court-line", cx: px(0), cy: py(baseline + paintLength),
+    r: ftCircle}));
+  // the three-point line: two short corner segments closed by the arc
+  const meet = hoopX - Math.sqrt(three * three - cornerY * cornerY);
+  svg.appendChild(el("path", {class: "court-line", d:
+    `M ${px(-cornerY)} ${py(baseline)} L ${px(-cornerY)} ${py(meet)}`
+    + ` A ${three} ${three} 0 1 1 ${px(cornerY)} ${py(meet)}`
+    + ` L ${px(cornerY)} ${py(baseline)}`}));
+  // restricted area, backboard, rim
+  svg.appendChild(el("path", {class: "court-line", d:
+    `M ${px(-restricted)} ${py(hoopX)} A ${restricted} ${restricted} 0 0 1 `
+    + `${px(restricted)} ${py(hoopX)}`}));
+  svg.appendChild(el("line", {class: "court-line", x1: px(-backboard), x2: px(backboard),
+    y1: py(hoopX - 1.2), y2: py(hoopX - 1.2), "stroke-width": .5}));
+  svg.appendChild(el("circle", {class: "rim", cx: px(0), cy: py(hoopX), r: rim}));
+}
+
+/* --------------------------------------------------------------- the replay */
+/** One clip playing on a court: ten players, their trails, the ball and its shadow. */
+class Replay {
+  constructor(host, {crop, onFrame, pickable = false, trail = 10}) {
+    this.view = court(host, crop);
+    this.onFrame = onFrame;
+    this.trail = trail;
+    this.scene = null;
+    this.frame = 0;
+    this.playing = false;
+    this.layer = el("g");
+    this.view.svg.appendChild(this.layer);
+    this.pickable = pickable;
+    this.onPick = null;
+    this.build();
+  }
+
+  build() {
+    const {px, py} = this.view;
+    this.zone = el("circle", {class: "zonering", cx: px(0), cy: py(COURT.hoopX), r: 0});
+    this.flat = el("circle", {class: "flat", cx: px(0), cy: py(COURT.hoopX),
+                              r: D.zone.flat_ft});
+    this.shot = el("path", {class: "spot", stroke: "var(--ball)", d: ""});
+    this.layer.append(this.zone, this.flat, this.shot);
+    this.trails = [];
+    this.dots = [];
+    this.halos = [];
+    this.labels = [];
+    this.hits = [];
+    this.radius = new Array(10).fill(DOT_R);
+    for (let i = 0; i < 10; i++) {
+      const cls = i < 5 ? "off" : "def";
+      const trail = el("polyline", {class: "trail", stroke: i < 5 ? "var(--lime)"
+                                                                 : "var(--def)"});
+      const group = el("g", {class: this.pickable ? "pick" : ""});
+      const halo = el("circle", {class: "halo", r: 2.6});
+      const dot = el("circle", {class: "pl " + cls, r: DOT_R});
+      const label = el("text", {class: "pnum", opacity: 0});
+      const hit = el("circle", {r: 3, fill: "transparent"});
+      group.append(halo, dot, label, hit);
+      if (this.pickable) {
+        group.addEventListener("click", () => this.onPick && this.onPick(i));
+        group.style.cursor = "pointer";
+      }
+      this.layer.append(trail, group);
+      this.trails.push(trail);
+      this.dots.push(dot);
+      this.halos.push(halo);
+      this.labels.push(label);
+      this.hits.push(hit);
+    }
+    this.flight = el("polyline", {class: "trail", stroke: "var(--ball)",
+                                  "stroke-width": .28, opacity: .55});
+    this.layer.appendChild(this.flight);
+    this.ring = el("circle", {class: "winner-ring", r: 2, opacity: 0});
+    this.shadow = el("ellipse", {class: "ballshadow", rx: .8, ry: .5, opacity: 0});
+    this.ball = el("circle", {class: "ballmark", r: .78, opacity: 0});
+    this.layer.append(this.ring, this.shadow, this.ball);
+  }
+
+  load(scene) {
+    this.scene = scene;
+    this.frame = 0;
+    this.ring.setAttribute("opacity", 0);
+    const {px, py} = this.view;
+    this.zone.setAttribute("r", scene.zone);
+    this.shot.setAttribute("d",
+      `M ${px(scene.shot[1]) - 1} ${py(scene.shot[0]) - 1} l 2 2 M ${px(scene.shot[1]) + 1} `
+      + `${py(scene.shot[0]) - 1} l -2 2`);
+    this.draw(0);
+  }
+
+  /** Draw at a fractional frame, interpolating so 12.5 fps of tracking reads as motion. */
+  draw(f) {
+    const s = this.scene;
+    if (!s) return;
+    const {px, py} = this.view;
+    const last = s.xy.length - 1;
+    const i = Math.min(Math.floor(f), last), j = Math.min(i + 1, last), t = f - i;
+    const lerp = (a, b) => a + (b - a) * t;
+    for (let p = 0; p < 10; p++) {
+      const x = lerp(s.xy[i][p][0], s.xy[j][p][0]), y = lerp(s.xy[i][p][1], s.xy[j][p][1]);
+      this.dots[p].setAttribute("cx", px(y));
+      this.dots[p].setAttribute("cy", py(x));
+      this.halos[p].setAttribute("cx", px(y));
+      this.halos[p].setAttribute("cy", py(x));
+      this.hits[p].setAttribute("cx", px(y));
+      this.hits[p].setAttribute("cy", py(x));
+      this.labels[p].setAttribute("x", px(y));
+      this.labels[p].setAttribute("y", py(x) + 0.6);
+      const path = [];
+      for (let k = Math.max(0, i - this.trail); k <= i; k++) {
+        path.push(`${px(s.xy[k][p][1])},${py(s.xy[k][p][0])}`);
+      }
+      path.push(`${px(y)},${py(x)}`);
+      this.trails[p].setAttribute("points", path.join(" "));
+    }
+    const flown = [];
+    for (let k = Math.max(0, i - 3 * this.trail); k <= i; k++) {
+      flown.push(`${px(s.ball[k][1])},${py(s.ball[k][0]) - Math.max(0, s.ball[k][2]) * 0.22}`);
+    }
+    this.flight.setAttribute("points", flown.join(" "));
+    const bx = lerp(s.ball[i][0], s.ball[j][0]), by = lerp(s.ball[i][1], s.ball[j][1]);
+    const bz = Math.max(0, lerp(s.ball[i][2], s.ball[j][2]));
+    this.ball.setAttribute("cx", px(by));
+    this.ball.setAttribute("cy", py(bx) - bz * 0.22);   // a little lift for height
+    this.ball.setAttribute("r", 0.62 + bz * 0.022);
+    this.ball.setAttribute("opacity", 1);
+    this.shadow.setAttribute("cx", px(by));
+    this.shadow.setAttribute("cy", py(bx));
+    this.shadow.setAttribute("rx", 0.55 + bz * 0.012);
+    this.shadow.setAttribute("opacity", .4);
+    if (i >= s.won_at) {
+      const won = s.xy[Math.min(s.won_at, last)][s.winner];
+      this.ring.setAttribute("cx", px(won[1]));
+      this.ring.setAttribute("cy", py(won[0]));
+      // outside whatever size the winner's dot currently is, so the reveal cannot hide it
+      this.ring.setAttribute("r", this.radius[s.winner] + 1.4);
+      this.ring.setAttribute("opacity", 1);
+    } else {
+      this.ring.setAttribute("opacity", 0);
+    }
+    this.frame = f;
+    if (this.onFrame) this.onFrame(last ? f / last : 1, i);
+  }
+
+  get last() { return this.scene ? this.scene.xy.length - 1 : 0; }
+  get ended() { return this.frame >= this.last; }
+
+  play() {
+    if (this.playing || !this.scene) return;
+    this.playing = true;
+    this.clock = null;
+    const step = ms => {
+      if (!this.playing) return;
+      this.clock = this.clock === null ? ms : this.clock;
+      const gap = Math.min(ms - this.clock, 100);   // a hidden tab stops the
+      const next = this.frame + gap / 1000 * D.court.fps;  // clock, not the clip
+      this.clock = ms;
+      if (next >= this.last) {
+        this.draw(this.last);
+        this.stop();
+        if (this.onEnd) this.onEnd();
+        return;
+      }
+      this.draw(next);
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /** Every player's size at once: the reveal makes each one their own probability. */
+  setRadius(of) {
+    this.radius = this.radius.map((_, i) => of(i));
+    this.dots.forEach((dot, i) => dot.setAttribute("r", this.radius[i]));
+  }
+
+  stop() { this.playing = false; this.clock = null; }
+  /** From the top, whatever was on screen. */
+  restart() { this.stop(); this.draw(0); this.play(); }
+  /** From wherever it was paused, which is what a resume means. */
+  resume() { this.ended ? this.restart() : this.play(); }
+  seek(fraction) {
+    this.stop();
+    this.draw(Math.max(0, Math.min(1, fraction)) * this.last);
+  }
+}
+
+const PLAY = "&#9654;", PAUSE = "&#9208;";
+/** The play/pause button of a replay, and the progress bar it fills. */
+const glyphOf = (id, replay) => () => { at(id).innerHTML = replay.playing ? PAUSE : PLAY; };
+const headOf = id => { const bar = at(id); return f => { bar.style.width = (100 * f) + "%"; }; };
+const SCENES = D.court.scenes;
+const sceneMeta = s => `${s.half} &middot; ${s.defensive ? "defensive" : "offensive"} board`
+  + ` &middot; ${s.three ? "three" : "two"} from ${fmt(Math.hypot(s.shot[0] - COURT.hoopX,
+      s.shot[1]), 1)} ft`;
+
+/* ------------------------------------------------------------- hero replay */
+let heroAt = 0;
+const hero = new Replay("hero-court", {
+  crop: {fromX: -COURT.halfLength, toX: -6},
+  onFrame: headOf("hero-head"),
+});
+function heroLoad(i) {
+  heroAt = (i + SCENES.length) % SCENES.length;
+  hero.load(SCENES[heroAt]);
+  html("hero-meta", sceneMeta(SCENES[heroAt]) + `<br>clip ${heroAt + 1} of ${SCENES.length}`);
+}
+const heroGlyph = glyphOf("hero-toggle", hero);
+//: how long the last frame of a clip is held before the next one starts, in ms
+const HOLD_MS = 1100;
+let rolling = !STILL, waiting = null;
+
+heroLoad(0);
+hero.onEnd = () => {
+  heroGlyph();
+  clearTimeout(waiting);
+  // The clips follow one another off the END of the one before, not off a timer that knows
+  // nothing about how long a clip is: a fixed interval stutters against clips of 20 to 34
+  // frames.
+  if (rolling) waiting = setTimeout(() => { heroLoad(heroAt + 1); hero.restart(); }, HOLD_MS);
+};
+at("hero-play").onclick = () => { rolling = true; hero.restart(); heroGlyph(); };
+at("hero-next").onclick = () => { heroLoad(heroAt + 1); hero.restart(); heroGlyph(); };
+at("hero-toggle").onclick = () => {
+  if (hero.playing) { rolling = false; clearTimeout(waiting); hero.stop(); }
+  else { rolling = true; hero.resume(); }
+  heroGlyph();
+};
+at("hero-track").onclick = event => {
+  const box = event.currentTarget.getBoundingClientRect();
+  rolling = false;
+  clearTimeout(waiting);
+  hero.seek((event.clientX - box.left) / box.width);
+  heroGlyph();
+};
+if (rolling) hero.play(); else hero.draw(hero.last);
+heroGlyph();
+
+/* ---------------------------------------------------------------- the game */
+let gameAt = -1, picked = null, shown = false, youRight = 0, modelRight = 0,
+    played = 0;
+const game = new Replay("game-court", {
+  crop: {fromX: -COURT.halfLength, toX: -10}, pickable: true,
+  onFrame: headOf("game-head"),
+});
+game.onPick = slot => {
+  if (shown) return;
+  picked = slot;
+  reveal();
+};
+function gameLoad(i) {
+  gameAt = (i + SCENES.length) % SCENES.length;
+  picked = null;
+  shown = false;
+  const s = SCENES[gameAt];
+  game.load(s);
+  game.draw(Math.max(0, s.won_at - D.court.lead_frames / D.court.stride));
+  game.setRadius(() => DOT_R);
+  game.labels.forEach(l => l.setAttribute("opacity", 0));
+  game.halos.forEach(h => h.setAttribute("opacity", 0));
+  html("game-meta", sceneMeta(s) + `<br>clip ${gameAt + 1} of ${SCENES.length}`);
+  at("verdict").innerHTML = "Click any player on the court.";
+  gameGlyph();
+}
+const gameGlyph = glyphOf("game-toggle", game);
+function reveal() {
+  const s = SCENES[gameAt];
+  const best = s.p.indexOf(Math.max(...s.p));
+  shown = true;
+  // Only a round the reader actually played counts, for either of them: revealing the
+  // model's pick without picking is not a round it won.
+  if (picked !== null) {
+    played += 1;
+    if (picked === s.winner) youRight += 1;
+    if (best === s.winner) modelRight += 1;
+    at("score-you").textContent = `${youRight} / ${played}`;
+    at("score-model").textContent = `${modelRight} / ${played}`;
+  }
+  // the model's ranking, drawn on the court: a player is as big as their probability, and
+  // wears it, so "who is best placed" stops being a word and becomes ten numbers
+  game.setRadius(i => 0.9 + 3.4 * s.p[i]);
+  s.p.forEach((p, i) => {
+    game.labels[i].textContent = Math.round(100 * p);
+    game.labels[i].setAttribute("opacity", p > 0.06 ? 1 : 0);
+    game.labels[i].setAttribute("fill", i < 5 ? "#0a0f04" : "#0d1116");
+  });
+  game.halos[s.winner].setAttribute("opacity", .5);
+  const mine = picked === null ? ""
+    : picked === s.winner ? "<b>You had it.</b> "
+    : "<span class='wrong'>Not that one.</span> ";
+  at("verdict").innerHTML = `${mine}The ball was won by the
+    ${s.winner < 5 ? "attacker" : "defender"} now ringed, and the frozen model put
+    <b>${pct(s.p[s.winner], 1)}</b> on them
+    ${best === s.winner ? "— its highest of the ten."
+      : `, against ${pct(Math.max(...s.p), 1)} on the one it liked most. It got this one
+         wrong, and it gets about seven in ten wrong: the claim is the log probability, not
+         the winner.`}
+    Every dot is now sized by the probability the model gave it.`;
+  game.play();                       // on from the half second it was stopped at
+  gameGlyph();
+}
+game.onEnd = gameGlyph;
+at("game-reveal").onclick = () => { if (!shown) reveal(); };
+at("game-next").onclick = () => gameLoad(gameAt + 1);
+at("game-toggle").onclick = () => {
+  game.playing ? game.stop() : game.resume();
+  gameGlyph();
+};
+at("game-track").onclick = event => {
+  const box = event.currentTarget.getBoundingClientRect();
+  game.seek((event.clientX - box.left) / box.width);
+  gameGlyph();
+};
+gameLoad(0);
+
+/* -------------------------------------------------------- the zone, on a court */
+const zone = court("zone-court", {fromX: -COURT.halfLength, toX: -4});
+const zoneLayer = el("g");
+zone.svg.appendChild(zoneLayer);
+const zoneRing = el("circle", {class: "zonering", cx: zone.px(0), cy: zone.py(COURT.hoopX),
+                               r: 0});
+const zoneFlat = el("circle", {class: "flat", cx: zone.px(0), cy: zone.py(COURT.hoopX),
+                               r: D.zone.flat_ft});
+const zoneShot = el("path", {class: "spot", stroke: "var(--ball)", "stroke-width": .45, d: ""});
+zoneLayer.append(zoneRing, zoneFlat, zoneShot);
+const zoneDots = [];
+{
+  const p = D.zone.points;
+  for (let i = 0; i < p.x.length; i++) {
+    const dot = el("circle", {cx: zone.px(p.y[i]), cy: zone.py(p.x[i]), r: .55});
+    zoneLayer.appendChild(dot);
+    zoneDots.push(dot);
+  }
+  zone.svg.appendChild(el("rect", {x: 0, y: 0, width: zone.width, height: zone.height,
+    fill: "transparent", style: "cursor:crosshair"})).addEventListener("click", event => {
+      const box = zone.svg.getBoundingClientRect();
+      // the inverse of px() and py(), then held inside the lines of the court
+      const y = (event.clientX - box.left) / box.width * zone.width - COURT.halfWidth - MARGIN;
+      const x = zone.toX + MARGIN - (event.clientY - box.top) / box.height * zone.height;
+      placeShot(clamp(x, -COURT.halfLength, zone.toX),
+                clamp(y, -COURT.halfWidth, COURT.halfWidth));
+    });
+}
+const radiusOf = d => D.zone.intercept + D.zone.slope * d;
+function placeShot(x, y) {
+  const p = D.zone.points;
+  const d = Math.hypot(x - COURT.hoopX, y);
+  const r = radiusOf(d);
+  zoneRing.setAttribute("r", r);
+  zoneShot.setAttribute("d", `M ${zone.px(y) - 1.3} ${zone.py(x) - 1.3} l 2.6 2.6
+                              M ${zone.px(y) + 1.3} ${zone.py(x) - 1.3} l -2.6 2.6`);
+  let near = 0, inside = 0;
+  for (let i = 0; i < p.x.length; i++) {
+    const shown = visible.includes(p.half[i]);
+    const close = Math.abs(p.shot_dist[i] - d) <= 2;
+    zoneDots[i].setAttribute("fill", shown && close ? colourOf(p.half[i])
+                                                    : "var(--ink-faint)");
+    zoneDots[i].setAttribute("opacity", !shown ? 0 : close ? .95 : .16);
+    zoneDots[i].setAttribute("r", shown && close ? .8 : .5);
+    if (shown && close) { near += 1; inside += p.inside[i]; }
+  }
+  html("zone-meta", `a shot from <b class="num">${d.toFixed(0)} ft</b> earns
+    <b class="num">${r.toFixed(2)} ft</b> &middot; <span class="num">${near}</span> rebounds
+    within 2 ft of it, <span class="num">${near ? pct(inside / near) : "–"}</span> inside`);
+}
+
+/* =============================================================== the charts */
+const W = 760, H = 330, PAD = {l: 56, r: 22, t: 16, b: 46};
+function board(host, label) {
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": label});
+  const node = at(host);
+  node.innerHTML = "";
+  node.appendChild(svg);
+  return svg;
+}
+function frame(svg, x, y, xt, yt, xlab, ylab, fmtY) {
+  for (const t of yt) {
+    svg.appendChild(el("line", {class: "grid", x1: PAD.l, x2: W - PAD.r, y1: y(t), y2: y(t)}));
+    svg.appendChild(text(PAD.l - 10, y(t) + 4, fmtY(t), "tick", "end"));
+  }
+  svg.appendChild(el("line", {class: "axis", x1: PAD.l, x2: W - PAD.r,
+                              y1: H - PAD.b, y2: H - PAD.b}));
+  for (const t of xt) svg.appendChild(text(x(t.at), H - PAD.b + 18, t.label, "tick", "middle"));
+  if (xlab) svg.appendChild(text(W - PAD.r, H - 6, xlab, "axlab", "end"));
+  if (ylab) svg.appendChild(text(2, 11, ylab, "axlab", "start"));
+}
+function tip(node, host, content, cx, cy) {
+  const box = at(node), area = at(host);
+  box.innerHTML = content;
+  box.style.opacity = 1;
+  box.style.left = (cx / W * area.clientWidth) + "px";
+  box.style.top = (cy / H * area.clientHeight) + "px";
+}
+const hide = node => { at(node).style.opacity = 0; };
+
+function bandChart(spec) {
+  const rows = spec.data.rows.filter(r => visible.includes(r.half));
+  const labels = spec.data.labels;
+  const values = rows.flatMap(r => [r.value, r.lo, r.hi]).filter(v => v !== null);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  if (spec.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  const padY = (hi - lo) * 0.08;
+  const x = scale(0, labels.length - 1, PAD.l + 30, W - PAD.r - 34);
+  const y = scale(lo - padY, hi + padY, H - PAD.b, PAD.t);
+  const svg = board(spec.host, spec.ylab + " by " + spec.xname + ", both halves");
+  at(spec.host).classList.add("draw");
+
+  frame(svg, x, y, labels.map((label, at_) => ({at: at_, label})), ticks(lo - padY, hi + padY),
+        spec.xlab, spec.ylab, t => fmt(t, 2));
+  if (spec.zero) svg.appendChild(el("line", {class: "axis", x1: PAD.l, x2: W - PAD.r,
+                                             y1: y(0), y2: y(0)}));
+  if (spec.shade) {
+    svg.appendChild(el("rect", {x: PAD.l, y: PAD.t, width: x(1.5) - PAD.l,
+      height: H - PAD.b - PAD.t, fill: "var(--lime)", opacity: .05}));
+    svg.appendChild(text(PAD.l + 8, PAD.t + 12, spec.shade, "reflab"));
+  }
+
+  const ends = [];
+  for (const half of visible) {
+    const part = rows.filter(r => r.half === half).sort((a, b) => a.slot - b.slot);
+    if (!part.length) continue;
+    const cls = SERIES(half);
+    const top = part.map(r => `${x(r.slot)},${y(r.hi)}`);
+    const bottom = part.slice().reverse().map(r => `${x(r.slot)},${y(r.lo)}`);
+    svg.appendChild(el("polygon", {class: cls + " ar", points: top.concat(bottom).join(" ")}));
+    const line = el("polyline", {class: cls + " ln",
+      points: part.map(r => `${x(r.slot)},${y(r.value)}`).join(" ")});
+    svg.appendChild(line);
+    line.style.setProperty("--len", Math.ceil(line.getTotalLength()) + 1);
+    for (const r of part) {
+      svg.appendChild(el("circle", {class: cls + " mk", cx: x(r.slot), cy: y(r.value), r: 4.8}));
+    }
+    const last = part[part.length - 1];
+    ends.push({y: y(last.value) + 4, x: x(last.slot) + 10, half, cls});
+  }
+  // Both halves end within a point of each other, so their direct labels would collide.
+  ends.sort((a, b) => a.y - b.y);
+  if (ends.length === 2 && ends[1].y - ends[0].y < 15) { ends[0].y -= 7; ends[1].y += 8; }
+  for (const it of ends) svg.appendChild(text(it.x, it.y, it.half, it.cls + " dlab"));
+
+  const crosshair = el("line", {class: "cross", y1: PAD.t, y2: H - PAD.b, x1: 0, x2: 0,
+                                style: "display:none"});
+  svg.appendChild(crosshair);
+  svg.appendChild(el("rect", {x: PAD.l, y: PAD.t, width: W - PAD.l - PAD.r,
+    height: H - PAD.t - PAD.b, fill: "transparent"}));
+  svg.addEventListener("mousemove", event => {
+    const box = svg.getBoundingClientRect();
+    const over = (event.clientX - box.left) / box.width * W;
+    let slot = Math.round((over - x(0)) / (x(1) - x(0)));
+    slot = Math.max(0, Math.min(labels.length - 1, slot));
+    const here = rows.filter(r => r.slot === slot);
+    if (!here.length) return;
+    crosshair.setAttribute("x1", x(slot));
+    crosshair.setAttribute("x2", x(slot));
+    crosshair.style.display = "";
+    tip(spec.tip, spec.host,
+      `<div class="h">${spec.xname} ${labels[slot]}</div>` + here.map(r =>
+        `<div class="r"><span><i class="swatch sw-${HALVES.indexOf(r.half) ? "held" : "cal"}">
+         </i>${r.half}</span><span class="num">${fmt(r.value, 3, spec.zero)}
+         <span style="color:var(--ink-faint)">[${fmt(r.lo, 2, spec.zero)},
+         ${fmt(r.hi, 2, spec.zero)}] n=${r.n}</span></span></div>`).join(""),
+      x(slot), y(Math.max(...here.map(r => r.value))));
+  });
+  svg.addEventListener("mouseleave", () => {
+    hide(spec.tip);
+    crosshair.style.display = "none";
+  });
+}
+
+/* ------------------------------------------------------------------- bars */
+const CARRY = [
+  ["how far it is still carrying sideways", "rho_run", true],
+  ["how far from the rim it crosses rim height", "rho_cross_dist", true],
+  ["how steeply it falls", "rho_drop", false],
+  ["the arrival angle on its own", "rho_angle", false],
+  ["the arrival angle, holding both legs", "partial_angle_given_both", true],
+];
+const SPREAD = [["knowing nothing", "sd_none", false], ["knowing the shot", "sd_shot", false],
+                ["adding the ball's arrival", "sd_shot_entry", true]];
+const LL = [["knowing nothing", "ll_uniform", false],
+            ["distance and side alone", "ll_distance_only", false],
+            ["the frozen model", "ll_full", true]];
+
+function bars(id, items, domain, anchor) {
+  const [lo, hi] = domain, span = hi - lo;
+  const place = v => (v - lo) / span * 100;
+  html(id, items.map(it => {
+    const from = Math.min(place(it.value), place(anchor));
+    const to = Math.max(place(it.value), place(anchor));
+    return `<div class="bar${it.label ? " pair" : ""}"><div class="lbl">${it.label}</div>
+      <div class="track2"><div class="zero" style="left:${place(anchor)}%"></div>
+        <div class="fill" data-w="${Math.max(to - from, 0.6)}"
+             style="left:${from}%;background:${it.colour}"></div></div>
+      <div class="val" style="color:${it.strong ? "var(--ink)" : "var(--ink-dim)"}">
+        ${it.text}</div></div>`;
+  }).join(""));
+  grow(at(id));
+}
+/** Bars arrive at zero width and grow to it when their block is in view.
+ *
+ * One observer per block, kept: the filter rebuilds these bars on every click, and a new
+ * observer per rebuild would pile up unfired ones on a block nobody has scrolled to yet.
+ */
+const growing = new Map();
+function grow(host) {
+  const run = () => host.querySelectorAll(".fill").forEach(f => {
+    f.style.width = f.dataset.w + "%";
+  });
+  if (STILL || growing.get(host) === "seen") return run();
+  if (growing.has(host)) return;                       // still waiting to be scrolled to
+  const observer = new IntersectionObserver(entries => {
+    if (entries.some(e => e.isIntersecting)) {
+      observer.disconnect();
+      growing.set(host, "seen");
+      run();
+    }
+  }, {threshold: .25});
+  growing.set(host, observer);
+  observer.observe(host);
+}
+function barBlock(id, source, spec, domain, anchor, format) {
+  bars(id, spec.flatMap(([label, key, strong]) => visible.map(half => ({
+    label: half === visible[0] ? label : "", value: source[half][key], strong,
+    colour: colourOf(half), text: format(source[half][key]),
+  }))), domain, anchor);
+}
+
+/* -------------------------------------------------------------- rendering */
+function renderCharts() {
+  bandChart({host: "lift-chart", tip: "lift-tip", data: D.lift, zero: true,
+             shade: "inside 8 ft, where the zone is",
+             xname: "distance", xlab: "distance to the rim, ft", ylab: "lift"});
+  bandChart({host: "curve-chart", tip: "curve-tip", data: D.curve, zero: false,
+             xname: "approach angle", xlab: "approach angle, degrees", ylab: "P(win)"});
+  barBlock("carry-bars", D.ball.carry, CARRY, [-0.7, 0.7], 0, v => fmt(v, 3, true));
+  barBlock("spread-bars", D.ball.spread, SPREAD, [4, 5], 4, v => fmt(v, 2) + " ft");
+  barBlock("contest-bars", D.contest.criterion, LL, [-2.4, -1.6], -2.4, v => fmt(v, 3));
+  for (const id of ["lift", "curve", "carry", "spread", "contest"]) {
+    legend(id + "-legend", visible.map(h => ({colour: colourOf(h), label: h})));
+  }
+  at("filter-note").textContent = visible.length === 2
+    ? "both halves shown, calibration first" : "showing " + visible[0] + " only";
+  placeShot(D.zone.example[0], D.zone.example[1]);
+  watch();
+}
+
+function renderStatic() {
+  const carry = D.ball.carry, spread = D.ball.spread, contest = D.contest.criterion;
+  const both = HALVES;
+  at("built").textContent = D.built;
+  at("angle-deg").textContent = D.committed_angle.toFixed(0);
+  at("lead-seconds").textContent = (D.court.lead_frames / 25).toFixed(1);
+  at("flat-ft").textContent = fmt(D.zone.flat_ft, 0);
+  at("zone-formula").textContent =
+    `r(d) = ${D.zone.intercept.toFixed(2)} + ${D.zone.slope.toFixed(3)} d feet`;
+  at("curve-sub").textContent =
+    `Distance held inside a fixed 0-${D.fixed_band_ft.toFixed(0)} ft band, so only the `
+    + "heading varies. Hover a band.";
+
+  const liftAt = (half, slot) => D.lift.rows.find(r => r.half === half && r.slot === slot);
+  const pooled = D.pooled;
+  const tiles = [
+    {k: "lift of a rimward heading, inside 4 ft",
+     v: both.map(h => fmt(liftAt(h, 0).value, 3, true)), swatch: true,
+     note: "the share of boards won, rimward minus the rest"},
+    {k: "what the arrival angle keeps, holding both legs",
+     v: both.map(h => fmt(carry[h].partial_angle_given_both, 3, true)), swatch: true,
+     note: "the finding this repository overturned, and then refuted"},
+    {k: "P(win) across the heading, at a fixed 0-8 ft",
+     v: [fmt(pooled[0].value, 3), fmt(pooled[pooled.length - 1].value, 3)], swatch: false,
+     note: "pooled, driving at the rim against running away: "
+       + (pooled[0].value / pooled[pooled.length - 1].value).toFixed(1) + "x"},
+    {k: "log probability on the winner, held out",
+     v: [fmt(contest["held out"].ll_distance_only, 3), fmt(contest["held out"].ll_full, 3)],
+     swatch: false, note: "distance and side alone, against the frozen model"},
+  ];
+  html("tiles", tiles.map(t => `<div class="tile"><div class="k">${t.k}</div>
+    <div class="v">${t.v.map((v, j) => t.swatch
+      ? `<span><i class="swatch sw-${j ? "held" : "cal"}"></i>${v}</span>`
+      : `<span>${j ? "<i>&rarr;</i> " : ""}${v}</span>`).join("")}</div>
+    <div class="note">${t.note}</div></div>`).join(""));
+
+  html("carry-table", table(["", ...both],
+    CARRY.map(([label, key]) => [label, ...both.map(h => fmt(carry[h][key], 3, true))])
+      .concat([["rebounds measured", ...both.map(h => carry[h].n.toFixed(0))]])));
+
+  const zc = D.zone.criterion;
+  html("zone-tiles", [
+    {k: "coverage held out, the zone that scales", v: fmt(zc["held out"].scaled_overall, 3),
+     note: `the pre-registered target was ${fmt(D.zone.coverage, 2)}, within `
+       + `${fmt(D.zone.max_gap, 2)}`},
+    {k: "drift across shot bands", v: fmt(zc["held out"].scaled_spread, 3) + "  vs  "
+       + fmt(zc["held out"].flat_spread, 3),
+     note: `the scaled zone against the flat ${fmt(D.zone.flat_ft, 0)} ft band`},
+  ].map(t => `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div>
+    <div class="note">${t.note}</div></div>`).join(""));
+  html("zone-table", table(["", ...both], [
+    ["rebounds located", ...both.map(h => zc[h].n.toFixed(0))],
+    ["coverage, the zone that scales", ...both.map(h => fmt(zc[h].scaled_overall, 3))],
+    [`coverage, the flat ${fmt(D.zone.flat_ft, 0)} ft band`,
+     ...both.map(h => fmt(zc[h].flat_overall, 3))],
+    ["drift across shot bands, scaled", ...both.map(h => fmt(zc[h].scaled_spread, 3))],
+    ["drift across shot bands, flat", ...both.map(h => fmt(zc[h].flat_spread, 3))],
+    ["mean area, sq ft, scaled", ...both.map(h => fmt(zc[h].scaled_area, 1))],
+    ["mean area, sq ft, flat", ...both.map(h => fmt(zc[h].flat_area, 1))],
+  ]));
+
+  const banded = (data, name) => table([name, ...both.flatMap(h => [h, h + ", n"])],
+    data.labels.map((label, slot) => [label, ...both.flatMap(h => {
+      const r = data.rows.find(row => row.half === h && row.slot === slot);
+      return r ? [fmt(r.value, 3, true) + `  [${fmt(r.lo, 2, true)}, ${fmt(r.hi, 2, true)}]`,
+                  r.n] : ["–", "–"];
+    })]));
+  html("lift-table", banded(D.lift, "distance, ft"));
+  html("curve-table", banded(D.curve, "angle, deg")
+    + table(["pooled over both halves", "P(win)", "n"],
+            pooled.map(r => [r.band + " deg", fmt(r.value, 3), r.n])));
+
+  html("contest-table", table(["", ...both], [
+    ["rebounds graded", ...both.map(h => contest[h].n.toFixed(0))],
+    ...LL.map(([label, key]) => [label, ...both.map(h => fmt(contest[h][key], 3))]),
+    ["top-1, nearest the rim wins", ...both.map(h => fmt(contest[h].top1_nearest_rim, 3))],
+    ["top-1, distance and side alone", ...both.map(h => fmt(contest[h].top1_distance_only, 3))],
+    ["top-1, the frozen model", ...both.map(h => fmt(contest[h].top1_full, 3))],
+  ]));
+  bars("beta-bars", D.contest.features.map((name, i) => ({
+    label: name, value: D.contest.beta[i], strong: true, colour: "var(--ink-dim)",
+    text: fmt(D.contest.beta[i], 3, true)})), [-1, 1], 0);
+
+  // The cost side, which is a null and is shown as one: the buy rises down the table and
+  // the two candidate costs disagree with each other.
+  const usable = D.cost.filter(r => r.n_committed <= 3);
+  html("cost-table", table(
+    ["attackers heading rimward", "half", "rebounds", "offensive rebound rate",
+     "space the break owns", "points they then score"],
+    usable.map(r => [r.n_committed, r.half, r.rebounds, fmt(r.off_reb_rate, 3),
+                     fmt(r.break_area, 0) + ` (n=${r.break_area_n})`, fmt(r.next_pts, 2)])));
+
+  const neg = [
+    ["This repository overturned a finding of its own, then refuted the overturn.",
+     `Earlier work called the ball useless from an exploration with no code in the
+      repository. Rebuilt as code the sign reversed and the pre-registered test passed on the
+      held-out half, clearing a bar a shuffled angle clears 0 times in 200. An adversarial
+      review then showed the angle is a proxy for carry: holding both legs it keeps
+      ${fmt(carry[both[0]].partial_angle_given_both, 3, true)} and
+      ${fmt(carry[both[1]].partial_angle_given_both, 3, true)} of the landing radius. The pass
+      stands as it fell; the reading of it does not.`],
+    ["The model's top-1 accuracy is a pooled artefact.",
+     `${fmt(contest["held out"].top1_full, 3)} against the nearest-to-the-rim rule's
+      ${fmt(contest["held out"].top1_nearest_rim, 3)} passed as pre-registered, and then held
+      in only three games of five: five rebounds of ${contest["held out"].n.toFixed(0)}. The
+      claim rests on the log probability, which holds in all five. A number that survives
+      only pooled is not a finding, which is why the game above keeps two scores and not one.`],
+    ["One pre-registered condition was retired, not moved.",
+     `It asked the scaled zone to carry no more mean area than the flat one at equal coverage.
+      Area is quadratic in the radius, so no scaled zone could ever pass it, and it was
+      already failing on the half it was written from
+      (${fmt(zc[both[0]].scaled_area, 0)} against ${fmt(zc[both[0]].flat_area, 0)} sq ft).
+      Retiring a bar that cannot discriminate is not the same as moving one that can.`],
+    ["The side bias cannot answer Goldsberry (2014).",
+     `His weak-side finding is about missed corner threes. On those our two halves disagree,
+      0.414 and 0.519 on 29 and 27 rebounds, so this work neither reproduces nor contradicts
+      him, and says so instead of quoting the half that agrees. Other threes do lean weak
+      side, 0.528 and 0.557, and shots inside 16 ft lean strong, 0.424 and 0.477: a side bias
+      exists, it is just not the one that was asked about.`],
+    ["Defensive help does not leave you badly placed to rebound.",
+     `Four independent probes, all negative, and the direction was closed in an afternoon
+      before a line of code was written for it, which is why nothing about it ships. The two
+      that decided it: the first defender to break toward the ball is the one the provider
+      labels with the closeout 26.5% of the time against 25.0% by chance, and help squeezes
+      both teams toward the rim by almost the same amount (defence -0.371 against attack
+      -0.342 in zone units), so the relative advantage does not move. Calibration only,
+      nothing frozen, no held-out game opened. The other two and the loose ends are in
+      tasks/todo.md.`],
+  ];
+  html("negatives-list", neg.map(([head, body]) => `<li><b>${head}</b>${body}</li>`).join(""));
+
+  for (const [id, half] of [["games-cal", both[0]], ["games-held", both[1]]]) {
+    html(id, D.games[half].map(g => `<div class="sha">${g}</div>`).join(""));
+  }
+  html("record-log", D.record.map(c =>
+    `<div><span class="sha">${c.sha}</span> <span class="sub">${c.subject}</span></div>`)
+    .join(""));
+}
+
+/* ------------------------------------------------- scroll-in, and the filter */
+let observer = null;
+function watch() {
+  if (observer) observer.disconnect();
+  observer = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) entry.target.classList.add("in");
+  }, {threshold: .15});
+  document.querySelectorAll(".reveal,.draw").forEach(node => observer.observe(node));
+}
+for (const button of document.querySelectorAll(".seg button")) {
+  button.addEventListener("click", () => {
+    const pick = button.dataset.half;
+    visible = pick === "both" ? HALVES.slice() : [pick];
+    for (const other of document.querySelectorAll(".seg button")) {
+      other.setAttribute("aria-pressed", String(other === button));
+    }
+    renderCharts();
+  });
+}
+
+renderStatic();
+renderCharts();
+</script>
+</body>
+</html>

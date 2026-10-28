@@ -18,12 +18,8 @@ choice to make:
      heading from proximity: players arriving rimward are also nearer. Holding distance fixed
      and varying only the angle answers that, and the curve stays monotone in both halves.
 
-The bands are the frozen reporting bands of the record, not chosen here. Intervals are a
-CLUSTER bootstrap that resamples the five GAMES of each half with replacement, not the
-rebounds, because rebounds within a game are not independent and the claim generalises across
-games (lesson 1). Five clusters is a small number and the intervals are correspondingly
-crude; they are drawn to stop a band of 29 rebounds from looking as solid as one of 131, and
-not as a test of anything.
+The tables and their crude cluster intervals come from `scbasket.report`, which is also what
+`scripts/report_html.py` reads, so the page and the figures cannot drift apart.
 
 Writes {out}/figure_1_lift_by_distance.png and {out}/figure_2_pwin_by_angle.png.
 """
@@ -38,76 +34,29 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
+from scbasket import report
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-DIST_BANDS = [0, 4, 8, 12, 16, 22, 200]
-ANGLE_BANDS = [0, 30, 60, 90, 120, 180]
-COMMITTED_ANGLE_DEG = 60.0
-ZONE_MIN_FT, ZONE_MAX_FT = 5.40, 9.39  # the shot-scaled zone of P7.2, from a layup to a three
-
-HALVES = {"calibration": "#8c8c8c", "held out": "#1a1a1a"}
+COLOURS = {"calibration": "#8c8c8c", "held out": "#1a1a1a"}
 MARKERS = {"calibration": "o", "held out": "s"}
-N_BOOTSTRAP = 2000
-SEED = 0
 
 
-def band_labels(edges: list[int], last: str) -> list[str]:
-    """Human labels for the bands, with the open-ended last one spelled out."""
-    return [f"{lo}-{hi}" for lo, hi in zip(edges[:-2], edges[1:-1], strict=True)] + [last]
+def show(title: str, table: pd.DataFrame, labels: tuple[str, ...]) -> None:
+    """The table as it is drawn, printed so a reader never has to trust the picture."""
+    wide = table.pivot(index="slot", columns="half", values="value").round(3)
+    wide.index = [labels[slot] for slot in wide.index]
+    print(f"\n{title}:")
+    print(wide.to_string())
 
 
-def lift_by_distance(players: pd.DataFrame) -> pd.DataFrame:
-    """Share won arriving rimward minus share won otherwise, per distance band and half."""
-    rows = []
-    for (half, band), part in players.groupby(["half", "dist_band"], observed=True):
-        rimward = part["angle"] < COMMITTED_ANGLE_DEG
-        if rimward.sum() == 0 or (~rimward).sum() == 0:
-            continue
-        rows.append({
-            "half": half, "band": band,
-            "lift": part.loc[rimward, "is_winner"].mean() - part.loc[~rimward, "is_winner"].mean(),
-            "n": len(part), "n_rimward": int(rimward.sum()),
-        })
-    return pd.DataFrame(rows)
-
-
-def pwin_by_angle(players: pd.DataFrame) -> pd.DataFrame:
-    """P(this offensive player wins) by angle band, inside a fixed distance band."""
-    rows = []
-    for (half, band), part in players.groupby(["half", "angle_band"], observed=True):
-        rows.append({"half": half, "band": band,
-                     "p_win": part["is_winner"].mean(), "n": len(part)})
-    return pd.DataFrame(rows)
-
-
-def cluster_bootstrap(players: pd.DataFrame, statistic, rng: np.random.Generator) -> pd.DataFrame:
-    """2.5 and 97.5 percentiles of `statistic`, resampling whole games within each half."""
-    draws = []
-    for half, part in players.groupby("half", observed=True):
-        games = part["game"].unique()
-        by_game = {g: sub for g, sub in part.groupby("game", observed=True)}
-        for _ in range(N_BOOTSTRAP):
-            picked = rng.choice(games, size=len(games), replace=True)
-            resampled = pd.concat([by_game[g] for g in picked], ignore_index=True)
-            draws.append(statistic(resampled).assign(half=half))
-    stacked = pd.concat(draws, ignore_index=True)
-    value = "lift" if "lift" in stacked.columns else "p_win"
-    return (stacked.groupby(["half", "band"], observed=True)[value]
-            .quantile([0.025, 0.975]).unstack())
-
-
-def draw(ax, table: pd.DataFrame, bounds: pd.DataFrame, labels: list[str], value: str) -> None:
+def draw(ax, table: pd.DataFrame, labels: tuple[str, ...]) -> None:
     """One panel: both halves on the same axes, with their crude cluster intervals."""
-    x = np.arange(len(labels))
-    for half, colour in HALVES.items():
-        part = table[table["half"] == half].set_index("band")
-        seen = [b for b in part.index]
-        pos = [list(part.index).index(b) for b in seen]
-        lo = [bounds.loc[(half, b), 0.025] for b in seen]
-        hi = [bounds.loc[(half, b), 0.975] for b in seen]
-        values = part[value].to_numpy()
-        ax.fill_between(pos, lo, hi, color=colour, alpha=0.12, linewidth=0)
+    for half in report.HALVES:
+        part = table[table["half"] == half]
+        colour, pos, values = COLOURS[half], part["slot"], part["value"]
+        ax.fill_between(pos, part["lo"], part["hi"], color=colour, alpha=0.12, linewidth=0)
         ax.plot(pos, values, marker=MARKERS[half], color=colour, linewidth=2,
                 markersize=6, label=half)
         # One half above its markers and the other below, or the counts collide wherever the
@@ -116,7 +65,7 @@ def draw(ax, table: pd.DataFrame, bounds: pd.DataFrame, labels: list[str], value
         for xi, yi, n in zip(pos, values, part["n"], strict=True):
             ax.annotate(f"{n}", (xi, yi), textcoords="offset points", xytext=(0, offset),
                         ha="center", fontsize=7, color=colour)
-    ax.set_xticks(x, labels)
+    ax.set_xticks(np.arange(len(labels)), labels)
     ax.grid(axis="y", color="#dddddd", linewidth=0.8)
     ax.set_axisbelow(True)
     for spine in ("top", "right"):
@@ -134,25 +83,19 @@ def main() -> int:
         print(f"no {source}; run scripts/angle_tradeoff.py first", file=sys.stderr)
         return 1
 
-    players = pd.read_csv(source)
-    players = players[players["offense"] & players["angle"].notna()].copy()
-    players["dist_band"] = pd.cut(players["rim_dist"], DIST_BANDS, right=False)
-    players["angle_band"] = pd.cut(players["angle"], ANGLE_BANDS, right=False)
+    players = report.load_players(source)
     print(f"offensive player rows with a usable heading: {len(players)}")
     print(players.groupby("half", observed=True)["is_winner"].agg(["count", "mean"]).to_string())
 
-    rng = np.random.default_rng(SEED)
+    rng = np.random.default_rng(report.SEED)
     args.out.mkdir(parents=True, exist_ok=True)
 
     # ---------------------------------------------------------------- figure 1: the lift
-    lift = lift_by_distance(players)
-    print("\nFigure 1, the lift of a rimward heading by distance band:")
-    print(lift.pivot(index="band", columns="half", values="lift").round(3).to_string())
-    bounds = cluster_bootstrap(players, lift_by_distance, rng)
+    lift = report.banded(players, "dist_slot", report.DIST_LABELS, report.lift, rng)
+    show("Figure 1, the lift of a rimward heading by distance band", lift, report.DIST_LABELS)
 
     fig, ax = plt.subplots(figsize=(7.2, 4.4))
-    labels = band_labels(DIST_BANDS, "22+")
-    draw(ax, lift, bounds, labels, "lift")
+    draw(ax, lift, report.DIST_LABELS)
     ax.axhline(0, color="#000000", linewidth=1)
     ax.axvspan(-0.5, 1.5, color="#f0a33c", alpha=0.10, linewidth=0)
     # Bottom left, which is the one corner neither the lines, the intervals nor the legend use.
@@ -170,19 +113,17 @@ def main() -> int:
     plt.close(fig)
 
     # -------------------------------------------- figure 2: the angle at a fixed distance
-    inside = players[players["rim_dist"] < 8.0].copy()
-    curve = pwin_by_angle(inside)
-    print("\nFigure 2, P(win) by angle band inside a fixed 0-8 ft:")
-    print(curve.pivot(index="band", columns="half", values="p_win").round(3).to_string())
+    inside = players[players["rim_dist"] < report.FIXED_BAND_FT]
+    curve = report.banded(inside, "angle_slot", report.ANGLE_LABELS, report.p_win, rng)
+    show("Figure 2, P(win) by angle band inside a fixed 0-8 ft", curve, report.ANGLE_LABELS)
     # The record quotes this curve POOLED, where it is monotone. Split, only the held-out
     # half is: calibration ticks up in the last band. Printed so the two are never confused.
-    pooled = inside.groupby("angle_band", observed=True)["is_winner"].agg(["count", "mean"])
     print("the same pooled over both halves, which is what the record quotes:")
-    print(pooled.round(3).to_string())
-    bounds2 = cluster_bootstrap(inside, pwin_by_angle, rng)
+    print(report.pooled(inside, "angle_slot", report.ANGLE_LABELS)
+          .set_index("band").round(3).to_string())
 
     fig, ax = plt.subplots(figsize=(7.2, 4.4))
-    draw(ax, curve, bounds2, band_labels(ANGLE_BANDS, "120-180"), "p_win")
+    draw(ax, curve, report.ANGLE_LABELS)
     ax.set_xlabel("approach angle, degrees. 0 is driving at the rim, 180 is running away")
     ax.set_ylabel("P(this offensive player wins the rebound)")
     ax.set_title("Not proximity relabelled: at a FIXED 0-8 ft band, only the heading varies.\n"

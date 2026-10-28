@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+from _record import freeze_commits
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -141,25 +142,16 @@ def figure_slide(ax, path: Path) -> bool:
     return True
 
 
-def record_slide(ax, lines: list[str]) -> None:
+def record_slide(ax, lines: list[tuple[str, str]]) -> None:
     ax.text(0.06, 0.90, "Frozen before the held-out games were opened",
             fontsize=44, color=INK, fontweight="bold")
     ax.text(0.06, 0.83, "and the ones that failed are in there too", fontsize=28, color=GREY)
-    for i, line in enumerate(lines[:6]):
+    for i, (sha, subject) in enumerate(lines[:6]):
         y = 0.68 - i * 0.10
-        sha, _, subject = line.partition(" ")
         if len(subject) > 66:                       # cut at a word, never mid-word
             subject = subject[:66].rsplit(" ", 1)[0] + " ..."
         ax.text(0.06, y, sha, fontsize=21, color=ACCENT, family="monospace")
         ax.text(0.14, y, subject, fontsize=21, color=INK, family="monospace")
-
-
-def git_lines() -> list[str]:
-    """The freeze commits, read from the repository rather than typed out."""
-    wanted = ("Freeze", "Refute", "Retire", "Grade", "Record the P7.2")
-    out = subprocess.run(["git", "log", "--oneline", "-40"], capture_output=True, text=True)
-    lines = [ln for ln in out.stdout.splitlines() if any(w in ln for w in wanted)]
-    return lines or out.stdout.splitlines()[:6]
 
 
 def assemble(out: Path, paths: list[tuple[Path, int]]) -> bool:
@@ -223,7 +215,7 @@ def main() -> int:
         elif name == "slide_4_control":
             figure_slide(ax, args.reports / "figure_2_pwin_by_angle.png")
         else:
-            record_slide(ax, git_lines())
+            record_slide(ax, freeze_commits())
 
         path = args.out / f"{name}.png"
         fig.savefig(path, dpi=DPI, facecolor="white")

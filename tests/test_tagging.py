@@ -745,6 +745,21 @@ def test_the_table_measures_both_distances_from_the_rim_and_scales_the_landing_b
     assert row["in_zone"]
 
 
+def test_the_table_carries_the_coordinates_the_two_distances_were_measured_from():
+    """The page draws a court out of these, so they have to BE the published locations."""
+    out = rebound_zone_table(_zone_shots([("s1", 22.0, True), ("s2", None, False)]),
+                             _zone_rebounds([("r1", "s1", 6.0, True),
+                                             ("r2", "s2", 6.0, True)]))
+    assert out.loc[0, ["reb_x", "reb_y"]].tolist() == _at_rim_distance(6.0)
+    assert out.loc[0, ["shot_x", "shot_y"]].tolist() == _at_rim_distance(22.0)
+    # and they agree with the distance the rest of the repository is built on
+    assert np.hypot(out.loc[0, "reb_x"] - ATTACKED_HOOP[0],
+                    out.loc[0, "reb_y"]) == pytest.approx(out.loc[0, "reb_dist"])
+    # a shot with no published location keeps its row, with nothing invented for it
+    assert np.isnan(out.loc[1, "shot_x"]) and np.isnan(out.loc[1, "shot_y"])
+    assert out.loc[1, ["reb_x", "reb_y"]].tolist() == _at_rim_distance(6.0)
+
+
 def test_the_same_landing_spot_is_inside_the_zone_of_a_three_and_outside_that_of_a_layup():
     """The whole point of P7.2: seven feet out means different things for different shots."""
     out = rebound_zone_table(

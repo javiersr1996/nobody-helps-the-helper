@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nobody reads the bounce</title>
+<meta name="description" content="The eight feet where the rebound is decided. Ten ACB games of SkillCorner's open tracking, replayed on the court. Every number is read from a reports/*.csv in the repository.">
+<style>
+:root{
+  --bg:#000000; --panel:#0b0d0b; --panel-2:#101310; --line:#1f251f; --line-2:#2c342c;
+  --ink:#f2f4f0; --ink-dim:#9ba79b; --ink-faint:#6a756a;
+  --lime:#c8ff6a;                  /* SkillCorner accent: interface, attackers, the zone */
+  --cal:#2f9bd6; --held:#00a82f;   /* the two halves, validated for contrast and for CVD */
+  --ball:#f0a33c; --warn:#d8a13a; --def:#7d8c9e;
+  --sans:"Shentox","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+  --wrap:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+     font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--lime);text-decoration:none;border-bottom:1px solid #3c5522}
+a:hover{border-bottom-color:var(--lime)}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 22px}
+.eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{letter-spacing:-.015em}
+
+/* ------------------------------------------------------------------- buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--lime);
+     background:var(--lime);color:#0a0f04;font:inherit;font-weight:700;font-size:15px;
+     padding:13px 22px;cursor:pointer;border-radius:2px;transition:transform .12s,
+     box-shadow .12s,background .12s;text-transform:uppercase;letter-spacing:.06em}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(200,255,106,.22)}
+.btn.ghost{background:transparent;color:var(--lime);border-color:#3c5522}
+.btn.ghost:hover{border-color:var(--lime);box-shadow:none}
+.btn.small{padding:8px 14px;font-size:12.5px}
+.btn[disabled]{opacity:.4;cursor:default;transform:none;box-shadow:none}
+
+/* ---------------------------------------------------------------------- hero */
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+      padding:26px 0 30px;position:relative;
+      background:radial-gradient(1200px 520px at 78% 18%,#101710 0%,#000 62%)}
+.hero .wrap{display:grid;grid-template-columns:1.06fr .94fr;gap:44px;align-items:center}
+.brandbar{display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.dot{width:9px;height:9px;background:var(--lime);border-radius:50%;flex:none;
+     box-shadow:0 0 0 0 rgba(200,255,106,.6);animation:pulse 2.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 12px rgba(200,255,106,0)}
+                 100%{box-shadow:0 0 0 0 rgba(200,255,106,0)}}
+h1{font-size:clamp(44px,6.6vw,84px);line-height:.94;margin:0;font-weight:800;
+   text-transform:uppercase}
+h1 span{display:block;color:var(--lime)}
+.claim{font-size:clamp(18px,2.1vw,23px);color:var(--ink-dim);max-width:34ch;margin:22px 0 0}
+.claim b{color:var(--ink);font-weight:700}
+.cta{display:flex;gap:14px;margin:30px 0 0;flex-wrap:wrap}
+.hero .byline{margin:28px 0 0;color:var(--ink-faint);font-size:12.5px;max-width:52ch}
+.hero .byline a{color:var(--ink-dim);border-bottom-color:var(--line)}
+.scrolldown{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+            color:var(--ink-faint);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+            animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translate(-50%,7px)}}
+
+/* --------------------------------------------------------------------- court */
+.stage{background:var(--panel);border:1px solid var(--line);padding:14px;position:relative}
+.stage svg{display:block;width:100%;height:auto;max-height:62vh}
+.stagebar{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;
+          font-size:12.5px;color:var(--ink-dim)}
+.stagebar .who{margin-left:auto;text-align:right;font-size:12px;color:var(--ink-faint)}
+.track{flex:1;min-width:90px;height:4px;background:var(--line);position:relative;
+       cursor:pointer}
+.track .head{position:absolute;top:0;left:0;height:4px;background:var(--lime)}
+.iconbtn{border:1px solid var(--line-2);background:transparent;color:var(--ink);
+         width:34px;height:34px;cursor:pointer;border-radius:2px;font-size:13px;flex:none}
+.iconbtn:hover{border-color:var(--lime);color:var(--lime)}
+.court-line{fill:none;stroke:#2a332a;stroke-width:.35}
+.court-out{fill:#080a08;stroke:#39443a;stroke-width:.45}
+.rim{fill:none;stroke:var(--ball);stroke-width:.4}
+.zonering{fill:var(--lime);opacity:.07;stroke:var(--lime);stroke-opacity:.5;stroke-width:.25}
+.flat{fill:none;stroke:var(--ink-faint);stroke-width:.22;stroke-dasharray:1.1 .9}
+.trail{fill:none;stroke-width:.34;opacity:.5}
+.pl{stroke:#000;stroke-width:.18}
+.pl.off{fill:var(--lime)} .pl.def{fill:var(--def)}
+.winner-ring{fill:none;stroke:var(--lime);stroke-width:.45}
+.ballmark{fill:var(--ball)}
+.ballshadow{fill:#000;opacity:.45}
+.spot{fill:none;stroke-width:.3}
+.label{font-family:var(--mono);font-size:1.5px;fill:var(--ink-faint)}
+.pnum{font-family:var(--mono);font-size:1.7px;fill:#0a0f04;font-weight:700;
+      text-anchor:middle}
+.pick{cursor:pointer}
+.pick:hover .halo{opacity:.45}
+.halo{fill:var(--lime);opacity:0;transition:opacity .15s}
+
+/* ------------------------------------------------------------------ sections */
+section{padding:86px 0 30px;border-top:1px solid var(--line);position:relative}
+.kicker{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.kicker i{width:34px;height:3px;background:var(--lime);display:block}
+h2{font-size:clamp(27px,3.9vw,42px);line-height:1.06;margin:0;font-weight:800;max-width:19ch}
+h2.wide{max-width:26ch}
+.body{max-width:66ch;color:var(--ink-dim);margin:18px 0 0;font-size:16.5px}
+.body b{color:var(--ink);font-weight:600}
+.body .num{color:var(--ink)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;margin-top:34px}
+.split.narrow{grid-template-columns:.85fr 1.15fr}
+
+/* -------------------------------------------------------------------- tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;
+       background:var(--line);border:1px solid var(--line);margin-top:34px}
+.tile{background:var(--panel);padding:18px 20px 20px}
+.tile .k{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+         min-height:29px}
+.tile .v{font-family:var(--mono);font-size:29px;margin-top:10px;display:flex;
+         align-items:baseline;gap:10px;flex-wrap:wrap}
+.tile .v i{font-style:normal;font-size:13px;color:var(--ink-faint)}
+.tile .note{font-size:12px;color:var(--ink-faint);margin-top:8px}
+.swatch{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
+.sw-cal{background:var(--cal)} .sw-held{background:var(--held)}
+
+/* -------------------------------------------------------------------- filter */
+.filter{position:sticky;top:0;z-index:30;background:rgba(0,0,0,.9);
+        border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.filter .wrap{display:flex;align-items:center;gap:14px;padding-top:9px;padding-bottom:9px;
+              flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{background:transparent;border:0;color:var(--ink-dim);font:inherit;font-size:13px;
+            padding:6px 14px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--lime);color:#0a0f04;font-weight:700}
+.seg button:hover:not([aria-pressed=true]){color:var(--ink)}
+
+/* -------------------------------------------------------------------- charts */
+figure{margin:30px 0 0;background:var(--panel);border:1px solid var(--line);padding:18px}
+figcaption{font-size:12.5px;color:var(--ink-faint);margin-top:14px;max-width:84ch}
+.figtitle{font-size:15px;font-weight:700;margin-bottom:2px}
+.figsub{font-size:12.5px;color:var(--ink-faint);margin-bottom:12px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.grid{stroke:#1b211b;stroke-width:1}
+.axis{stroke:var(--line-2);stroke-width:1}
+.tick{fill:var(--ink-faint);font-size:11px;font-family:var(--mono)}
+.axlab{fill:var(--ink-faint);font-size:11px;letter-spacing:.09em;text-transform:uppercase}
+.s0{--c:var(--cal)} .s1{--c:var(--held)}
+.ln{fill:none;stroke:var(--c);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}
+.ar{fill:var(--c);opacity:.13}
+.mk{fill:var(--c);stroke:var(--panel);stroke-width:2}
+.dlab{fill:var(--c);font-size:12px;font-weight:700}
+.reflab{fill:var(--ink-faint);font-size:11px;font-family:var(--mono)}
+.cross{stroke:var(--ink-faint);stroke-width:1;stroke-dasharray:3 3}
+.legend{display:flex;gap:18px;font-size:12.5px;color:var(--ink-dim);margin:14px 0 0;
+        flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.tip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-118%);
+     background:#0a0c0a;border:1px solid var(--line-2);border-left:2px solid var(--lime);
+     padding:8px 10px;font-size:12.5px;white-space:nowrap;z-index:5;transition:opacity .09s}
+.tip .r{display:flex;justify-content:space-between;gap:14px}
+.tip .h{color:var(--ink-faint);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+        margin-bottom:5px}
+/* the lines draw themselves in when the chart first comes into view */
+.draw .ln{stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
+.draw.in .ln{transition:stroke-dashoffset 1.05s ease-out;stroke-dashoffset:0}
+.draw .mk,.draw .ar,.draw .dlab{opacity:0;transition:opacity .5s ease-out .55s}
+.draw.in .mk,.draw.in .dlab{opacity:1}
+.draw.in .ar{opacity:.13}
+
+/* ---------------------------------------------------------------------- bars */
+.bars{margin:22px 0 0}
+.bar{display:grid;grid-template-columns:minmax(140px,1.1fr) 1.5fr auto;gap:16px;
+     align-items:center;padding:6px 0}
+.bar.pair{border-top:1px solid var(--line);padding-top:12px;margin-top:6px}
+.bar .lbl{font-size:13.5px;color:var(--ink-dim)}
+.bar .track2{position:relative;height:12px;background:var(--panel-2)}
+.bar .fill{position:absolute;top:0;height:12px;width:0;transition:width .9s cubic-bezier(.2,.7,.3,1)}
+.bar .zero{position:absolute;top:-3px;height:18px;width:1px;background:#39423a}
+.bar .val{font-family:var(--mono);font-size:13px;min-width:64px;text-align:right}
+
+/* -------------------------------------------------------------------- tables */
+details{margin:14px 0 0;font-size:13px}
+summary{cursor:pointer;color:var(--ink-faint);font-size:11px;letter-spacing:.1em;
+        text-transform:uppercase;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"+ ";color:var(--lime)}
+details[open] summary:before{content:"- "}
+table{border-collapse:collapse;width:100%;margin-top:12px;font-size:13px}
+th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--ink-faint);font-weight:500;font-size:10.5px;letter-spacing:.1em;
+         text-transform:uppercase}
+td.num{font-family:var(--mono)}
+tbody tr:hover{background:var(--panel-2)}
+
+/* ------------------------------------------------------------------ the game */
+.scoreline{display:flex;gap:26px;margin:22px 0 0;flex-wrap:wrap}
+.score{background:var(--panel-2);border:1px solid var(--line);padding:12px 18px;min-width:128px}
+.score .k{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+.score .v{font-family:var(--mono);font-size:25px;margin-top:4px}
+.verdict{margin:18px 0 0;font-size:15px;min-height:52px;color:var(--ink-dim)}
+.verdict b{color:var(--lime)}
+.verdict .wrong{color:var(--warn)}
+ul.neg{list-style:none;padding:0;margin:30px 0 0;max-width:80ch}
+ul.neg li{border-left:2px solid var(--warn);padding:2px 0 2px 18px;margin-bottom:22px;
+          color:var(--ink-dim)}
+ul.neg b{color:var(--ink);font-weight:700;display:block;margin-bottom:3px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;
+      margin:28px 0 0}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px 18px}
+.card h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+         margin:0 0 12px;font-weight:500}
+.log{font-family:var(--mono);font-size:12.5px;line-height:1.9}
+.log .sha{color:var(--lime)}
+.log .sub{color:var(--ink-dim)}
+pre{background:var(--panel-2);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);margin:16px 0 0}
+.endcta{text-align:center;padding:70px 0 80px}
+.endcta h2{margin:0 auto;max-width:22ch}
+.endcta .cta{justify-content:center;margin-top:28px}
+footer{padding:40px 0;color:var(--ink-faint);font-size:12.5px;border-top:1px solid var(--line);
+       background:#050705}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s,transform .6s}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .hero .wrap,.split,.split.narrow{grid-template-columns:1fr}
+  .hero{min-height:auto;padding-top:20px}
+  section{padding-top:58px}
+  .bar{grid-template-columns:1fr auto}
+  .bar .track2{grid-column:1 / -1}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none;transition:none}
+  .dot,.scrolldown{animation:none}
+  .draw .ln{stroke-dasharray:none;stroke-dashoffset:0}
+  .draw .mk,.draw .ar,.draw .dlab{opacity:1;transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================== hero -->
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <div class="brandbar">
+        <span class="dot"></span>
+        <span class="eyebrow">PySport &times; SkillCorner Analytics Cup 2.0</span>
+      </div>
+      <h1>Nobody reads<span>the bounce</span></h1>
+      <p class="claim">Coaches say the best rebounders read the bounce. On ten ACB games of
+        SkillCorner's open tracking, <b>nobody does</b>. The rebound is not read, it is
+        occupied.</p>
+      <div class="cta">
+        <button class="btn" id="hero-play">&#9654;&nbsp; Replay the rebound</button>
+        <a class="btn ghost" href="#game">Beat the model &darr;</a>
+      </div>
+      <p class="byline">Real tracking, not an illustration: every clip on this page is a
+        rebound from the open bundle, drawn from the cached frames. Built on
+        <a href="https://github.com/SkillCorner/opendata-basketball">SkillCorner's open
+        basketball data</a>, ships as <span class="num">scbasket</span> under MIT. Every
+        number in the charts and the tables below is read out of a
+        <span class="num">reports/*.csv</span> when the page is built; the few inside the
+        prose are quoted from the repository's own record, which says where each was
+        printed. Built <span class="num" id="built"></span>.</p>
+    </div>
+    <div>
+      <div class="stage">
+        <div id="hero-court"></div>
+        <div class="stagebar">
+          <button class="iconbtn" id="hero-toggle" aria-label="play or pause">&#9208;</button>
+          <div class="track" id="hero-track"><div class="head" id="hero-head"></div></div>
+          <button class="iconbtn" id="hero-next" aria-label="next rebound">&#9197;</button>
+          <div class="who" id="hero-meta"></div>
+        </div>
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <span><i style="background:var(--lime)"></i>attacking five</span>
+        <span><i style="background:var(--def)"></i>defending five</span>
+        <span><i style="background:var(--ball)"></i>the ball</span>
+        <span><i style="background:var(--lime);opacity:.35"></i>the zone this shot earns</span>
+      </div>
+    </div>
+  </div>
+  <div class="scrolldown">scroll</div>
+</div>
+
+<!-- ============================================================== the game -->
+<section id="game">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">01 &mdash; half a second before the
+      ball is won</span></div>
+    <h2 class="wide">Pick the player who wins this rebound.</h2>
+    <p class="body">The clip is stopped <span class="num" id="lead-seconds"></span> seconds
+      before the ball is won, which is the only thing the model ever sees. Click a player.
+      Then the model's ranking and what actually happened are both revealed, and you can
+      keep score against it over the eight rebounds on this page.</p>
+
+    <div class="split narrow">
+      <div>
+        <div class="scoreline">
+          <div class="score"><div class="k">you</div><div class="v" id="score-you">0 / 0</div></div>
+          <div class="score"><div class="k">the model</div><div class="v" id="score-model">0 / 0</div></div>
+        </div>
+        <div class="verdict" id="verdict">Click any player on the court.</div>
+        <div class="cta">
+          <button class="btn small" id="game-reveal">Show the model's pick</button>
+          <button class="btn small ghost" id="game-next">Next rebound</button>
+        </div>
+        <p class="body" style="font-size:14px">The ten probabilities sum to one by
+          construction, because exactly one of the ten wins the board. That is the whole
+          reason the model is a conditional logit over the players present rather than ten
+          independent guesses.</p>
+      </div>
+      <div class="stage">
+        <div id="game-court"></div>
+        <div class="stagebar">
+          <button class="iconbtn" id="game-toggle" aria-label="play or pause">&#9654;</button>
+          <div class="track" id="game-track"><div class="head" id="game-head"></div></div>
+          <div class="who" id="game-meta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="filter">
+  <div class="wrap">
+    <span class="eyebrow">which half of the data</span>
+    <div class="seg" role="group" aria-label="Which half of the data to show">
+      <button data-half="both" aria-pressed="true">Both</button>
+      <button data-half="calibration" aria-pressed="false">Calibration</button>
+      <button data-half="held out" aria-pressed="false">Held out</button>
+    </div>
+    <span class="eyebrow" id="filter-note"></span>
+  </div>
+</div>
+
+<div class="wrap"><div class="tiles reveal" id="tiles"></div></div>
+
+<!-- ============================================================== the lift -->
+<section id="lift">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">02 &mdash; what a player controls</span></div>
+    <h2>Inside the zone the heading decides. Outside it, nothing.</h2>
+    <p class="body">What a player controls is their heading, and it is worth something only
+      inside a small zone. The lift is the share of rebounds won by attackers arriving
+      <b>rimward</b> &mdash; under <span class="num" id="angle-deg"></span> degrees, measured
+      half a second before the ball is won &mdash; minus the share won by everyone else at the
+      same distance. Both halves are drawn on the same axes, because <b>the replication is the
+      argument</b>.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Lift of a rimward heading, by distance to the rim</div>
+      <div class="figsub">Hover a band for its interval and the players behind it.</div>
+      <div class="chart"><div id="lift-chart"></div><div class="tip" id="lift-tip"></div></div>
+      <div class="legend" id="lift-legend"></div>
+      <figcaption>Source <span class="num">reports/angle_players.csv</span>, tables from
+        <span class="num">scbasket.report</span>. Bands are a cluster bootstrap over the five
+        games of each half, not over rebounds, which are not independent inside a game. Five
+        clusters is few, so the bands are crude: they are there to stop a small band from
+        reading as solidly as a large one.</figcaption>
+      <details><summary>the numbers</summary><div id="lift-table"></div></details>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the control -->
+<section id="curve">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">03 &mdash; the control</span></div>
+    <h2>Not proximity relabelled</h2>
+    <p class="body">Players arriving rimward are also nearer the rim, so the lift alone cannot
+      separate heading from proximity. Hold the distance inside a fixed band and vary only the
+      angle: zero degrees is driving at the rim, 180 is running away from it.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">P(this attacker wins the rebound) by approach angle</div>
+      <div class="figsub" id="curve-sub"></div>
+      <div class="chart"><div id="curve-chart"></div><div class="tip" id="curve-tip"></div></div>
+      <div class="legend" id="curve-legend"></div>
+      <figcaption>Pooled over both halves the curve falls monotonically; split, the held-out
+        half is monotone and calibration ticks up in the last band. Both are shown rather than
+        the friendlier one.</figcaption>
+      <details><summary>the numbers, and the pooled curve the record quotes</summary>
+        <div id="curve-table"></div></details>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the zone -->
+<section id="zone">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">04 &mdash; the zone a shot earns</span></div>
+    <h2 class="wide">Move the shot. The zone moves with it.</h2>
+    <p class="body">Rebounds land close to the rim, and how close depends on where the shot
+      was taken. The zone is <span class="num" id="zone-formula"></span>, fitted by pinball
+      loss on the calibration half alone and frozen before a held-out game was opened. Click
+      anywhere on the court to shoot from there: the ring is the zone that shot earns, and the
+      dots are the <b>real rebounds</b> off shots within two feet of it.</p>
+
+    <div class="split">
+      <div class="stage">
+        <div id="zone-court"></div>
+        <div class="stagebar">
+          <span class="eyebrow">click the court to move the shot</span>
+          <span class="who" id="zone-meta"></span>
+        </div>
+      </div>
+      <div>
+        <div class="tiles" id="zone-tiles" style="margin-top:0"></div>
+        <p class="body">It does not cover more ground than the flat
+          <span class="num" id="flat-ft"></span> ft band it replaces: it
+          covers the <b>same share of rebounds evenly across shot distances</b> instead of
+          bunching that coverage at one end. That is the condition it was graded on, and it
+          passed on the held-out games by a wider margin than on the ones it was fitted on.</p>
+        <details><summary>the numbers</summary><div id="zone-table"></div></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== the ball -->
+<section id="ball">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">05 &mdash; what the ball says</span></div>
+    <h2 class="wide">The ball is barely legible, and what it does say is geometry</h2>
+    <p class="body">The ball's own arrival predicts where it lands, and a pre-registered test
+      of it passed on games never touched. Then this repository refuted what the pass meant.
+      The quantity was the angle the ball arrives at,
+      <span class="num">arctan(drop / run)</span>, and <b>only the denominator predicts</b>:
+      how far the ball is still carrying sideways when it reaches rim height, and how far from
+      the rim it gets there. Steepness alone points the other way. Hold those two and the
+      angle keeps nothing.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Rank correlation with how far the rebound lands</div>
+      <div class="figsub">Spearman, per half. Positive means the ball lands further out.</div>
+      <div class="bars" id="carry-bars"></div>
+      <div class="legend" id="carry-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_flight_carry.csv</span>, written by
+        <span class="num">scripts/rebound_flight.py</span>. The last row holds both legs at
+        once: what is left of the arrival angle is the finding this repository overturned, and
+        then refuted.</figcaption>
+      <details><summary>the numbers</summary><div id="carry-table"></div></details>
+    </figure>
+
+    <figure class="reveal">
+      <div class="figtitle">Spread of the landing radius, in feet</div>
+      <div class="figsub">Standard deviation of the residual. Lower is more predictable.</div>
+      <div class="bars" id="spread-bars"></div>
+      <div class="legend" id="spread-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_flight_criterion.csv</span>.
+        Knowing nothing, then knowing where the shot came from, then adding the ball's
+        arrival.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================== the contest -->
+<section id="contest">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">06 &mdash; the contest</span></div>
+    <h2>Exactly one of ten wins the board</h2>
+    <p class="body">Ten independent probabilities is the wrong structure for a rebound, and
+      ten such numbers do not sum to one. This is the model you played against: a conditional
+      logit over the ten on court, scored half a second before the ball is won, on distance in
+      zone units, heading, speed and whether the player is attacking or defending. The
+      coefficients were fitted on calibration, frozen, committed, and <b>never refitted</b>.</p>
+
+    <figure class="reveal">
+      <div class="figtitle">Log probability put on the player who actually won, per rebound</div>
+      <div class="figsub">Further right is better. The floor is knowing nothing at all.</div>
+      <div class="bars" id="contest-bars"></div>
+      <div class="legend" id="contest-legend"></div>
+      <figcaption>Source <span class="num">reports/rebound_contest_criterion.csv</span>, written
+        by <span class="num">scripts/rebound_contest.py</span>. The middle bar of each group is
+        what distance and side alone achieve; the frozen model beats it on the held-out games,
+        which is condition 1 of the pre-registration.</figcaption>
+      <details><summary>the numbers, including the top-1 rates</summary>
+        <div id="contest-table"></div></details>
+    </figure>
+
+    <div class="cols">
+      <div class="card">
+        <h3>The frozen coefficients</h3>
+        <div class="bars" id="beta-bars"></div>
+      </div>
+      <div class="card">
+        <h3>Read this way</h3>
+        <p class="body" style="margin-top:0;font-size:14px">A player is better placed the
+          nearer they are <b>in units of the zone their shot earned</b>, the more directly
+          they are heading at the rim, and the faster they are moving. Attackers win about
+          three rebounds in ten, which is what the last coefficient carries. Every feature is
+          a position or a velocity: <b>a definition, never a detector</b>. Nothing here says a
+          player crashed, tagged up or boxed out, and nothing ever will, because tracking
+          cannot see intent. That is SkillCorner's own position, and it closed a whole
+          direction of this project.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== the negatives -->
+<section id="negatives">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">07 &mdash; the part most entries leave
+      out</span></div>
+    <h2>What failed, in its own words</h2>
+    <p class="body">A pre-registered threshold that fails is reported as it fell, and it is
+      never moved to fit a result. These are this repository's, unedited. The numbers in them
+      are the ones the scripts printed when each was graded, and they are kept with their
+      dates in <span class="num">tasks/todo.md</span>.</p>
+
+    <figure class="reveal" style="border-left:2px solid var(--warn)">
+      <div class="figtitle">The one a coach will ask about: what does sending more
+        players at the rim cost you?</div>
+      <div class="figsub">Rebounds bucketed by how many attackers are heading rimward half a
+        second before the ball is won.</div>
+      <div id="cost-table"></div>
+      <figcaption>Source <span class="num">reports/angle_tradeoff.csv</span>, written by
+        <span class="num">scripts/angle_tradeoff.py</span>. <b>The buy replicates and the cost
+        does not exist yet.</b> More attackers heading at the rim does win more offensive
+        rebounds. What it costs in transition was measured two ways and they point in opposite
+        directions: the space the other team then owns over the first four seconds of its break
+        barely moves, about 2%, and the two halves disagree at the bottom of the table; the
+        points they actually score move the other way, downward, which cannot both be true of a
+        cost. Four and five committed attackers have two to four rebounds with a usable break
+        behind them, so the table stops at three. <b>So this entry does not claim the glass is
+        free. It claims a rimward heading wins boards, and says plainly that ten games could
+        not price what it costs.</b> The word for what a player was trying to do does not
+        appear anywhere here, and this is the sentence where it would have been easiest to
+        write.</figcaption>
+    </figure>
+
+    <ul class="neg" id="negatives-list"></ul>
+  </div>
+</section>
+
+<!-- ============================================================== the record -->
+<section id="record">
+  <div class="wrap">
+    <div class="kicker"><i></i><span class="eyebrow">08 &mdash; the record</span></div>
+    <h2>Frozen before the held-out games were opened</h2>
+    <p class="body">Ten games, split once and never pooled. Every parameter and every
+      criterion was committed before a held-out game was read, and the commits are in the
+      repository rather than in a sentence about the repository.</p>
+    <div class="cols">
+      <div class="card"><h3>Calibration, fitted on</h3><div class="log" id="games-cal"></div></div>
+      <div class="card"><h3>Held out, read once</h3><div class="log" id="games-held"></div></div>
+    </div>
+    <div class="card" style="margin-top:26px">
+      <h3>The freezes, and the entries that went against us</h3>
+      <div class="log" id="record-log"></div>
+    </div>
+    <pre>uv sync --extra dev
+python scripts/fetch_data.py                   # ~730 MB, needs git-lfs
+uv run python scripts/build_frame_cache.py
+uv run python scripts/rebound_zone.py          # --fit re-derives the zone
+uv run python scripts/rebound_contest.py       # --fit re-derives the betas
+uv run python scripts/rebound_flight.py        # --fit reads calibration only
+uv run python scripts/angle_tradeoff.py
+uv run --extra figures python scripts/figures.py
+uv run python scripts/court_scenes.py          # the clips on this page
+uv run python scripts/report_html.py           # this page</pre>
+  </div>
+</section>
+
+<div class="endcta wrap">
+  <h2 style="margin-inline:auto">Rebounding is not a reading contest. It is an occupation
+    contest.</h2>
+  <div class="cta">
+    <a class="btn" href="#game">Play it again</a>
+    <a class="btn ghost"
+       href="https://github.com/SkillCorner/opendata-basketball">The open data</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>MIT, both ways &middot; this repository and
+      <a href="https://github.com/SkillCorner/opendata-basketball">SkillCorner's open data</a>,
+      downloaded, not versioned here.</span>
+    <span>No player is named, numbered or ranked anywhere on this page.</span>
+  </div>
+</footer>
+
+<script type="application/json" id="payload">/*PAYLOAD*/</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+const HALVES = D.halves;
+const SERIES = h => "s" + HALVES.indexOf(h);
+const SVGNS = "http://www.w3.org/2000/svg";
+const DOT_R = 1.15;               // a player on the court, in feet
+const STILL = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let visible = HALVES.slice();
+
+/* ------------------------------------------------------------------ helpers */
+const el = (name, attrs = {}) => {
+  const node = document.createElementNS(SVGNS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  return node;
+};
+const fmt = (v, d = 3, sign = false) =>
+  v === null || v === undefined || Number.isNaN(v) ? "–"
+  : (sign && v > 0 ? "+" : "") + v.toFixed(d);
+const pct = (v, d = 0) => (100 * v).toFixed(d) + "%";
+const html = (id, markup) => { document.getElementById(id).innerHTML = markup; };
+const at = id => document.getElementById(id);
+
+function scale(lo, hi, a, b) { return v => a + (v - lo) / (hi - lo || 1) * (b - a); }
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function ticks(lo, hi, want = 5) {
+  const raw = (hi - lo) / want, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  const out = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(t);
+  return out;
+}
+function text(x, y, content, cls, anchor) {
+  const node = el("text", {x, y, class: cls, "text-anchor": anchor || "start"});
+  node.textContent = content;
+  return node;
+}
+function legend(id, items) {
+  if (!at(id)) return;
+  html(id, items.map(i => `<span><i style="background:${i.colour}"></i>${i.label}</span>`)
+       .join(""));
+}
+function table(columns, rows) {
+  return `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`
+    + rows.map(r => "<tr>" + r.map((c, i) =>
+        `<td class="${i ? "num" : ""}">${c}</td>`).join("") + "</tr>").join("")
+    + "</tbody></table>";
+}
+const colourOf = half => half === HALVES[0] ? "var(--cal)" : "var(--held)";
+
+/* =========================================================================
+   The court. Everything is drawn in FEET, in the attacking frame the data
+   already uses: the attacked hoop at x = HOOP_X, y = 0, the baseline behind
+   it. The view turns that on its side so the hoop sits at the bottom, which
+   is how a rebound is watched.
+   ========================================================================= */
+const GEOMETRY = D.court.geometry;      // scbasket.court.FIBA, as the package holds it
+const COURT = {
+  halfLength: GEOMETRY.half_length_ft, halfWidth: GEOMETRY.half_width_ft,
+  hoopX: GEOMETRY.hoop_x, paintHalf: GEOMETRY.paint_half_width_ft,
+  paintLength: GEOMETRY.paint_length_ft, restricted: GEOMETRY.ra_radius_ft,
+  three: GEOMETRY.three_radius_ft, cornerY: GEOMETRY.corner_line_y_ft,
+  // Drawn, not measured: nothing in the analysis depends on the rim, the ring under it or
+  // the backboard, so these three are the only numbers on this court typed here.
+  rim: 0.75, ftCircle: 5.91, backboard: 2.95,
+};
+//: feet of margin around the drawn half court, so a player behind the baseline still shows
+const MARGIN = 3.2;
+
+/** Build an SVG whose user units ARE feet, cropped to a slice of the half court. */
+function court(host, {fromX = -COURT.halfLength, toX = 0} = {}) {
+  const w = 2 * COURT.halfWidth + 2 * MARGIN;
+  const h = (toX - fromX) + 2 * MARGIN;
+  const svg = el("svg", {viewBox: `0 0 ${w} ${h}`, role: "img",
+                         "aria-label": "half court seen from above, the rim at the bottom"});
+  const node = at(host);
+  node.innerHTML = "";
+  node.appendChild(svg);
+  // court (x, y) -> view (px, py): the length runs down the screen, the width across it
+  const px = y => y + COURT.halfWidth + MARGIN;
+  const py = x => (toX - x) + MARGIN;
+  drawLines(svg, px, py, fromX, toX);
+  return {svg, px, py, width: w, height: h, fromX, toX};
+}
+
+function drawLines(svg, px, py, fromX, toX) {
+  const {halfWidth, hoopX, paintHalf, paintLength, ftCircle, restricted, three,
+         cornerY, backboard, rim} = COURT;
+  const baseline = -COURT.halfLength;
+  svg.appendChild(el("rect", {class: "court-out", x: px(-halfWidth), y: py(Math.min(toX, 0)),
+    width: 2 * halfWidth, height: py(Math.max(fromX, baseline)) - py(Math.min(toX, 0))}));
+  // paint and the free-throw circle
+  svg.appendChild(el("rect", {class: "court-line", x: px(-paintHalf), y: py(baseline +
+    paintLength), width: 2 * paintHalf, height: paintLength}));
+  svg.appendChild(el("circle", {class: "court-line", cx: px(0), cy: py(baseline + paintLength),
+    r: ftCircle}));
+  // the three-point line: two short corner segments closed by the arc
+  const meet = hoopX - Math.sqrt(three * three - cornerY * cornerY);
+  svg.appendChild(el("path", {class: "court-line", d:
+    `M ${px(-cornerY)} ${py(baseline)} L ${px(-cornerY)} ${py(meet)}`
+    + ` A ${three} ${three} 0 1 1 ${px(cornerY)} ${py(meet)}`
+    + ` L ${px(cornerY)} ${py(baseline)}`}));
+  // restricted area, backboard, rim
+  svg.appendChild(el("path", {class: "court-line", d:
+    `M ${px(-restricted)} ${py(hoopX)} A ${restricted} ${restricted} 0 0 1 `
+    + `${px(restricted)} ${py(hoopX)}`}));
+  svg.appendChild(el("line", {class: "court-line", x1: px(-backboard), x2: px(backboard),
+    y1: py(hoopX - 1.2), y2: py(hoopX - 1.2), "stroke-width": .5}));
+  svg.appendChild(el("circle", {class: "rim", cx: px(0), cy: py(hoopX), r: rim}));
+}
+
+/* --------------------------------------------------------------- the replay */
+/** One clip playing on a court: ten players, their trails, the ball and its shadow. */
+class Replay {
+  constructor(host, {crop, onFrame, pickable = false, trail = 10}) {
+    this.view = court(host, crop);
+    this.onFrame = onFrame;
+    this.trail = trail;
+    this.scene = null;
+    this.frame = 0;
+    this.playing = false;
+    this.layer = el("g");
+    this.view.svg.appendChild(this.layer);
+    this.pickable = pickable;
+    this.onPick = null;
+    this.build();
+  }
+
+  build() {
+    const {px, py} = this.view;
+    this.zone = el("circle", {class: "zonering", cx: px(0), cy: py(COURT.hoopX), r: 0});
+    this.flat = el("circle", {class: "flat", cx: px(0), cy: py(COURT.hoopX),
+                              r: D.zone.flat_ft});
+    this.shot = el("path", {class: "spot", stroke: "var(--ball)", d: ""});
+    this.layer.append(this.zone, this.flat, this.shot);
+    this.trails = [];
+    this.dots = [];
+    this.halos = [];
+    this.labels = [];
+    this.hits = [];
+    this.radius = new Array(10).fill(DOT_R);
+    for (let i = 0; i < 10; i++) {
+      const cls = i < 5 ? "off" : "def";
+      const trail = el("polyline", {class: "trail", stroke: i < 5 ? "var(--lime)"
+                                                                 : "var(--def)"});
+      const group = el("g", {class: this.pickable ? "pick" : ""});
+      const halo = el("circle", {class: "halo", r: 2.6});
+      const dot = el("circle", {class: "pl " + cls, r: DOT_R});
+      const label = el("text", {class: "pnum", opacity: 0});
+      const hit = el("circle", {r: 3, fill: "transparent"});
+      group.append(halo, dot, label, hit);
+      if (this.pickable) {
+        group.addEventListener("click", () => this.onPick && this.onPick(i));
+        group.style.cursor = "pointer";
+      }
+      this.layer.append(trail, group);
+      this.trails.push(trail);
+      this.dots.push(dot);
+      this.halos.push(halo);
+      this.labels.push(label);
+      this.hits.push(hit);
+    }
+    this.flight = el("polyline", {class: "trail", stroke: "var(--ball)",
+                                  "stroke-width": .28, opacity: .55});
+    this.layer.appendChild(this.flight);
+    this.ring = el("circle", {class: "winner-ring", r: 2, opacity: 0});
+    this.shadow = el("ellipse", {class: "ballshadow", rx: .8, ry: .5, opacity: 0});
+    this.ball = el("circle", {class: "ballmark", r: .78, opacity: 0});
+    this.layer.append(this.ring, this.shadow, this.ball);
+  }
+
+  load(scene) {
+    this.scene = scene;
+    this.frame = 0;
+    this.ring.setAttribute("opacity", 0);
+    const {px, py} = this.view;
+    this.zone.setAttribute("r", scene.zone);
+    this.shot.setAttribute("d",
+      `M ${px(scene.shot[1]) - 1} ${py(scene.shot[0]) - 1} l 2 2 M ${px(scene.shot[1]) + 1} `
+      + `${py(scene.shot[0]) - 1} l -2 2`);
+    this.draw(0);
+  }
+
+  /** Draw at a fractional frame, interpolating so 12.5 fps of tracking reads as motion. */
+  draw(f) {
+    const s = this.scene;
+    if (!s) return;
+    const {px, py} = this.view;
+    const last = s.xy.length - 1;
+    const i = Math.min(Math.floor(f), last), j = Math.min(i + 1, last), t = f - i;
+    const lerp = (a, b) => a + (b - a) * t;
+    for (let p = 0; p < 10; p++) {
+      const x = lerp(s.xy[i][p][0], s.xy[j][p][0]), y = lerp(s.xy[i][p][1], s.xy[j][p][1]);
+      this.dots[p].setAttribute("cx", px(y));
+      this.dots[p].setAttribute("cy", py(x));
+      this.halos[p].setAttribute("cx", px(y));
+      this.halos[p].setAttribute("cy", py(x));
+      this.hits[p].setAttribute("cx", px(y));
+      this.hits[p].setAttribute("cy", py(x));
+      this.labels[p].setAttribute("x", px(y));
+      this.labels[p].setAttribute("y", py(x) + 0.6);
+      const path = [];
+      for (let k = Math.max(0, i - this.trail); k <= i; k++) {
+        path.push(`${px(s.xy[k][p][1])},${py(s.xy[k][p][0])}`);
+      }
+      path.push(`${px(y)},${py(x)}`);
+      this.trails[p].setAttribute("points", path.join(" "));
+    }
+    const flown = [];
+    for (let k = Math.max(0, i - 3 * this.trail); k <= i; k++) {
+      flown.push(`${px(s.ball[k][1])},${py(s.ball[k][0]) - Math.max(0, s.ball[k][2]) * 0.22}`);
+    }
+    this.flight.setAttribute("points", flown.join(" "));
+    const bx = lerp(s.ball[i][0], s.ball[j][0]), by = lerp(s.ball[i][1], s.ball[j][1]);
+    const bz = Math.max(0, lerp(s.ball[i][2], s.ball[j][2]));
+    this.ball.setAttribute("cx", px(by));
+    this.ball.setAttribute("cy", py(bx) - bz * 0.22);   // a little lift for height
+    this.ball.setAttribute("r", 0.62 + bz * 0.022);
+    this.ball.setAttribute("opacity", 1);
+    this.shadow.setAttribute("cx", px(by));
+    this.shadow.setAttribute("cy", py(bx));
+    this.shadow.setAttribute("rx", 0.55 + bz * 0.012);
+    this.shadow.setAttribute("opacity", .4);
+    if (i >= s.won_at) {
+      const won = s.xy[Math.min(s.won_at, last)][s.winner];
+      this.ring.setAttribute("cx", px(won[1]));
+      this.ring.setAttribute("cy", py(won[0]));
+      // outside whatever size the winner's dot currently is, so the reveal cannot hide it
+      this.ring.setAttribute("r", this.radius[s.winner] + 1.4);
+      this.ring.setAttribute("opacity", 1);
+    } else {
+      this.ring.setAttribute("opacity", 0);
+    }
+    this.frame = f;
+    if (this.onFrame) this.onFrame(last ? f / last : 1, i);
+  }
+
+  get last() { return this.scene ? this.scene.xy.length - 1 : 0; }
+  get ended() { return this.frame >= this.last; }
+
+  play() {
+    if (this.playing || !this.scene) return;
+    this.playing = true;
+    this.clock = null;
+    const step = ms => {
+      if (!this.playing) return;
+      this.clock = this.clock === null ? ms : this.clock;
+      const gap = Math.min(ms - this.clock, 100);   // a hidden tab stops the
+      const next = this.frame + gap / 1000 * D.court.fps;  // clock, not the clip
+      this.clock = ms;
+      if (next >= this.last) {
+        this.draw(this.last);
+        this.stop();
+        if (this.onEnd) this.onEnd();
+        return;
+      }
+      this.draw(next);
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /** Every player's size at once: the reveal makes each one their own probability. */
+  setRadius(of) {
+    this.radius = this.radius.map((_, i) => of(i));
+    this.dots.forEach((dot, i) => dot.setAttribute("r", this.radius[i]));
+  }
+
+  stop() { this.playing = false; this.clock = null; }
+  /** From the top, whatever was on screen. */
+  restart() { this.stop(); this.draw(0); this.play(); }
+  /** From wherever it was paused, which is what a resume means. */
+  resume() { this.ended ? this.restart() : this.play(); }
+  seek(fraction) {
+    this.stop();
+    this.draw(Math.max(0, Math.min(1, fraction)) * this.last);
+  }
+}
+
+const PLAY = "&#9654;", PAUSE = "&#9208;";
+/** The play/pause button of a replay, and the progress bar it fills. */
+const glyphOf = (id, replay) => () => { at(id).innerHTML = replay.playing ? PAUSE : PLAY; };
+const headOf = id => { const bar = at(id); return f => { bar.style.width = (100 * f) + "%"; }; };
+const SCENES = D.court.scenes;
+const sceneMeta = s => `${s.half} &middot; ${s.defensive ? "defensive" : "offensive"} board`
+  + ` &middot; ${s.three ? "three" : "two"} from ${fmt(Math.hypot(s.shot[0] - COURT.hoopX,
+      s.shot[1]), 1)} ft`;
+
+/* ------------------------------------------------------------- hero replay */
+let heroAt = 0;
+const hero = new Replay("hero-court", {
+  crop: {fromX: -COURT.halfLength, toX: -6},
+  onFrame: headOf("hero-head"),
+});
+function heroLoad(i) {
+  heroAt = (i + SCENES.length) % SCENES.length;
+  hero.load(SCENES[heroAt]);
+  html("hero-meta", sceneMeta(SCENES[heroAt]) + `<br>clip ${heroAt + 1} of ${SCENES.length}`);
+}
+const heroGlyph = glyphOf("hero-toggle", hero);
+//: how long the last frame of a clip is held before the next one starts, in ms
+const HOLD_MS = 1100;
+let rolling = !STILL, waiting = null;
+
+heroLoad(0);
+hero.onEnd = () => {
+  heroGlyph();
+  clearTimeout(waiting);
+  // The clips follow one another off the END of the one before, not off a timer that knows
+  // nothing about how long a clip is: a fixed interval stutters against clips of 20 to 34
+  // frames.
+  if (rolling) waiting = setTimeout(() => { heroLoad(heroAt + 1); hero.restart(); }, HOLD_MS);
+};
+at("hero-play").onclick = () => { rolling = true; hero.restart(); heroGlyph(); };
+at("hero-next").onclick = () => { heroLoad(heroAt + 1); hero.restart(); heroGlyph(); };
+at("hero-toggle").onclick = () => {
+  if (hero.playing) { rolling = false; clearTimeout(waiting); hero.stop(); }
+  else { rolling = true; hero.resume(); }
+  heroGlyph();
+};
+at("hero-track").onclick = event => {
+  const box = event.currentTarget.getBoundingClientRect();
+  rolling = false;
+  clearTimeout(waiting);
+  hero.seek((event.clientX - box.left) / box.width);
+  heroGlyph();
+};
+if (rolling) hero.play(); else hero.draw(hero.last);
+heroGlyph();
+
+/* ---------------------------------------------------------------- the game */
+let gameAt = -1, picked = null, shown = false, youRight = 0, modelRight = 0,
+    played = 0;
+const game = new Replay("game-court", {
+  crop: {fromX: -COURT.halfLength, toX: -10}, pickable: true,
+  onFrame: headOf("game-head"),
+});
+game.onPick = slot => {
+  if (shown) return;
+  picked = slot;
+  reveal();
+};
+function gameLoad(i) {
+  gameAt = (i + SCENES.length) % SCENES.length;
+  picked = null;
+  shown = false;
+  const s = SCENES[gameAt];
+  game.load(s);
+  game.draw(Math.max(0, s.won_at - D.court.lead_frames / D.court.stride));
+  game.setRadius(() => DOT_R);
+  game.labels.forEach(l => l.setAttribute("opacity", 0));
+  game.halos.forEach(h => h.setAttribute("opacity", 0));
+  html("game-meta", sceneMeta(s) + `<br>clip ${gameAt + 1} of ${SCENES.length}`);
+  at("verdict").innerHTML = "Click any player on the court.";
+  gameGlyph();
+}
+const gameGlyph = glyphOf("game-toggle", game);
+function reveal() {
+  const s = SCENES[gameAt];
+  const best = s.p.indexOf(Math.max(...s.p));
+  shown = true;
+  // Only a round the reader actually played counts, for either of them: revealing the
+  // model's pick without picking is not a round it won.
+  if (picked !== null) {
+    played += 1;
+    if (picked === s.winner) youRight += 1;
+    if (best === s.winner) modelRight += 1;
+    at("score-you").textContent = `${youRight} / ${played}`;
+    at("score-model").textContent = `${modelRight} / ${played}`;
+  }
+  // the model's ranking, drawn on the court: a player is as big as their probability, and
+  // wears it, so "who is best placed" stops being a word and becomes ten numbers
+  game.setRadius(i => 0.9 + 3.4 * s.p[i]);
+  s.p.forEach((p, i) => {
+    game.labels[i].textContent = Math.round(100 * p);
+    game.labels[i].setAttribute("opacity", p > 0.06 ? 1 : 0);
+    game.labels[i].setAttribute("fill", i < 5 ? "#0a0f04" : "#0d1116");
+  });
+  game.halos[s.winner].setAttribute("opacity", .5);
+  const mine = picked === null ? ""
+    : picked === s.winner ? "<b>You had it.</b> "
+    : "<span class='wrong'>Not that one.</span> ";
+  at("verdict").innerHTML = `${mine}The ball was won by the
+    ${s.winner < 5 ? "attacker" : "defender"} now ringed, and the frozen model put
+    <b>${pct(s.p[s.winner], 1)}</b> on them
+    ${best === s.winner ? "— its highest of the ten."
+      : `, against ${pct(Math.max(...s.p), 1)} on the one it liked most. It got this one
+         wrong, and it gets about seven in ten wrong: the claim is the log probability, not
+         the winner.`}
+    Every dot is now sized by the probability the model gave it.`;
+  game.play();                       // on from the half second it was stopped at
+  gameGlyph();
+}
+game.onEnd = gameGlyph;
+at("game-reveal").onclick = () => { if (!shown) reveal(); };
+at("game-next").onclick = () => gameLoad(gameAt + 1);
+at("game-toggle").onclick = () => {
+  game.playing ? game.stop() : game.resume();
+  gameGlyph();
+};
+at("game-track").onclick = event => {
+  const box = event.currentTarget.getBoundingClientRect();
+  game.seek((event.clientX - box.left) / box.width);
+  gameGlyph();
+};
+gameLoad(0);
+
+/* -------------------------------------------------------- the zone, on a court */
+const zone = court("zone-court", {fromX: -COURT.halfLength, toX: -4});
+const zoneLayer = el("g");
+zone.svg.appendChild(zoneLayer);
+const zoneRing = el("circle", {class: "zonering", cx: zone.px(0), cy: zone.py(COURT.hoopX),
+                               r: 0});
+const zoneFlat = el("circle", {class: "flat", cx: zone.px(0), cy: zone.py(COURT.hoopX),
+                               r: D.zone.flat_ft});
+const zoneShot = el("path", {class: "spot", stroke: "var(--ball)", "stroke-width": .45, d: ""});
+zoneLayer.append(zoneRing, zoneFlat, zoneShot);
+const zoneDots = [];
+{
+  const p = D.zone.points;
+  for (let i = 0; i < p.x.length; i++) {
+    const dot = el("circle", {cx: zone.px(p.y[i]), cy: zone.py(p.x[i]), r: .55});
+    zoneLayer.appendChild(dot);
+    zoneDots.push(dot);
+  }
+  zone.svg.appendChild(el("rect", {x: 0, y: 0, width: zone.width, height: zone.height,
+    fill: "transparent", style: "cursor:crosshair"})).addEventListener("click", event => {
+      const box = zone.svg.getBoundingClientRect();
+      // the inverse of px() and py(), then held inside the lines of the court
+      const y = (event.clientX - box.left) / box.width * zone.width - COURT.halfWidth - MARGIN;
+      const x = zone.toX + MARGIN - (event.clientY - box.top) / box.height * zone.height;
+      placeShot(clamp(x, -COURT.halfLength, zone.toX),
+                clamp(y, -COURT.halfWidth, COURT.halfWidth));
+    });
+}
+const radiusOf = d => D.zone.intercept + D.zone.slope * d;
+function placeShot(x, y) {
+  const p = D.zone.points;
+  const d = Math.hypot(x - COURT.hoopX, y);
+  const r = radiusOf(d);
+  zoneRing.setAttribute("r", r);
+  zoneShot.setAttribute("d", `M ${zone.px(y) - 1.3} ${zone.py(x) - 1.3} l 2.6 2.6
+                              M ${zone.px(y) + 1.3} ${zone.py(x) - 1.3} l -2.6 2.6`);
+  let near = 0, inside = 0;
+  for (let i = 0; i < p.x.length; i++) {
+    const shown = visible.includes(p.half[i]);
+    const close = Math.abs(p.shot_dist[i] - d) <= 2;
+    zoneDots[i].setAttribute("fill", shown && close ? colourOf(p.half[i])
+                                                    : "var(--ink-faint)");
+    zoneDots[i].setAttribute("opacity", !shown ? 0 : close ? .95 : .16);
+    zoneDots[i].setAttribute("r", shown && close ? .8 : .5);
+    if (shown && close) { near += 1; inside += p.inside[i]; }
+  }
+  html("zone-meta", `a shot from <b class="num">${d.toFixed(0)} ft</b> earns
+    <b class="num">${r.toFixed(2)} ft</b> &middot; <span class="num">${near}</span> rebounds
+    within 2 ft of it, <span class="num">${near ? pct(inside / near) : "–"}</span> inside`);
+}
+
+/* =============================================================== the charts */
+const W = 760, H = 330, PAD = {l: 56, r: 22, t: 16, b: 46};
+function board(host, label) {
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": label});
+  const node = at(host);
+  node.innerHTML = "";
+  node.appendChild(svg);
+  return svg;
+}
+function frame(svg, x, y, xt, yt, xlab, ylab, fmtY) {
+  for (const t of yt) {
+    svg.appendChild(el("line", {class: "grid", x1: PAD.l, x2: W - PAD.r, y1: y(t), y2: y(t)}));
+    svg.appendChild(text(PAD.l - 10, y(t) + 4, fmtY(t), "tick", "end"));
+  }
+  svg.appendChild(el("line", {class: "axis", x1: PAD.l, x2: W - PAD.r,
+                              y1: H - PAD.b, y2: H - PAD.b}));
+  for (const t of xt) svg.appendChild(text(x(t.at), H - PAD.b + 18, t.label, "tick", "middle"));
+  if (xlab) svg.appendChild(text(W - PAD.r, H - 6, xlab, "axlab", "end"));
+  if (ylab) svg.appendChild(text(2, 11, ylab, "axlab", "start"));
+}
+function tip(node, host, content, cx, cy) {
+  const box = at(node), area = at(host);
+  box.innerHTML = content;
+  box.style.opacity = 1;
+  box.style.left = (cx / W * area.clientWidth) + "px";
+  box.style.top = (cy / H * area.clientHeight) + "px";
+}
+const hide = node => { at(node).style.opacity = 0; };
+
+function bandChart(spec) {
+  const rows = spec.data.rows.filter(r => visible.includes(r.half));
+  const labels = spec.data.labels;
+  const values = rows.flatMap(r => [r.value, r.lo, r.hi]).filter(v => v !== null);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  if (spec.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  const padY = (hi - lo) * 0.08;
+  const x = scale(0, labels.length - 1, PAD.l + 30, W - PAD.r - 34);
+  const y = scale(lo - padY, hi + padY, H - PAD.b, PAD.t);
+  const svg = board(spec.host, spec.ylab + " by " + spec.xname + ", both halves");
+  at(spec.host).classList.add("draw");
+
+  frame(svg, x, y, labels.map((label, at_) => ({at: at_, label})), ticks(lo - padY, hi + padY),
+        spec.xlab, spec.ylab, t => fmt(t, 2));
+  if (spec.zero) svg.appendChild(el("line", {class: "axis", x1: PAD.l, x2: W - PAD.r,
+                                             y1: y(0), y2: y(0)}));
+  if (spec.shade) {
+    svg.appendChild(el("rect", {x: PAD.l, y: PAD.t, width: x(1.5) - PAD.l,
+      height: H - PAD.b - PAD.t, fill: "var(--lime)", opacity: .05}));
+    svg.appendChild(text(PAD.l + 8, PAD.t + 12, spec.shade, "reflab"));
+  }
+
+  const ends = [];
+  for (const half of visible) {
+    const part = rows.filter(r => r.half === half).sort((a, b) => a.slot - b.slot);
+    if (!part.length) continue;
+    const cls = SERIES(half);
+    const top = part.map(r => `${x(r.slot)},${y(r.hi)}`);
+    const bottom = part.slice().reverse().map(r => `${x(r.slot)},${y(r.lo)}`);
+    svg.appendChild(el("polygon", {class: cls + " ar", points: top.concat(bottom).join(" ")}));
+    const line = el("polyline", {class: cls + " ln",
+      points: part.map(r => `${x(r.slot)},${y(r.value)}`).join(" ")});
+    svg.appendChild(line);
+    line.style.setProperty("--len", Math.ceil(line.getTotalLength()) + 1);
+    for (const r of part) {
+      svg.appendChild(el("circle", {class: cls + " mk", cx: x(r.slot), cy: y(r.value), r: 4.8}));
+    }
+    const last = part[part.length - 1];
+    ends.push({y: y(last.value) + 4, x: x(last.slot) + 10, half, cls});
+  }
+  // Both halves end within a point of each other, so their direct labels would collide.
+  ends.sort((a, b) => a.y - b.y);
+  if (ends.length === 2 && ends[1].y - ends[0].y < 15) { ends[0].y -= 7; ends[1].y += 8; }
+  for (const it of ends) svg.appendChild(text(it.x, it.y, it.half, it.cls + " dlab"));
+
+  const crosshair = el("line", {class: "cross", y1: PAD.t, y2: H - PAD.b, x1: 0, x2: 0,
+                                style: "display:none"});
+  svg.appendChild(crosshair);
+  svg.appendChild(el("rect", {x: PAD.l, y: PAD.t, width: W - PAD.l - PAD.r,
+    height: H - PAD.t - PAD.b, fill: "transparent"}));
+  svg.addEventListener("mousemove", event => {
+    const box = svg.getBoundingClientRect();
+    const over = (event.clientX - box.left) / box.width * W;
+    let slot = Math.round((over - x(0)) / (x(1) - x(0)));
+    slot = Math.max(0, Math.min(labels.length - 1, slot));
+    const here = rows.filter(r => r.slot === slot);
+    if (!here.length) return;
+    crosshair.setAttribute("x1", x(slot));
+    crosshair.setAttribute("x2", x(slot));
+    crosshair.style.display = "";
+    tip(spec.tip, spec.host,
+      `<div class="h">${spec.xname} ${labels[slot]}</div>` + here.map(r =>
+        `<div class="r"><span><i class="swatch sw-${HALVES.indexOf(r.half) ? "held" : "cal"}">
+         </i>${r.half}</span><span class="num">${fmt(r.value, 3, spec.zero)}
+         <span style="color:var(--ink-faint)">[${fmt(r.lo, 2, spec.zero)},
+         ${fmt(r.hi, 2, spec.zero)}] n=${r.n}</span></span></div>`).join(""),
+      x(slot), y(Math.max(...here.map(r => r.value))));
+  });
+  svg.addEventListener("mouseleave", () => {
+    hide(spec.tip);
+    crosshair.style.display = "none";
+  });
+}
+
+/* ------------------------------------------------------------------- bars */
+const CARRY = [
+  ["how far it is still carrying sideways", "rho_run", true],
+  ["how far from the rim it crosses rim height", "rho_cross_dist", true],
+  ["how steeply it falls", "rho_drop", false],
+  ["the arrival angle on its own", "rho_angle", false],
+  ["the arrival angle, holding both legs", "partial_angle_given_both", true],
+];
+const SPREAD = [["knowing nothing", "sd_none", false], ["knowing the shot", "sd_shot", false],
+                ["adding the ball's arrival", "sd_shot_entry", true]];
+const LL = [["knowing nothing", "ll_uniform", false],
+            ["distance and side alone", "ll_distance_only", false],
+            ["the frozen model", "ll_full", true]];
+
+function bars(id, items, domain, anchor) {
+  const [lo, hi] = domain, span = hi - lo;
+  const place = v => (v - lo) / span * 100;
+  html(id, items.map(it => {
+    const from = Math.min(place(it.value), place(anchor));
+    const to = Math.max(place(it.value), place(anchor));
+    return `<div class="bar${it.label ? " pair" : ""}"><div class="lbl">${it.label}</div>
+      <div class="track2"><div class="zero" style="left:${place(anchor)}%"></div>
+        <div class="fill" data-w="${Math.max(to - from, 0.6)}"
+             style="left:${from}%;background:${it.colour}"></div></div>
+      <div class="val" style="color:${it.strong ? "var(--ink)" : "var(--ink-dim)"}">
+        ${it.text}</div></div>`;
+  }).join(""));
+  grow(at(id));
+}
+/** Bars arrive at zero width and grow to it when their block is in view.
+ *
+ * One observer per block, kept: the filter rebuilds these bars on every click, and a new
+ * observer per rebuild would pile up unfired ones on a block nobody has scrolled to yet.
+ */
+const growing = new Map();
+function grow(host) {
+  const run = () => host.querySelectorAll(".fill").forEach(f => {
+    f.style.width = f.dataset.w + "%";
+  });
+  if (STILL || growing.get(host) === "seen") return run();
+  if (growing.has(host)) return;                       // still waiting to be scrolled to
+  const observer = new IntersectionObserver(entries => {
+    if (entries.some(e => e.isIntersecting)) {
+      observer.disconnect();
+      growing.set(host, "seen");
+      run();
+    }
+  }, {threshold: .25});
+  growing.set(host, observer);
+  observer.observe(host);
+}
+function barBlock(id, source, spec, domain, anchor, format) {
+  bars(id, spec.flatMap(([label, key, strong]) => visible.map(half => ({
+    label: half === visible[0] ? label : "", value: source[half][key], strong,
+    colour: colourOf(half), text: format(source[half][key]),
+  }))), domain, anchor);
+}
+
+/* -------------------------------------------------------------- rendering */
+function renderCharts() {
+  bandChart({host: "lift-chart", tip: "lift-tip", data: D.lift, zero: true,
+             shade: "inside 8 ft, where the zone is",
+             xname: "distance", xlab: "distance to the rim, ft", ylab: "lift"});
+  bandChart({host: "curve-chart", tip: "curve-tip", data: D.curve, zero: false,
+             xname: "approach angle", xlab: "approach angle, degrees", ylab: "P(win)"});
+  barBlock("carry-bars", D.ball.carry, CARRY, [-0.7, 0.7], 0, v => fmt(v, 3, true));
+  barBlock("spread-bars", D.ball.spread, SPREAD, [4, 5], 4, v => fmt(v, 2) + " ft");
+  barBlock("contest-bars", D.contest.criterion, LL, [-2.4, -1.6], -2.4, v => fmt(v, 3));
+  for (const id of ["lift", "curve", "carry", "spread", "contest"]) {
+    legend(id + "-legend", visible.map(h => ({colour: colourOf(h), label: h})));
+  }
+  at("filter-note").textContent = visible.length === 2
+    ? "both halves shown, calibration first" : "showing " + visible[0] + " only";
+  placeShot(D.zone.example[0], D.zone.example[1]);
+  watch();
+}
+
+function renderStatic() {
+  const carry = D.ball.carry, spread = D.ball.spread, contest = D.contest.criterion;
+  const both = HALVES;
+  at("built").textContent = D.built;
+  at("angle-deg").textContent = D.committed_angle.toFixed(0);
+  at("lead-seconds").textContent = (D.court.lead_frames / 25).toFixed(1);
+  at("flat-ft").textContent = fmt(D.zone.flat_ft, 0);
+  at("zone-formula").textContent =
+    `r(d) = ${D.zone.intercept.toFixed(2)} + ${D.zone.slope.toFixed(3)} d feet`;
+  at("curve-sub").textContent =
+    `Distance held inside a fixed 0-${D.fixed_band_ft.toFixed(0)} ft band, so only the `
+    + "heading varies. Hover a band.";
+
+  const liftAt = (half, slot) => D.lift.rows.find(r => r.half === half && r.slot === slot);
+  const pooled = D.pooled;
+  const tiles = [
+    {k: "lift of a rimward heading, inside 4 ft",
+     v: both.map(h => fmt(liftAt(h, 0).value, 3, true)), swatch: true,
+     note: "the share of boards won, rimward minus the rest"},
+    {k: "what the arrival angle keeps, holding both legs",
+     v: both.map(h => fmt(carry[h].partial_angle_given_both, 3, true)), swatch: true,
+     note: "the finding this repository overturned, and then refuted"},
+    {k: "P(win) across the heading, at a fixed 0-8 ft",
+     v: [fmt(pooled[0].value, 3), fmt(pooled[pooled.length - 1].value, 3)], swatch: false,
+     note: "pooled, driving at the rim against running away: "
+       + (pooled[0].value / pooled[pooled.length - 1].value).toFixed(1) + "x"},
+    {k: "log probability on the winner, held out",
+     v: [fmt(contest["held out"].ll_distance_only, 3), fmt(contest["held out"].ll_full, 3)],
+     swatch: false, note: "distance and side alone, against the frozen model"},
+  ];
+  html("tiles", tiles.map(t => `<div class="tile"><div class="k">${t.k}</div>
+    <div class="v">${t.v.map((v, j) => t.swatch
+      ? `<span><i class="swatch sw-${j ? "held" : "cal"}"></i>${v}</span>`
+      : `<span>${j ? "<i>&rarr;</i> " : ""}${v}</span>`).join("")}</div>
+    <div class="note">${t.note}</div></div>`).join(""));
+
+  html("carry-table", table(["", ...both],
+    CARRY.map(([label, key]) => [label, ...both.map(h => fmt(carry[h][key], 3, true))])
+      .concat([["rebounds measured", ...both.map(h => carry[h].n.toFixed(0))]])));
+
+  const zc = D.zone.criterion;
+  html("zone-tiles", [
+    {k: "coverage held out, the zone that scales", v: fmt(zc["held out"].scaled_overall, 3),
+     note: `the pre-registered target was ${fmt(D.zone.coverage, 2)}, within `
+       + `${fmt(D.zone.max_gap, 2)}`},
+    {k: "drift across shot bands", v: fmt(zc["held out"].scaled_spread, 3) + "  vs  "
+       + fmt(zc["held out"].flat_spread, 3),
+     note: `the scaled zone against the flat ${fmt(D.zone.flat_ft, 0)} ft band`},
+  ].map(t => `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div>
+    <div class="note">${t.note}</div></div>`).join(""));
+  html("zone-table", table(["", ...both], [
+    ["rebounds located", ...both.map(h => zc[h].n.toFixed(0))],
+    ["coverage, the zone that scales", ...both.map(h => fmt(zc[h].scaled_overall, 3))],
+    [`coverage, the flat ${fmt(D.zone.flat_ft, 0)} ft band`,
+     ...both.map(h => fmt(zc[h].flat_overall, 3))],
+    ["drift across shot bands, scaled", ...both.map(h => fmt(zc[h].scaled_spread, 3))],
+    ["drift across shot bands, flat", ...both.map(h => fmt(zc[h].flat_spread, 3))],
+    ["mean area, sq ft, scaled", ...both.map(h => fmt(zc[h].scaled_area, 1))],
+    ["mean area, sq ft, flat", ...both.map(h => fmt(zc[h].flat_area, 1))],
+  ]));
+
+  const banded = (data, name) => table([name, ...both.flatMap(h => [h, h + ", n"])],
+    data.labels.map((label, slot) => [label, ...both.flatMap(h => {
+      const r = data.rows.find(row => row.half === h && row.slot === slot);
+      return r ? [fmt(r.value, 3, true) + `  [${fmt(r.lo, 2, true)}, ${fmt(r.hi, 2, true)}]`,
+                  r.n] : ["–", "–"];
+    })]));
+  html("lift-table", banded(D.lift, "distance, ft"));
+  html("curve-table", banded(D.curve, "angle, deg")
+    + table(["pooled over both halves", "P(win)", "n"],
+            pooled.map(r => [r.band + " deg", fmt(r.value, 3), r.n])));
+
+  html("contest-table", table(["", ...both], [
+    ["rebounds graded", ...both.map(h => contest[h].n.toFixed(0))],
+    ...LL.map(([label, key]) => [label, ...both.map(h => fmt(contest[h][key], 3))]),
+    ["top-1, nearest the rim wins", ...both.map(h => fmt(contest[h].top1_nearest_rim, 3))],
+    ["top-1, distance and side alone", ...both.map(h => fmt(contest[h].top1_distance_only, 3))],
+    ["top-1, the frozen model", ...both.map(h => fmt(contest[h].top1_full, 3))],
+  ]));
+  bars("beta-bars", D.contest.features.map((name, i) => ({
+    label: name, value: D.contest.beta[i], strong: true, colour: "var(--ink-dim)",
+    text: fmt(D.contest.beta[i], 3, true)})), [-1, 1], 0);
+
+  // The cost side, which is a null and is shown as one: the buy rises down the table and
+  // the two candidate costs disagree with each other.
+  const usable = D.cost.filter(r => r.n_committed <= 3);
+  html("cost-table", table(
+    ["attackers heading rimward", "half", "rebounds", "offensive rebound rate",
+     "space the break owns", "points they then score"],
+    usable.map(r => [r.n_committed, r.half, r.rebounds, fmt(r.off_reb_rate, 3),
+                     fmt(r.break_area, 0) + ` (n=${r.break_area_n})`, fmt(r.next_pts, 2)])));
+
+  const neg = [
+    ["This repository overturned a finding of its own, then refuted the overturn.",
+     `Earlier work called the ball useless from an exploration with no code in the
+      repository. Rebuilt as code the sign reversed and the pre-registered test passed on the
+      held-out half, clearing a bar a shuffled angle clears 0 times in 200. An adversarial
+      review then showed the angle is a proxy for carry: holding both legs it keeps
+      ${fmt(carry[both[0]].partial_angle_given_both, 3, true)} and
+      ${fmt(carry[both[1]].partial_angle_given_both, 3, true)} of the landing radius. The pass
+      stands as it fell; the reading of it does not.`],
+    ["The model's top-1 accuracy is a pooled artefact.",
+     `${fmt(contest["held out"].top1_full, 3)} against the nearest-to-the-rim rule's
+      ${fmt(contest["held out"].top1_nearest_rim, 3)} passed as pre-registered, and then held
+      in only three games of five: five rebounds of ${contest["held out"].n.toFixed(0)}. The
+      claim rests on the log probability, which holds in all five. A number that survives
+      only pooled is not a finding, which is why the game above keeps two scores and not one.`],
+    ["One pre-registered condition was retired, not moved.",
+     `It asked the scaled zone to carry no more mean area than the flat one at equal coverage.
+      Area is quadratic in the radius, so no scaled zone could ever pass it, and it was
+      already failing on the half it was written from
+      (${fmt(zc[both[0]].scaled_area, 0)} against ${fmt(zc[both[0]].flat_area, 0)} sq ft).
+      Retiring a bar that cannot discriminate is not the same as moving one that can.`],
+    ["The side bias cannot answer Goldsberry (2014).",
+     `His weak-side finding is about missed corner threes. On those our two halves disagree,
+      0.414 and 0.519 on 29 and 27 rebounds, so this work neither reproduces nor contradicts
+      him, and says so instead of quoting the half that agrees. Other threes do lean weak
+      side, 0.528 and 0.557, and shots inside 16 ft lean strong, 0.424 and 0.477: a side bias
+      exists, it is just not the one that was asked about.`],
+    ["Defensive help does not leave you badly placed to rebound.",
+     `Four independent probes, all negative, and the direction was closed in an afternoon
+      before a line of code was written for it, which is why nothing about it ships. The two
+      that decided it: the first defender to break toward the ball is the one the provider
+      labels with the closeout 26.5% of the time against 25.0% by chance, and help squeezes
+      both teams toward the rim by almost the same amount (defence -0.371 against attack
+      -0.342 in zone units), so the relative advantage does not move. Calibration only,
+      nothing frozen, no held-out game opened. The other two and the loose ends are in
+      tasks/todo.md.`],
+  ];
+  html("negatives-list", neg.map(([head, body]) => `<li><b>${head}</b>${body}</li>`).join(""));
+
+  for (const [id, half] of [["games-cal", both[0]], ["games-held", both[1]]]) {
+    html(id, D.games[half].map(g => `<div class="sha">${g}</div>`).join(""));
+  }
+  html("record-log", D.record.map(c =>
+    `<div><span class="sha">${c.sha}</span> <span class="sub">${c.subject}</span></div>`)
+    .join(""));
+}
+
+/* ------------------------------------------------- scroll-in, and the filter */
+let observer = null;
+function watch() {
+  if (observer) observer.disconnect();
+  observer = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) entry.target.classList.add("in");
+  }, {threshold: .15});
+  document.querySelectorAll(".reveal,.draw").forEach(node => observer.observe(node));
+}
+for (const button of document.querySelectorAll(".seg button")) {
+  button.addEventListener("click", () => {
+    const pick = button.dataset.half;
+    visible = pick === "both" ? HALVES.slice() : [pick];
+    for (const other of document.querySelectorAll(".seg button")) {
+      other.setAttribute("aria-pressed", String(other === button));
+    }
+    renderCharts();
+  });
+}
+
+renderStatic();
+renderCharts();
+</script>
+</body>
+</html>

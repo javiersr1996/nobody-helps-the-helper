@@ -68,17 +68,17 @@ distance-only model's -1.912, and the gain holds in **five games of five**.
   no scaled zone could pass it, and it was already failing on the half it was written from.
 - **The side bias cannot answer Goldsberry (2014).** His 56% weak side is about missed CORNER
   threes; on those our two halves disagree, 0.414 and 0.519 on 29 and 27 rebounds, so this
-  neither reproduces nor contradicts him. Other threes lean weak side, 0.528 / 0.557;
-  shots inside 16 ft lean strong, 0.424 / 0.477.
-- **Defensive help does not leave you badly placed to rebound.** Four probes, all negative,
-  closed in an afternoon. No code ships from it, so no number is quoted here; the detail is
-  in `tasks/todo.md`.
+  neither reproduces nor contradicts him.
+- **What occupying the glass COSTS is not established.** Committing two attackers lifts the
+  rebound rate 0.16 to 0.35, but the break's space moves 2% and the points they then score
+  move the OTHER way. Ten games cannot price it, and nothing here claims it is free.
+  It and defensive help are in `tasks/todo.md`.
 
 ## What ships
 
 `scbasket` is the derived layer the open bundle does not carry: `approach_angles` (heading and
 speed half a second before the ball is won), `zone_radius` and `rebound_zone_table` (the
-shot-scaled zone), `ball_entry_table` (the ball's arrival, with the two legs it is built from) and
+shot-scaled zone), `ball_entry_table` (the ball's arrival) and
 `scbasket.conditional` (the contest among the ten). Published as a **definition, never a
 detector**: it measures vectors, not intentions, as SkillCorner itself says. Nothing here says a
 player crashed, tagged up or boxed out.
@@ -89,15 +89,18 @@ player crashed, tagged up or boxed out.
 uv sync --extra dev
 python scripts/fetch_data.py                            # ~730 MB, needs git-lfs
 uv run python scripts/build_frame_cache.py
-uv run python scripts/rebound_zone.py                   # --fit re-derives the zone
-uv run python scripts/rebound_contest.py                # --fit re-derives the betas
-uv run python scripts/rebound_flight.py                 # --fit reads calibration only
+uv run python scripts/rebound_zone.py                   # --fit re-derives each
+uv run python scripts/rebound_contest.py                # frozen number
+uv run python scripts/rebound_flight.py
 uv run python scripts/angle_tradeoff.py
 uv run --extra figures python scripts/figures.py
+uv run python scripts/court_scenes.py
+uv run python scripts/report_html.py
 uv run pytest                    # 227 pass; 14 more need the dataset, 1 the forward extra
 ```
 
-Every number above lands in a `reports/*.csv`; the package runs on pandas and numpy alone.
+Every number lands in a `reports/*.csv` and on `reports/nobody_reads_the_bounce.html`, the
+same argument on a court; the package needs pandas and numpy alone.
 
 ## Data and licence
 
