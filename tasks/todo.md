@@ -117,7 +117,10 @@ middle and the top, never from the corner, and it leaves a shooter open beyond t
       which knows the corner line): 60.5 % against 61.2 % radial. Figures whitelisted in
       `.gitignore` as `reports/figures/wind_figure_*.png`.
 - [ ] W3-4 (to 25 Nov): the page with the wind animation, driven from the console.
-- [ ] W5 (to 2 Dec): README; video slides and the silent cut timed to the script.
+- [ ] W5 (to 2 Dec): first decide where the PUBLIC repo of this entry lives (today it is
+      built inside the rebound's repo, sharing the frame cache and the package: split it
+      with `scbasket` as a dependency, or vendor the modules it needs); then the README;
+      video slides and the silent cut timed to the script.
 - [ ] W6 (to 9 Dec): voice; the page on a real phone and a real window.
 - [ ] W7: margin. Check in the rules whether one person may submit two entries (PENDING).
 
