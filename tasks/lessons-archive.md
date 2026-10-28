@@ -44,3 +44,10 @@ against THAT. Retiring an unpassable bar is not moving it; the failure stays (D1
 (Both archived 2026-09-19 when the file hit its 30-line cap: the pre-registration
 phase is closed and what is left is shipping. They stand, they are just not the
 rules that bite this week.)
+
+## Archived 2026-10-28: never report a pooled number where a per-unit split is possible
+**Why:** F1's partial Spearman was 0.183 over 676 shots and 0.013 held out; P7.3's top-1
+passed pooled and held in three games of five, five rebounds of 285.
+**How to apply:** split by the unit you generalise across (the game, never the shot). Now a
+standing rule of both entries' plans (per-game splits always reported), so it left the live
+file to make room under the 30-line cap.

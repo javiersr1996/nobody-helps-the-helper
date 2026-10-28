@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from scbasket.court import HOOP_X
@@ -120,11 +119,15 @@ def main() -> int:
     print("\nwhere the helper starts (feet from the hoop line):")
     print(origin_bands(table, HELP_FT).to_string())
     ok = table[table["status"] == "ok"]
-    agree = (np.sign(ok["handler_y1"] - ok["handler_y0"]) > 0)
-    print(f"\nprovider `direction` vs the drive frame: left-labelled drives whose handler moved "
-          f"to +y in the attacking frame: "
-          f"{agree[ok['provider_direction'] == 'left'].mean():.3f}; right-labelled: "
-          f"{agree[ok['provider_direction'] == 'right'].mean():.3f}")
+    # `flip` is +1 when the handler's lateral motion in the ATTACKING frame was to +y (the
+    # attacking team's left) and -1 otherwise. The drive-frame columns are mirrored by it and
+    # cannot be used here: a first version of this check did, and printed 1.000 by construction.
+    to_left = ok["flip"] == 1.0
+    is_left, is_right = ok["provider_direction"] == "left", ok["provider_direction"] == "right"
+    print(f"\nprovider `direction` vs the handler's lateral motion in the attacking frame: "
+          f"left-labelled drives that moved to +y: {to_left[is_left].mean():.3f} "
+          f"(n={is_left.sum()}); right-labelled drives that moved to -y: "
+          f"{(~to_left)[is_right].mean():.3f} (n={is_right.sum()})")
     print("\nshare with a helper by endType:")
     print(ok.groupby("end_type")["has_helper"].agg(["mean", "size"]).to_string())
 

@@ -90,8 +90,14 @@ middle and the top, never from the corner, and it leaves a shooter open beyond t
       sensitivity sweep, 3-6 ft x 0.5-1.5 s); the man he leaves goes 6.8 -> 8.8 ft of
       separation, nearest any defender 6.9 ft, **open (>= 6 ft) 58.5 %**, 23.3 ft from the
       hoop, **beyond 22 ft 61 %**. Origin by band from the hoop line: 0-8 ft 18 %, 8-16
-      24 %, 16-24 38 %, 24+ 20 %. The provider's `direction` agrees with the drive frame
-      on 100 % of drives (left = +y). By endType: kickout 51 %, interiorPass 47 %,
+      24 %, 16-24 38 %, 24+ 20 %. **CORRECTED 2026-10-28**: this record first said the
+      provider's `direction` agreed with the drive frame on 100 % of drives; that check
+      compared the sign of a lateral motion ALREADY mirrored to be positive, and could not
+      fail (see lessons). On the un-mirrored flag the agreement is 67 % of left-labelled
+      and 72 % of right-labelled drives (326 and 292): two in three, no validation. It
+      also means the mirror is close to arbitrary on near-straight drives, which blurs
+      "drive side" against "far side" (and is part of why the man left splits 55/45) but
+      not the corner measure, which is symmetric. By endType: kickout 51 %, interiorPass 47 %,
       shotNearBasket 46 %, pullup 33 %. Per game 33-67 %. At 0.5 s only 14 % of drives
       have a 3 ft mover: the help takes more than half a second to show. Flow field: 17
       cells with >= 15 vectors, consistency median 0.64, max 0.83. Everything in

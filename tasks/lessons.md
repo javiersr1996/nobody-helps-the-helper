@@ -9,10 +9,6 @@ BUILT artefact: the video was reported at 60 s and the file was 68; the README's
 was this machine's. Grep the built file for the words the ruling bans too, which reached a
 page caption once. A patch that prints "ok" has not patched anything: assert, then re-read.
 
-## Never report a pooled number where a per-unit split is possible
-**Why:** F1's partial Spearman was 0.183 over 676 shots and 0.013 held out; P7.3's top-1 passed pooled and held in three games of five, five rebounds of 285.
-**How to apply:** split by the unit you generalise across (the game, never the shot).
-
 ## A null that lives only in the record is an overclaim in the deliverable
 **Why:** F6 has a replicated buy side and NO established cost side, written in `todo.md` and
 in `angle_tradeoff.csv` and in neither the README nor the page. The entry said "occupy the
@@ -28,3 +24,10 @@ label). Two clips were geometrically false: orientation flips with the possessio
 **How to apply:** assert the state machine from the console (draw, seek, end, reveal) and
 give the data its own gate, like refusing a clip whose winner is over 3 ft from the published
 landing point. Older: [[lessons-archive]].
+
+## A check that cannot fail has checked nothing
+**Why:** the drive-frame check compared the provider's `direction` with the sign of a lateral
+motion ALREADY mirrored to be positive, printed 1.000, and was told to the user as an external
+validation. On the un-mirrored flag it is 0.67 and 0.72.
+**How to apply:** before trusting a 100 %, name what would have made it 0 %; if nothing could,
+the quantity is being compared with itself.
