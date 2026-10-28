@@ -41,6 +41,10 @@ middle and the top, never from the corner, and it leaves a shooter open beyond t
   purpose. Same ruling as the rebound, same banned framing.
 - Every number in the README and on the page comes from a `reports/*.csv` written by a
   script (rebound lesson 1 holds). Verify what moves by driving it (rebound lesson 4).
+- **The memoria.** Javier wants the whole project documented in a living .docx, extended
+  at every milestone (asked 2026-10-28): `docs/memoria/`, built by a script from the same
+  CSVs the figures read, in Spanish, with a version log at the end. Each W closes by
+  adding its section there.
 
 ### What the probe already measured (scratchpad `help_probe2.py`, 608 of 660 drives: 39 without a cached frame, 10 without the handler slot, 3 without a 1 s horizon)
 - Largest own movement toward the ball by a non-matchup defender in 1 s: median 3.74 ft;
@@ -93,7 +97,19 @@ middle and the top, never from the corner, and it leaves a shooter open beyond t
       cells with >= 15 vectors, consistency median 0.64, max 0.83. Everything in
       `reports/help_table.csv`, `help_vectors.csv`, `help_flow.csv`,
       `help_sensitivity.csv`, `help_by_game.csv`.
-- [ ] W2 (to 11 Nov): figures 1 and 2; sensitivity and per-game tables.
+- [x] W2 (to 11 Nov): DONE 2026-10-28. `scripts/help_figures.py` draws both in the drive
+      frame, shot-chart orientation (hoop at the bottom, the drive to the right): figure 1
+      the wind map (kernel field, bandwidth 4 ft on a 1.5 ft grid, masked under 10 vectors
+      of kernel mass, streamlines with width by displacement, helper-origin density in
+      orange, the ball's median path), figure 2 the man left (dots coloured by whether
+      anyone is within 6 ft, histogram in a strip under the court). Looked at before
+      accepting, three passes: v1 had text under the streamlines, a spurious curl at the
+      baseline, an inset and a legend over the dots, and grey lines that added nothing;
+      v2 moved everything that is not data into a strip under the court, dropped the
+      lines and the "away from the ball" claim (55 % is not "most"); v3 fixed the strip
+      text running into the width key. `left_beyond_arc` is now by zone (`zone_of`,
+      which knows the corner line): 60.5 % against 61.2 % radial. Figures whitelisted in
+      `.gitignore` as `reports/figures/wind_figure_*.png`.
 - [ ] W3-4 (to 25 Nov): the page with the wind animation, driven from the console.
 - [ ] W5 (to 2 Dec): README; video slides and the silent cut timed to the script.
 - [ ] W6 (to 9 Dec): voice; the page on a real phone and a real window.

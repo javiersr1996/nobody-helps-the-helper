@@ -47,7 +47,9 @@ REPORTS = ROOT / "reports"
 ORIGIN_BANDS = [0.0, 8.0, 16.0, 24.0, 100.0]
 MIDDLE_Y_FT = 8.0  # |y| under this is "through the middle"
 CORNER_Y_FT = 18.0  # |y| over this is "the corner side"
-ARC_FT = 22.0  # the man left is "beyond the arc" past this distance to the hoop
+#: The man left is "beyond the arc" when `zone_of` puts him there; by zone and not by a radial
+#: distance, because the FIBA line is straight in the corners and 21.65 ft out there.
+THREE_ZONES = ("corner_3", "wing_3", "top_3", "far")
 
 
 def summarise(table: pd.DataFrame, help_ft: float, open_ft: float) -> dict:
@@ -68,7 +70,7 @@ def summarise(table: pd.DataFrame, help_ft: float, open_ft: float) -> dict:
         "left_nearest1": float(left["left_nearest1"].median()),
         "left_open_share": float((left["left_nearest1"] >= open_ft).mean()),
         "left_hoop1": float(left["left_hoop1"].median()),
-        "left_beyond_arc": float((left["left_hoop1"] >= ARC_FT).mean()),
+        "left_beyond_arc": float(left["left_zone1"].isin(THREE_ZONES).mean()),
     }
 
 

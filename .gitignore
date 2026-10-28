@@ -21,7 +21,12 @@ build/
 reports/figures/*
 !reports/figures/figure_1_lift_by_distance.png
 !reports/figures/figure_2_pwin_by_angle.png
+# The second entry's two figures, scripts/help_figures.py, versioned for the same reason.
+!reports/figures/wind_figure_1_wind_map.png
+!reports/figures/wind_figure_2_open_man.png
 # The video's slides and the silent cut: regenerable by scripts/video_slides.py, and the
 # submitted file is the one with a voice on it, which is not made here.
 reports/video/
 *.log
+# The memoria's PDF is a proof rendered from the .docx to look at it; the .docx is versioned.
+docs/memoria/*.pdf
