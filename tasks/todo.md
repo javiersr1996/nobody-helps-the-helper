@@ -135,7 +135,7 @@ review, at V. Tags: `[haiku]` mechanical, `[sonnet]` standard, `[opus]` hard but
 editor. "Help", "helper", "covers" name measured vectors and distances, never decisions.
 
 #### Phase A, 29 Oct to 8 Nov: the absence, measured (the probe becomes code)
-- [ ] A1 `src/scbasket/rotation.py` [sonnet]: sibling of `wind`, which keeps the first second.
+- [x] A1 `src/scbasket/rotation.py` [sonnet]: sibling of `wind`, which keeps the first second.
       `rotation_table(frames, drives, help_table, horizons=ROTATION_HORIZONS)` returns `pairs`
       (one row per resolved drive with a man left, other defender, horizon: his own displacement
       projected toward the man left at the horizon, and toward the placebo, the mean over the
@@ -147,7 +147,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       `ROTATION_HORIZONS = (25, 38, 50)` frames, headline horizon per decision D4 (default 38).
       Accept: on the ten games the module reproduces today's probe to two decimals (-0.68 ft at
       1.5 s; helper nearest 60 %; the CI with a fixed seed), read back off A3's CSVs.
-- [ ] A2 `tests/test_rotation.py` [sonnet], on the W1 scene with a third defender added: (a) a
+- [x] A2 `tests/test_rotation.py` [sonnet], on the W1 scene with a third defender added: (a) a
       rotation of exactly 5 ft built toward the man left is the best mover, `to_left == 5.0`
       and placebo < 5.0; (b) three others who only sink along x, with the man left and the
       placebo attackers mirrored across each sinker's line (the placebo attackers may share a
@@ -158,7 +158,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       keeps the row; (f) `nearest_who` reads `helper` when he recovers to within 1 ft. Accept:
       `uv run pytest tests/test_rotation.py` green; only (b), the one that could pass by
       construction, is shown to fail on its mutation (Javier asked for fewer gates, 2026-10-28).
-- [ ] A3 `scripts/second_help.py` [sonnet] -> `reports/second_help_pairs.csv`,
+- [x] A3 `scripts/second_help.py` [sonnet] -> `reports/second_help_pairs.csv`,
       `second_help_drives.csv`, `second_help_summary.csv` (per horizon x helped: median
       to_left, placebo, paired difference with a 95 % CI by bootstrap over drives, share
       diff > 0, share with a >= HELP_FT mover toward each target, nearest_who shares, the man
@@ -170,7 +170,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       seven CSVs exist and the numbers quoted in the council section below (-0.52 / -0.68 /
       -0.74; 62 / 60 / 60 %; 8 of 10 games; 31 of 110; n = 18) are read back from them, none
       transcribed by hand.
-- [ ] A4 Base rate into W1 [sonnet]: `wind._scene` gains `left_nearest0` (nearest any defender
+- [x] A4 Base rate into W1 [sonnet]: `wind._scene` gains `left_nearest0` (nearest any defender
       at `startFrame`) and `help_table` `left_open0`; `help_wind.summarise` gains
       `left_open_share_no_helper`, `left_open0_share`, `left_open0_share_no_helper` (the
       comparable man is the largest sub-threshold mover's man: the same `left_*` columns over
@@ -178,6 +178,16 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       synthetic test: a man left guarded at 0 s and open at 1 s reads `left_open0 == False`,
       `left_open == True`. Accept: `help_sensitivity.csv` carries the base rate in all twelve
       cells; the 4 ft / 1.0 s row reads 0.585 next to 0.726.
+      **A1-A4 DONE 2026-10-28** (two Sonnet agents in parallel; ruff clean, 292 tests pass).
+      Read back off the CSVs, not typed: 587 / 258 drives; paired diff -0.52 / -0.68 / -0.74
+      helped and -0.39 / -0.52 / -0.63 unhelped; nearest helper 0.624 / 0.599 / 0.598, third
+      0.167 / 0.187 / 0.203; open 0.415 -> 0.585 against 0.623 -> 0.726; pass 110 / 31;
+      closeouts n = 18. Two differences from the probe, both kept as they fell: the bootstrap
+      CI at 1.5 s and 2.0 s is -1.08..-0.27 and -1.27..-0.21 (the probe shared one generator
+      across the six cells; A3 seeds each one), and the per-game sign count (see the correction
+      in the council section). Shared columns of `help_*.csv` unchanged against HEAD. Test (b)
+      fails on its mutation (0.064 against 0.0), as does A4's (`left_nearest0` at the horizon).
+      `rotation.py` and `second_help.py` import `wind._row_of`, a private name.
 - [ ] A5 Figure 2 redrawn per decision D3 [sonnet] (default if no answer by 1 Nov: "who covers
       the man he left": dots at the headline horizon coloured by the nearest defender's
       identity, helper / handler's defender / third; in the strip under the court the rotation
@@ -254,7 +264,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] C2 `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
       help (corner side 2.5 %, 0-4 % in all twelve cells); the man left with its base rate in
       the same sentence (58.5 % against 72.6 %); the second help as a measured absence with its
-      placebo (-0.68 ft, CI, 8 of 10 games) and who covers him (the helper, 60 %); the pass in
+      placebo (-0.68 ft, CI, per-game signs: 8 of 10 by drive, 7 of 10 by pair) and who covers him (the helper, 60 %); the pass in
       one sentence with its n (D7); the limits (X-out n = 18, the mirror on near-straight
       drives, ten games, extrapolated positions); what ships; run it; licence. Nothing says a
       defender chose. Accept: `scripts/check_readme.py` counts <= 1000 words and exactly two
@@ -331,8 +341,8 @@ D4 v0.6) and each new section goes in before "Plan y calendario", not at a fixed
   with the base rate added. Recommendation: who covers. The dots were the W1 story and now ship
   with a base rate that takes half their punch; the nearest defender's identity is the new
   finding and its strip carries the placebo.
-- D4 Headline horizon of the rotation (by 1 Nov): 1.5 s (default; the widest gap, 8 of 10
-  games negative) with 1.0 and 2.0 in the sensitivity table, or 1.0 s to match W1.
+- D4 Headline horizon of the rotation (by 1 Nov): 1.5 s (default; 8 of 10 games negative by
+  drive, 7 of 10 by pair) with 1.0 and 2.0 in the sensitivity table, or 1.0 s to match W1.
 - D5 `range.bin` (by 29 Nov): delete. Recommendation: delete; nothing references it.
 - D6 Drive replay scope (by 9 Nov): four drives chosen by rule, one autoplaying, a next button
   (default) versus one drive versus a browser of all 258. Recommendation: four; the hook needs
@@ -353,7 +363,9 @@ man left, 258 helped). **The second help, as a rotation by a third defender, is 
   left LESS than toward the other off-ball attackers who are not their own man (own displacement
   projected on each target, mean per drive): -0.52 ft at 1.0 s (95% CI -0.79 to -0.25), -0.68 at
   1.5 s (-1.09 to -0.28), -0.74 at 2.0 s (-1.25 to -0.24); in drives with no helper -0.39, -0.52,
-  -0.63. Per game at 1.5 s, 8 of 10 medians negative. A >= 4 ft mover toward him in 44 % of
+  -0.63. Per game at 1.5 s, 7 of 10 pair medians negative (**CORRECTED 2026-10-28**: first
+  written here as 8 of 10, a miscount of the probe's own print, which read 7; the per-drive
+  median that A3 publishes beside it gives 8 of 10, one of them -0.06; both ship). A >= 4 ft mover toward him in 44 % of
   drives against 42 % toward the placebo.
 - What covers him is the helper himself: nearest defender to the man left at 1.0 / 1.5 / 2.0 s is
   the helper 62 / 60 / 60 %, the handler's defender 21 / 21 / 20 %, a third defender 17 / 19 /
