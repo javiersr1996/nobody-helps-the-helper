@@ -5,8 +5,8 @@
 prose, zero code). Rebuilt, 5 reversed and its replacement was refuted, and 4 answered a
 question Goldsberry never asked.
 **How to apply:** name the script that prints it, RUN it, and read the value back off the
-BUILT artefact (the video was reported at 60 s and the file was 68; the README quoted this
-machine's test count). A patch that prints "ok" has not patched anything: assert, then re-read.
+BUILT artefact (video reported at 60 s, file 68). Counts too: "8 of 10 games" was 7, read by
+eye off a printout and copied into four places. Printing "ok" patched nothing: assert, re-read.
 
 ## A null that lives only in the record is an overclaim in the deliverable
 **Why:** F6 has a replicated buy side and NO established cost side, written in `todo.md` and
