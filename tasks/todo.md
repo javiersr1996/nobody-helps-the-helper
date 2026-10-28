@@ -1,4 +1,114 @@
-# Analytics Cup 2.0: nobody reads the bounce (scbasket)
+# Analytics Cup 2.0, second entry: nobody helps from the corner
+
+## PLAN, set 2026-10-28. Read this section first; the rebound entry's plan follows it.
+
+### The project
+**Title: "Nobody helps from the corner"**, subtitle *the wind map of ACB defences, on
+SkillCorner's open tracking*.
+
+**Thesis, one line: on every drive the defence moves like weather; the help blows from the
+middle and the top, never from the corner, and it leaves a shooter open beyond the arc.**
+
+### Why this one (decided 2026-10-28 with Javier; a colleague, Miguel, had pointed at defensive help)
+- Nobody has drawn help on this bundle: the sportsanalystf Streamlit platform (12 pages,
+  collapse curve on drives), the Spacing Connectome (offensive, kernel regression),
+  acb-tracking-101, spatial-rebounding, the LinkedIn 3D viewer, the broken-rotations EP
+  model, the action-detection benchmark. The Connectome names it as future work.
+- The open bundle's `drives` carry no help field; the commercial Dynamic Events do ("help
+  involvement"). This is the missing derived layer, as `approach_angles` was for the rebound.
+- The outcome is the geometry of the first second itself, not a decision taken seconds
+  later. Two neighbours probed the same day died on exactly that and are CLOSED:
+  dribble-cadence breaks do not open separation 0.48 s later (quick -0.04 ft against
+  steady -0.28, signs mixed by game, 5,457 dribbles), and the length of the pickup- or
+  catch-to-release window does not change what the defender closes (Spearman -0.04 and
+  +0.00 on 552 and 486 shots). The dribble cadence itself is real (10,608 intervals,
+  median 0.72 s, the provider's dribble frames sit on a ball-z minimum 96.8% of the time)
+  and may serve as a scene, never as the argument.
+
+### Rules for THIS entry (they differ from the rebound's, on purpose)
+- No pre-registration, no held-out half, no gates. Definitions are fixed once and
+  reported with a sensitivity table next to every headline. Per-game splits are reported,
+  never gated. What comes out marginal is reported as it comes out.
+- **Definitions.** Drive frame: the attacking frame mirrored so the ball handler's lateral
+  motion over the horizon points to +y. Horizon: 1.0 s (25 frames) from `startFrame`.
+  Help movement: a non-matchup defender's OWN displacement projected on the direction from
+  his start to the ball handler's position at the horizon. Helper: the non-matchup
+  defender with the largest help movement, if it is >= 4 ft. The man he leaves: the
+  attacker the `matchups` table assigns him at `startFrame`. Open: no defender within
+  6 ft at the horizon. Sensitivity: 3 / 5 / 6 ft and 0.5 / 1.5 s.
+- Intent is still not claimable: "help", "helper" and "open man" name measured vectors and
+  distances, never decisions. Nothing says a defender chose to help or left a man on
+  purpose. Same ruling as the rebound, same banned framing.
+- Every number in the README and on the page comes from a `reports/*.csv` written by a
+  script (rebound lesson 1 holds). Verify what moves by driving it (rebound lesson 4).
+
+### What the probe already measured (scratchpad `help_probe2.py`, 608 of 660 drives: 39 without a cached frame, 10 without the handler slot, 3 without a 1 s horizon)
+- Largest own movement toward the ball by a non-matchup defender in 1 s: median 3.74 ft;
+  drives with one >= 3 / 4 / 5 / 6 ft: 64 / 46 / 33 / 21 %.
+- The helper (>= 4 ft, n=278) starts 15.0 ft from the handler. Origin by distance from
+  the hoop line: 0-8 ft 14 %, 8-16 24 %, 16-24 36 %, 24+ 26 %; through the middle
+  (|y| < 8 ft) 32 / 55 / 65 / 58 % of each band; from the corner side (|y| > 18 ft)
+  8 / 3 / 0 / 1 %.
+- The attacker he leaves: separation 6.7 -> 8.7 ft; nearest ANY defender at 1 s 6.8 ft,
+  none within 6 ft in 59 %; 23.8 ft from the hoop, beyond 22 ft in 65 %.
+- Share of drives with a helper by `endType`: kickout 51 %, interiorPass 49 %,
+  shotNearBasket 47 %, pullup 33 %. Per game 33 % to 67 %.
+- Flow field in the drive frame (8 x 10 ft cells): perimeter cells 16-32 ft from the hoop
+  line move 3.0-5.4 ft toward the hoop with consistency 0.63-0.85; the 0-8 ft cells move
+  laterally toward the drive side (+1.6 ft, consistency 0.70 on the far weak side).
+
+### What ships
+1. `scbasket.wind` (`help` would shadow the builtin): `help_table(frames, drives)`, one row per drive (helper slot and id,
+   origin, displacement, help movement, the attacker he guarded, that attacker's
+   separation at 0 and at the horizon, nearest defender at the horizon, his distance to
+   the hoop, detected flags), `flow_field(frames, drives, horizon, cell)`, and the
+   sensitivity sweep.
+2. `scripts/help_wind.py` -> `reports/help_table.csv`, `help_flow.csv`,
+   `help_sensitivity.csv`, `help_by_game.csv`.
+3. Two figures (`scripts/help_figures.py`): figure 1 the wind map (streamplot plus the
+   helper-origin density); figure 2 the open man (where he stands at 1 s, coloured by the
+   nearest defender's distance).
+4. The page: a wind animation (particles over the court, HTML canvas, no CDN), one real
+   drive with its four streaks, the field, the open man. Built like `report_html.py`:
+   numbers injected from the CSVs, nothing typed.
+5. README <= 1000 words, 2 figures; 60 s video, silent cut plus Javier's voice.
+
+### Schedule (deadline 18 Dec 2026)
+- [x] W1 (to 4 Nov): DONE 2026-10-28. `scbasket.wind`, `scripts/help_wind.py`, 11
+      synthetic tests plus one on game 114086 (a helper built by hand is found at exactly
+      5 ft; a defender who only sinks with the drive scores negative; the matchup defender
+      is never the helper; the drive frame mirrors right onto left; the three unresolved
+      statuses keep their rows). Ran on the ten games: 660 drives, 618 resolved (39 start
+      outside the cache, 3 have no 1 s horizon; the probe's 10 "no handler" were raw ids
+      against canonical ones, gone now). Headline at 4 ft in 1.0 s: **45.3 % of drives
+      have a helper**; he starts 15.6 ft from the handler and 19.6 ft from the hoop; from
+      the middle 56 %, **from the corner side 2.5 %** (0-4 % in every cell of the
+      sensitivity sweep, 3-6 ft x 0.5-1.5 s); the man he leaves goes 6.8 -> 8.8 ft of
+      separation, nearest any defender 6.9 ft, **open (>= 6 ft) 58.5 %**, 23.3 ft from the
+      hoop, **beyond 22 ft 61 %**. Origin by band from the hoop line: 0-8 ft 18 %, 8-16
+      24 %, 16-24 38 %, 24+ 20 %. The provider's `direction` agrees with the drive frame
+      on 100 % of drives (left = +y). By endType: kickout 51 %, interiorPass 47 %,
+      shotNearBasket 46 %, pullup 33 %. Per game 33-67 %. At 0.5 s only 14 % of drives
+      have a 3 ft mover: the help takes more than half a second to show. Flow field: 17
+      cells with >= 15 vectors, consistency median 0.64, max 0.83. Everything in
+      `reports/help_table.csv`, `help_vectors.csv`, `help_flow.csv`,
+      `help_sensitivity.csv`, `help_by_game.csv`.
+- [ ] W2 (to 11 Nov): figures 1 and 2; sensitivity and per-game tables.
+- [ ] W3-4 (to 25 Nov): the page with the wind animation, driven from the console.
+- [ ] W5 (to 2 Dec): README; video slides and the silent cut timed to the script.
+- [ ] W6 (to 9 Dec): voice; the page on a real phone and a real window.
+- [ ] W7: margin. Check in the rules whether one person may submit two entries (PENDING).
+
+### Settled while building, not before
+- The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
+  The field shows it as it is; the helper is the max mover toward the ball's FUTURE
+  position, which separates the two in the table but not in the picture. The caption says so.
+- Team panels are illustration (one or two games per defence); the league field is the
+  deliverable.
+
+---
+
+# Analytics Cup 2.0, first entry: nobody reads the bounce (scbasket)
 
 ## DEFINITIVE PLAN, set 2026-09-17. Read this section first.
 Everything below this section is the RECORD: the earlier plan, four premises that failed,
