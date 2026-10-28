@@ -116,13 +116,260 @@ middle and the top, never from the corner, and it leaves a shooter open beyond t
       text running into the width key. `left_beyond_arc` is now by zone (`zone_of`,
       which knows the corner line): 60.5 % against 61.2 % radial. Figures whitelisted in
       `.gitignore` as `reports/figures/wind_figure_*.png`.
-- [ ] W3-4 (to 25 Nov): the page with the wind animation, driven from the console.
-- [ ] W5 (to 2 Dec): first decide where the PUBLIC repo of this entry lives (today it is
-      built inside the rebound's repo, sharing the frame cache and the package: split it
-      with `scbasket` as a dependency, or vendor the modules it needs); then the README;
-      video slides and the silent cut timed to the script.
-- [ ] W6 (to 9 Dec): voice; the page on a real phone and a real window.
-- [ ] W7: margin. Check in the rules whether one person may submit two entries (PENDING).
+#### Reframed entry (set 2026-10-28, after the council and the probe in the next section)
+**Thesis, one line: the help blows from the middle and never from the corner, and nobody helps
+the helper: the man he leaves is covered by the helper himself or by nobody, measured against
+a placebo.**
+What ships: `scbasket.wind` (the first second, W1) plus `scbasket.rotation` (the second help as
+a measured absence, with its placebo); `reports/help_*.csv` and `reports/second_help_*.csv`;
+figure 1 the wind map, figure 2 who covers the man left, with base rates; one self-contained
+page with the wind on canvas and a real drive replayed, driven from the console; README <= 1000
+words; 60 s video in Javier's voice; the memoria in Spanish, one section per phase. The
+post-pass rotation (X-out) ships as a stated limit (18 provider closeouts on the man left). The
+title stays "Nobody helps from the corner" until decision D1 below says otherwise.
+Rules of the plan: definitions fixed once in module constants and reported with a sensitivity
+table; per-game splits reported, never gated; no pre-registration, no held-out half; every
+phase closes with `uv run ruff check .` + `uv run pytest` + a check with Javier; ONE adversarial
+review, at V. Tags: `[haiku]` mechanical, `[sonnet]` standard, `[opus]` hard but bounded,
+`[fable]` where the retry is expensive. No Python through bash heredocs: files go through the
+editor. "Help", "helper", "covers" name measured vectors and distances, never decisions.
+
+#### Phase A, 29 Oct to 8 Nov: the absence, measured (the probe becomes code)
+- [ ] A1 `src/scbasket/rotation.py` [sonnet]: sibling of `wind`, which keeps the first second.
+      `rotation_table(frames, drives, help_table, horizons=ROTATION_HORIZONS)` returns `pairs`
+      (one row per resolved drive with a man left, other defender, horizon: his own displacement
+      projected toward the man left at the horizon, and toward the placebo, the mean over the
+      off-ball attackers who are neither the handler, the man left, nor his own man by the raw
+      matchup) and `drives` (per drive and horizon: best mover toward each target, who is
+      nearest to the man left among helper / handler_def / third and at what distance, and the
+      man left's clearance at 0, 0.5, 1.0, 1.5, 2.0 s). The window is contiguous and inside the
+      chance; a cut window drops the horizons it cannot reach and keeps the row. Constants:
+      `ROTATION_HORIZONS = (25, 38, 50)` frames, headline horizon per decision D4 (default 38).
+      Accept: on the ten games the module reproduces today's probe to two decimals (-0.68 ft at
+      1.5 s; helper nearest 60 %; the CI with a fixed seed), read back off A3's CSVs.
+- [ ] A2 `tests/test_rotation.py` [sonnet], on the W1 scene with a third defender added: (a) a
+      rotation of exactly 5 ft built toward the man left is the best mover, `to_left == 5.0`
+      and placebo < 5.0; (b) three others who only sink along x, with the man left and the
+      placebo attackers mirrored across each sinker's line (the placebo attackers may share a
+      point), get a paired difference of exactly 0.0 (move one target 1 ft and the test fails:
+      demonstrated once, reverted); (c) the defender's own man by the raw matchup is never
+      among his placebo targets; (d) the helper and the handler's matchup are never among the
+      three others; (e) a chance boundary inside the window drops the horizons past it and
+      keeps the row; (f) `nearest_who` reads `helper` when he recovers to within 1 ft. Accept:
+      `uv run pytest tests/test_rotation.py` green; only (b), the one that could pass by
+      construction, is shown to fail on its mutation (Javier asked for fewer gates, 2026-10-28).
+- [ ] A3 `scripts/second_help.py` [sonnet] -> `reports/second_help_pairs.csv`,
+      `second_help_drives.csv`, `second_help_summary.csv` (per horizon x helped: median
+      to_left, placebo, paired difference with a 95 % CI by bootstrap over drives, share
+      diff > 0, share with a >= HELP_FT mover toward each target, nearest_who shares, the man
+      left's open share and the no-helper comparable's), `second_help_by_game.csv` (the paired
+      median per game at each horizon, reported, never gated), `second_help_sensitivity.csv`
+      (HELP_FT 3 / 4 / 5 x the three horizons), `second_help_pass.csv` (first pass after the
+      drive: n, to the man left, most-open shares, his clearance when he got it and when not)
+      and `second_help_closeouts.csv` (the X-out, n = 18, published as a limit). Accept: the
+      seven CSVs exist and the numbers quoted in the council section below (-0.52 / -0.68 /
+      -0.74; 62 / 60 / 60 %; 8 of 10 games; 31 of 110; n = 18) are read back from them, none
+      transcribed by hand.
+- [ ] A4 Base rate into W1 [sonnet]: `wind._scene` gains `left_nearest0` (nearest any defender
+      at `startFrame`) and `help_table` `left_open0`; `help_wind.summarise` gains
+      `left_open_share_no_helper`, `left_open0_share`, `left_open0_share_no_helper` (the
+      comparable man is the largest sub-threshold mover's man: the same `left_*` columns over
+      `~has_helper`); `help_by_game.csv` and `help_sensitivity.csv` carry the new columns. One
+      synthetic test: a man left guarded at 0 s and open at 1 s reads `left_open0 == False`,
+      `left_open == True`. Accept: `help_sensitivity.csv` carries the base rate in all twelve
+      cells; the 4 ft / 1.0 s row reads 0.585 next to 0.726.
+- [ ] A5 Figure 2 redrawn per decision D3 [sonnet] (default if no answer by 1 Nov: "who covers
+      the man he left": dots at the headline horizon coloured by the nearest defender's
+      identity, helper / handler's defender / third; in the strip under the court the rotation
+      toward him against the placebo at 1.0 / 1.5 / 2.0 s with its CI, and the open share with
+      its base rate in the same sentence). Numbers from `second_help_summary.csv` and
+      `help_sensitivity.csv`, none typed; looked at before accepting, as in W2. Accept:
+      `reports/figures/wind_figure_2_*.png` rebuilt, every number on it greps back to a CSV
+      column, Javier has looked at it.
+- [ ] A6 Memoria v0.2 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
+      (the new figure 2); new section 13 "La segunda ayuda: una ausencia medida" (the council's
+      37/100 and why points per chance has no power; the placebo design; the three results; the
+      pass; the X-out as a limit) reading `second_help_*.csv`; section 10 replaced by this
+      phased plan; section 11 pruned by the single-entry decision (items 1, 3 and 4 closed, the
+      closing reason kept); `SECTIONS` index and version row 0.2; rebuild with
+      `NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js`, export to PDF, look at
+      it. Accept: the PDF is read; section 13 is in the index; its numbers match the CSVs.
+- [ ] A7 Phase close [haiku]: `uv run ruff check .` and `uv run pytest` exit 0; then Javier's
+      check (figure 2, decisions D1, D3, D4).
+
+#### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
+- [ ] B1 Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
+      `scbasket.wind.kernel_field(vectors, grid_ft, bandwidth_ft, min_weight)`; `help_wind.py`
+      writes `reports/help_field.csv` (grid, mean dx, dy, kernel weight); `help_figures.py`
+      reads it. Test: one vector gives a field that points its way, decays with distance and is
+      masked under `min_weight`. Accept: figure 1 rebuilt is unchanged or the diff is named; the
+      page and figure 1 read the same file.
+- [ ] B2 `scripts/wind_scenes.py` [sonnet] -> `reports/wind_scenes.json`: drives chosen by a
+      rule, not a search (per decision D6, default: the first helped drive of each of four games
+      in which the ten players are detected on every frame of the 2 s window and the man left
+      has a provider matchup); per drive, 2 s of ten players and ball in the drive frame, slot
+      roles (handler, handler_def, helper, left, other x3), the man left's clearance per frame,
+      and each other defender's projection toward the man left and toward the placebo per
+      frame; no ids, no names, as in `court_scenes.py`. Accept: a test asserts each scene's
+      helper movement at 1.0 s equals `help_table.csv` within 0.01 ft and refuses a scene that
+      disagrees.
+- [ ] B3 Storyboard before the engine [fable], in `tasks/wind_page.md`: the three-second hook
+      (what moves on the court in the first frame the reader sees, with no click); the sequence
+      (the league wind; one drive, the helper stepping out from the middle and coming back,
+      the three others' trails flat beside their placebo, the corner man never moving; the man
+      left and who covers him, with the live clearance and the base rate; the limits); the
+      claim of each section and the CSV column that sits next to it; what the reader can touch
+      (scrub, next drive, 390 px). Fable because the retry is the whole phase: an earlier page
+      was rejected for technique over a closed analysis, and this one has to show the finding.
+      Accept: Javier accepts it before B4 starts; every claim in it names its CSV column.
+- [ ] B4 `scripts/wind_template.html` + `scripts/wind_html.py` [opus] ->
+      `reports/nobody_helps_from_the_corner.html` (slug follows D1): self-contained, no CDN,
+      no network; payload injected at `/*PAYLOAD*/` from `help_*.csv`, `second_help_*.csv`,
+      `help_field.csv` and `wind_scenes.json` (lesson 1, nothing typed); canvas court in
+      shot-chart orientation; particles advected by the field; the drive replay with the
+      helper's streak, the man left's, and the three flat ones; `prefers-reduced-motion`
+      honoured; the state machine exposed as `window.wind = {play, pause, seek(t), next,
+      state}` with `state()` returning `{scene, t, phase: idle|playing|ended, positions}`.
+      Accept: builds from the CSVs; `rg '[0-9]+\.[0-9]+ ?(%|ft)'` on the template finds nothing
+      outside the court geometry; renders with DevTools offline.
+- [ ] B5 `scripts/drive_wind_page.py` [sonnet] (Playwright headless, under a new `page` extra,
+      never core): drives the built page from the console: `seek(1.0)` puts the helper within
+      0.1 ft of the JSON; `play()` and wait reads `ended` with the last frame drawn; pause then
+      play resumes at the same `t`; `next()` changes scene and numbers; every injected number
+      in the DOM equals the CSV value it names; at 390 and 1440 px no horizontal scroll, body
+      >= 16 px, canvas inside the viewport. Lesson 4: run once against a template with one
+      typed number and one broken `seek`; it must fail both (recorded here), then reverted.
+      Accept: exit 0 on the built page, exit 1 on each mutation.
+- [ ] B6 Memoria v0.3 [sonnet]: section 14 "La página" (what the storyboard decided, what the
+      console check asserts, the mutations it fails on), index and version row; rebuild, PDF,
+      look. Accept: as A6.
+- [ ] B7 Phase close [haiku]: ruff + pytest exit 0; Javier opens the page on his own machine.
+
+#### Phase C, 30 Nov to 6 Dec: the public repo and the README
+- [ ] C1 Execute decision D2 [haiku] (default: this repo is the entry): tag HEAD `bounce-final`
+      first; move `README.md` to `docs/bounce/README.md` with its figure, page and video links
+      corrected; update the `pyproject.toml` description; every rebound script, test and CSV
+      stays (open-source value, tests stay green); `range.bin` per D5. Accept: `uv run pytest`
+      green after the move; every link in `docs/bounce/README.md` resolves (`ls` each path).
+- [ ] C2 `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
+      help (corner side 2.5 %, 0-4 % in all twelve cells); the man left with its base rate in
+      the same sentence (58.5 % against 72.6 %); the second help as a measured absence with its
+      placebo (-0.68 ft, CI, 8 of 10 games) and who covers him (the helper, 60 %); the pass in
+      one sentence with its n (D7); the limits (X-out n = 18, the mirror on near-straight
+      drives, ten games, extrapolated positions); what ships; run it; licence. Nothing says a
+      defender chose. Accept: `scripts/check_readme.py` counts <= 1000 words and exactly two
+      images, and maps every bold number to the CSV column it comes from, failing on a number
+      it cannot find (tried once with a typed number).
+- [ ] C3 Clean clone [haiku]: `git clone` into the scratchpad, `uv sync --extra dev`,
+      `uv run pytest` (data tests skipped), `uv run --extra figures python
+      scripts/help_figures.py`, the page build, the memoria build, all from the committed CSVs
+      and no dataset. Accept: the five commands exit 0 in the clone and the README's "Run it"
+      block is the list actually run.
+- [ ] C4 Memoria v0.4 [sonnet]: section 15 "El repositorio público y el README" (decision D2,
+      what moved, the clean-clone result), index and version row; rebuild, PDF, look.
+- [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
+
+#### Phase D, 7 Dec to 13 Dec: the video
+- [ ] D1 `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
+      the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
+      spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
+      lands between 55 and 62 s.
+- [ ] D2 `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: 1920x1080 slides
+      (title; the wind map; three stills of the chosen drive at 0 / 1.0 / 1.5 s drawn with
+      matplotlib from `wind_scenes.json`, the same file the page reads; figure 2; the record),
+      and the silent MP4 timed to D1 with ffmpeg. Accept: `ffprobe` reads 60 +- 1 s off the
+      built file; every number on a slide greps to a CSV.
+- [ ] D3 Voice [haiku]: Javier records one pass over the silent cut; mux with ffmpeg; `ffprobe`
+      duration read back and written here. Accept: 58-62 s, voice audible on a phone speaker.
+- [ ] D4 Memoria v0.5 [sonnet]: section 16 "El vídeo", index and version row; rebuild, PDF,
+      look.
+- [ ] D5 Phase close [haiku]: ruff + pytest exit 0; Javier watches the video once through.
+
+#### Phase E, 14 Dec to 18 Dec: margin and close (submit by 17 Dec)
+- [ ] E1 Real devices [haiku]: the page on Javier's phone and a real window, the video on the
+      phone; defects fixed if under an hour, else written as limits in README and memoria.
+- [ ] E2 Memoria v1.0 [sonnet]: final version row; section 11 holds nothing open, or each
+      item with its decision; rebuild, PDF, look; docx and PDF committed.
+- [ ] E3 Submission [haiku]: public repo URL, tag `cup2-v1.0`, the form sent by 17 Dec, the
+      confirmation saved under `tasks/`.
+- [ ] V. Verificación
+      - Gates, all exit 0 on the clean clone of C3: `uv run ruff check .`; `uv run pytest`;
+        `NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js`;
+        `uv run python scripts/wind_html.py` then `uv run python scripts/drive_wind_page.py`;
+        `uv run python scripts/check_readme.py`.
+      - Aggregate acceptance of the plan: every number in README, page, video slides and
+        memoria reads back from a `reports/*.csv` written by a script in the repo (lesson 1);
+        each headline ships with its qualifier next to it: the corner share with its twelve
+        sensitivity cells, the open share with its base rate, the rotation with its placebo,
+        CI and per-game signs, the X-out as a limit (lesson 2); the page's motion is asserted
+        from the console, not from stills (lesson 3); no check in the repo passes by
+        construction, each has been seen to fail once (lesson 4); no sentence claims intent.
+      - The ONE adversarial review of the plan [opus]: the `revisor-adversarial` subagent reads
+        the full diff `git diff b6263f8..HEAD` plus the built README, page and memoria PDF and
+        answers "what would break this" per criterion (relevance, methodology, originality,
+        communication, open-source potential); each finding fixed or written as a limit in
+        README and memoria before E3 sends the form.
+
+#### Decisions for Javier (listed, not settled; the default applies if no answer by the date)
+**ANSWERED 2026-10-28.** Executors: mixed, by the tags above. D1: **"Nobody helps the helper"**
+(against the recommendation; the page slug, the memoria and the README follow it). D2: this repo
+is the entry. D3: figure 2 is "who covers the man he left". D4, D6, D7: the defaults, accepted as
+technical. D5 (`range.bin`) still open, it deletes a file. The memoria went to v0.2 the same day
+with the single-entry decision, the council, the probe (numbers from this record) and this plan,
+so the memoria tasks below are each one version later than written (A6 v0.3, B6 v0.4, C4 v0.5,
+D4 v0.6) and each new section goes in before "Plan y calendario", not at a fixed number.
+- D1 Title (by 1 Nov). Keep "Nobody helps from the corner" with the subtitle "and nobody helps
+  the helper", or move to "Nobody helps the helper". Recommendation: keep. The corner claim is
+  the robust, positive, visual half (0-4 % in all twelve cells) and the files, memoria and
+  figures already carry it; a null with a placebo is the second half, not a headline.
+- D2 Public repo (by 29 Nov). This repo becomes the entry (tag `bounce-final`, rebound README
+  under `docs/bounce/`, optional GitHub rename with redirects) versus a new repo depending on
+  `scbasket`. Recommendation: this repo. The split costs a week of seven, `court`, `frames`
+  and `io` are shared, "works on clone" is already proven here, and the rebound record is
+  open-source value the rules score.
+- D3 Figure 2 (by 1 Nov). "Who covers the man he left" (A5 default) versus the W2 open-man dots
+  with the base rate added. Recommendation: who covers. The dots were the W1 story and now ship
+  with a base rate that takes half their punch; the nearest defender's identity is the new
+  finding and its strip carries the placebo.
+- D4 Headline horizon of the rotation (by 1 Nov): 1.5 s (default; the widest gap, 8 of 10
+  games negative) with 1.0 and 2.0 in the sensitivity table, or 1.0 s to match W1.
+- D5 `range.bin` (by 29 Nov): delete. Recommendation: delete; nothing references it.
+- D6 Drive replay scope (by 9 Nov): four drives chosen by rule, one autoplaying, a next button
+  (default) versus one drive versus a browser of all 258. Recommendation: four; the hook needs
+  one, the rule guards against cherry-picking, more is cost without a claim.
+- D7 The pass in the README (by 30 Nov): one sentence with its n in the limits (default) versus
+  only in memoria and page. Recommendation: one sentence; it answers "did the ball find him".
+
+### Council and the second-help probe (2026-10-28, after W2)
+Javier decided this is the ONLY basketball entry (the rebound and the vertical-axis audit are not
+submitted) and proposed turning it toward first and, above all, second help. Full council: 37/100
+if the question is the effect on points (Contrarian 43, First Principles 37, Expansionist 55,
+Outsider 30, Executor 45, mean 42; peer review -5 blind spot, -5 unrebutted red, +5 unanimous
+strength; the screening of the unreframed entry had given 51). That null has no power: points per chance 0.911 with a
+helper against 0.905 without (280 / 338), 95% CI of the difference -0.17 to +0.18.
+Probe (scratchpad `second_help_probe.py`, `second_help_closeouts.py`; 587 resolved drives with a
+man left, 258 helped). **The second help, as a rotation by a third defender, is CLOSED**:
+- The three defenders who are neither the handler's matchup nor the helper move toward the man
+  left LESS than toward the other off-ball attackers who are not their own man (own displacement
+  projected on each target, mean per drive): -0.52 ft at 1.0 s (95% CI -0.79 to -0.25), -0.68 at
+  1.5 s (-1.09 to -0.28), -0.74 at 2.0 s (-1.25 to -0.24); in drives with no helper -0.39, -0.52,
+  -0.63. Per game at 1.5 s, 8 of 10 medians negative. A >= 4 ft mover toward him in 44 % of
+  drives against 42 % toward the placebo.
+- What covers him is the helper himself: nearest defender to the man left at 1.0 / 1.5 / 2.0 s is
+  the helper 62 / 60 / 60 %, the handler's defender 21 / 21 / 20 %, a third defender 17 / 19 /
+  20 % (with no helper: his own man 77 / 78 / 76 %, a third 10 / 13 / 15 %).
+- **The W1 headline needs its base rate.** Open (nobody within 6 ft): the man left 41.5 % at 0 s,
+  58.5 % at 1.0 s, 58.1 % at 2.0 s; the comparable man in drives with no helper (the largest
+  sub-threshold mover's) 62.3 %, 72.6 %, 74.7 %. The help adds room to a man who starts more
+  closely guarded; it does not make an open man where there was none. Figure 2 and the memoria
+  carry 58.5 % with no base rate next to it (lesson 2).
+- The pass: a first pass in 110 of 258 helped drives, to the man left 31 (28 %, one of four
+  receivers is 25 %). At the pass frame (median 1.92 s) he is the most open teammate in 20.9 %;
+  the receiver was the most open in 31.8 %. His clearance at the pass: 9.29 ft when he got it
+  (n=31), 6.74 when he did not (n=79).
+- After the pass: 116 drives have a provider closeout. On the man left (n=18) the closer is the
+  helper 56 %, someone else 44 %; with no helper, someone other than the receiver's own defender
+  closes 43 % (n=56). Too few to say anything.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
