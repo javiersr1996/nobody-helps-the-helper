@@ -1,4 +1,4 @@
-// La memoria del proyecto "Nobody helps from the corner", como .docx, generada desde el repo.
+// La memoria del proyecto "Nobody helps the helper", como .docx, generada desde el repo.
 //
 // Uso (desde la raíz del repositorio, con docx-js instalado en global):
 //   NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js
@@ -20,9 +20,9 @@ const {
 const ROOT = path.resolve(__dirname, "..", "..");
 const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
-const OUT = path.join(__dirname, "memoria_nobody_helps_from_the_corner.docx");
+const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.1";
+const VERSION = "0.2";
 const DATE = "28 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
@@ -192,7 +192,7 @@ function figure(file, caption) {
 
 const cover = [
   new Paragraph({ spacing: { before: 2400, after: 200 }, children: [
-    new TextRun({ text: "Nobody helps from the corner", size: 56, bold: true }),
+    new TextRun({ text: "Nobody helps the helper", size: 56, bold: true }),
   ] }),
   new Paragraph({ spacing: { after: 120 }, children: [
     new TextRun({ text: "The wind map of ACB defences, on SkillCorner's open tracking", size: 28, color: "444444" }),
@@ -215,8 +215,10 @@ const SECTIONS = [
   "1. Qué es este documento", "2. La competición", "3. El dato",
   "4. Antecedentes: las dos entradas previas", "5. La ideación (28 de octubre de 2026)",
   "6. Definiciones y reglas de esta entrada", "7. Implementación (semana 1)",
-  "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)", "10. Plan y calendario",
-  "11. Pendientes y decisiones abiertas", "12. Registro de versiones de este documento",
+  "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)",
+  "10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)",
+  "11. Plan y calendario", "12. Pendientes y decisiones abiertas",
+  "13. Registro de versiones de este documento",
 ];
 const toc = [
   h1("Índice"),
@@ -266,6 +268,7 @@ const s4 = [
   p("Esta es la tercera idea que Javier lleva a la competición, y la primera que renuncia a propósito al aparato de validación de las anteriores. Las dos previas existen y están en distinto estado:"),
   bullet([bold("\"Nobody reads the bounce\""), run(" (repositorio skillcorner_basket_data, el mismo de esta entrada). El rebote no se lee, se ocupa: dentro de cuatro pies del aro, llegar en dirección al aro sube la probabilidad de ganar el rebote 0,172 en los cinco partidos de calibración y 0,322 en los cinco reservados; pasados doce pies no vale nada. Pre-registrada, con umbrales congelados en commits antes de abrir los partidos reservados, con sus negativos publicados. Completa: README de 999 palabras, dos figuras, página interactiva, vídeo mudo de 60 segundos cortado al guion. Solo falta la voz.")]),
   bullet([bold("El kit de calibración"), run(" (repositorio skillcorner_screens). La física como regla externa para auditar un bundle de tracking: la gravedad ajustada a los vuelos de los tiros sale en 28,10 y 28,23 pies por segundo al cuadrado (calibración y reservados) contra los 32,17 reales; el ángulo de entrada publicado es 14,4 y 13,8 grados más plano de lo que exige el vuelo; las tres condiciones pre-registradas pasan cinco partidos de cinco. Hay página; falta el README, el guion y avisar a SkillCorner antes de enviar nada.")]),
+  p("Actualización del 28 de octubre de 2026: ninguna de las dos se presenta. Esta es la única entrada de baloncesto (sección 10), y las dos previas quedan como trabajo previo, con su código como infraestructura que esta entrada ya usa."),
   p("De las dos se heredan tres reglas que esta entrada conserva: la intención no se puede reclamar desde el tracking (se publican definiciones, nunca detectores); un número sin código detrás no es un hallazgo; y lo que se mueve se verifica conduciéndolo, no mirándolo. Y se hereda también la razón estructural por la que casi todo lo demás murió en diez partidos: entre la geometría medida y el resultado que el dato registra suele mediar la decisión de otro, segundos después. Lo que funciona es lo que se decide de inmediato por la geometría misma."),
   source("README.md del repositorio y tasks/todo.md de ambos proyectos."),
 ];
@@ -337,6 +340,7 @@ const s8 = [
     ["Campo de flujo: celdas con 15 vectores o más", `${N.flowCells}, consistencia mediana ${es(N.flowConsistencyMedian, 2)}, máxima ${es(N.flowConsistencyMax, 2)}`],
   ], [5826, 3200]),
   source("reports/help_table.csv y reports/help_flow.csv, calculados al generar este documento."),
+  p(`Tasa base, añadida el 28 de octubre (sección 10.3): el ${pct(N.leftOpen, 1)} de hombres dejados sin nadie a ${es(OPEN_FT, 0)} pies no significa que la ayuda cree un hombre libre. El hombre comparable en las penetraciones sin ayudante (el del defensor que más se movió sin llegar a ${es(HELP_FT, 0)} pies) está libre el 72,6 % al segundo, y el hombre dejado empezaba más vigilado: 41,5 % libre al arrancar, contra 62,3 %. La ayuda le da espacio a quien estaba más cerca de su defensor. Las tres cifras de comparación salen de la sonda del 28 de octubre, registrada en tasks/todo.md, hasta que la fase A las lleve a los CSV.`),
   p("Nota sobre la última fila: la primera versión de esa comprobación, tanto en el script como en esta memoria, comparaba el signo del movimiento lateral del jugador con balón ya reflejado al marco de la penetración, que es positivo por construcción, e imprimía un acuerdo del 100 % que no significaba nada. Se rehízo con la bandera de reflejo, que guarda el lado real en el marco de ataque, y el número de la tabla es el de esa versión."),
   h2("8.1 De dónde sale el ayudante"),
   grid(["Distancia a la línea del aro", "Ayudantes", "Cuota", "Por el centro", "Del lado de la esquina"],
@@ -371,21 +375,58 @@ const s9 = [
   h2("9.2 Figura 2: el hombre que deja"),
   ...figure("wind_figure_2_open_man.png", "Figura 2. El precio de la ayuda: el hombre que deja, un segundo después, y a qué distancia tiene al defensor más cercano."),
   p(`Dónde está, un segundo después del inicio de la penetración, el atacante al que marcaba el ayudante: naranja si no hay ningún defensor a ${es(OPEN_FT, 0)} pies, gris si lo hay, con el histograma de esa distancia en la franja inferior. La mayoría está más allá del arco y sin nadie cerca; en cambio se reparte casi a partes iguales entre el lado de la penetración y el contrario (${pct(N.leftFarSide)} en el contrario), de modo que la idea de \"el lado débil\" no tiene apoyo en el dato y el título de la figura no la menciona.`),
+  p(`Sin tasa base, esa mayoría engaña: el hombre comparable en las penetraciones sin ayudante está libre todavía más a menudo (72,6 % contra ${pct(N.leftOpen, 1)}; sección 8). Por eso la fase A sustituye esta figura por quién cubre al hombre dejado (sección 10.4).`),
   h2("9.3 Lo que se corrigió tras mirar la primera versión"),
   p("Las figuras se miraron antes de darlas por buenas, y la primera versión tenía defectos que solo se ven mirándolas: en la figura 1, el bloque de texto y la etiqueta del balón quedaban tapados por las líneas de corriente y había un remolino espurio junto a la línea de fondo; en la figura 2, el histograma inserto y el texto pisaban puntos de la pista, la leyenda tapaba puntos arriba a la derecha, y las líneas grises desde el origen del ayudante ensuciaban sin aportar nada que no estuviera ya en la figura 1. Se movió todo lo que no es dato a la franja inferior, se endureció la máscara del campo, se quitaron las líneas, y en el título de la figura 2 se retiró \"lejos del balón\", que el 55 % no sostiene. Una tercera pasada arregló el solape entre el texto de la franja y la clave de grosor."),
 ];
 
 const s10 = [
-  h1("10. Plan y calendario"),
-  grid(["Semana", "Hasta", "Trabajo", "Estado"], [
-    ["1", "4 de noviembre", "Módulo scbasket.wind, script, tests, CSVs", "Hecho el 28 de octubre"],
-    ["2", "11 de noviembre", "Las dos figuras; tablas de sensibilidad y por partido", "Hecho el 28 de octubre"],
-    ["3 y 4", "25 de noviembre", "La página: animación de viento con partículas sobre la pista (canvas HTML, sin CDN), una penetración real con sus cuatro estelas, el campo, el hombre libre; conducida desde la consola", "Pendiente"],
-    ["5", "2 de diciembre", "README de 1000 palabras; diapositivas del vídeo y corte mudo cronometrado al guion", "Pendiente"],
-    ["6", "9 de diciembre", "La voz; la página en un móvil y una ventana reales", "Pendiente"],
-    ["7", "18 de diciembre", "Margen. Comprobar en las bases si una persona puede presentar dos entradas", "Pendiente"],
-  ], [1000, 1700, 4826, 1500]),
-  h2("10.1 Riesgos asumidos"),
+  h1("10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)", { pageBreakBefore: true }),
+  h2("10.1 Una sola entrada de baloncesto"),
+  p("Al cerrar la semana 2, Javier decidió que esta será la única entrada de baloncesto que presente. El rebote y el kit de calibración no se envían: quedan como trabajo previo y como infraestructura (el paquete scbasket, la caché de fotogramas y sus tests, que esta entrada ya usa). La duda de si una persona podía presentar dos entradas deja de importar. En el mismo mensaje propuso orientar la entrada a cómo influyen las primeras y, sobre todo, las segundas ayudas: la rotación que cubre al atacante que dejó la primera."),
+  h2("10.2 El council"),
+  p("La propuesta pasó por un council: cinco consejeros con papeles distintos, que no se ven entre sí, y dos revisores que leen sus respuestas anonimizadas; la nota se calcula sumando puntos sobre una base de 50. Un cribado previo, con la entrada tal como estaba, había dado 51 sobre 100. Con la pregunta del efecto sobre el resultado, el council completo dio 37."),
+  grid(["Consejero", "Nota", "Lo que más pesó"], [
+    ["Contrarian", "43", "El enlace con el resultado es nulo, y la segunda ayuda hereda un ruido encadenado (el espejo, el retroceso de toda la defensa, dos umbrales seguidos)"],
+    ["First Principles", "37", "La variable correcta es la geometría de la rotación, no los puntos; la segunda ayuda no tiene potencia para un efecto"],
+    ["Expansionista", "55", "La segunda ayuda (help the helper) no la cubre nadie; medir cuánto tarda alguien en cubrir al hombre dejado"],
+    ["Outsider", "30", "La pregunta es cómo influyen, y la evidencia dice que no influyen; el título debería hablar de cómo rota la defensa"],
+    ["Executor", "45", "Una sonda corta antes de comprometer las siete semanas"],
+  ], [2000, 900, 6126], { align: ["l", "r", "l"] }),
+  p("Media 42; el peer review restó 5 por un punto ciego grave y 5 por un rojo que nadie rebatió, y sumó 5 por una fortaleza unánime (el hueco: nadie mide la ayuda en este bundle). Total 37, muy arriesgado con esa pregunta. El punto ciego se comprobó con el dato: los puntos por oportunidad son 0,911 con ayudante y 0,905 sin él (280 y 338 penetraciones), y el intervalo de confianza del 95 % de la diferencia va de −0,17 a +0,18. No es un nulo: con diez partidos no se puede ver ningún efecto que no sea enorme. Los cinco coincidieron en lo que sí se sostiene: medir la cadena de rotación como geometría, no como efecto sobre el marcador."),
+  source("council de la sesión del 28 de octubre de 2026 y recuento de puntos por oportunidad (second_help_recon.py, script de sesión), registrados en tasks/todo.md."),
+  h2("10.3 La sonda de la segunda ayuda"),
+  p("Antes de planificar se sondeó la segunda ayuda sobre las 587 penetraciones resueltas que tienen un hombre dejado (258 con ayudante), con un diseño que lleva su propio control. Para cada uno de los tres defensores que no son ni el emparejado del balón ni el ayudante, su desplazamiento propio se proyecta hacia el hombre dejado y, como placebo, hacia los demás atacantes sin balón que no son su propio hombre. Si hubiera rotación, la proyección hacia el hombre dejado superaría a la del placebo. La sonda es un script de sesión que todavía no está en el paquete: sus cifras están registradas en tasks/todo.md, y la fase A las lleva a scbasket.rotation y a reports/second_help_*.csv, desde donde esta sección las leerá."),
+  grid(["Horizonte", "Con ayudante: hacia él menos placebo", "IC del 95 %", "Sin ayudante"], [
+    ["1,0 s", "−0,52 ft", "−0,79 a −0,25", "−0,39 ft"],
+    ["1,5 s", "−0,68 ft", "−1,09 a −0,28", "−0,52 ft"],
+    ["2,0 s", "−0,74 ft", "−1,25 a −0,24", "−0,63 ft"],
+  ], [1500, 3326, 2200, 2000], { align: ["l", "r", "r", "r"] }),
+  source("sonda second_help_probe.py del 28 de octubre de 2026; media por penetración de la diferencia emparejada, intervalo por bootstrap sobre penetraciones; registrada en tasks/todo.md."),
+  p("Los otros tres se mueven hacia el hombre dejado menos que hacia cualquier otro atacante, en ocho de los diez partidos, y casi igual que cuando nadie ayuda: no hay respuesta a la ayuda. Un movimiento de 4 pies o más hacia él aparece en el 44 % de las penetraciones a 1,5 s, contra el 42 % hacia el placebo. Lo que le cubre es el propio ayudante: el defensor más cercano al hombre dejado es el ayudante en el 62, 60 y 60 % de las penetraciones (a 1,0, 1,5 y 2,0 s), el emparejado del balón en el 21, 21 y 20 %, y un tercero en el 17, 19 y 20 %; sin ayudante, un tercero es el más cercano en el 10, 13 y 15 %. Dicho como medida y no como intención: la ayuda es un paso hacia el balón de alguien que sigue siendo el defensor más cercano a su hombre."),
+  p("La sonda encontró además una deuda de la semana 1: el porcentaje de hombres dejados libres no tenía tasa base (sección 8). El hombre comparable en las penetraciones sin ayudante está libre el 72,6 % al segundo, y el 62,3 % ya al arrancar, contra el 41,5 % del hombre dejado. La ayuda da espacio a quien empezaba más vigilado; no crea un hombre libre donde no lo había."),
+  p("Por qué el balón casi no le llega: hay un primer pase en 110 de las 258 penetraciones con ayudante y va al hombre dejado en 31 (28 %, cerca del 25 % que daría elegir uno de cuatro). En el fotograma del pase (mediana 1,92 s) es el compañero más libre solo en el 20,9 %, y el receptor fue el más libre en el 31,8 %. Lo que no se puede juzgar es la rotación después del pase (el X-out): solo 18 closeouts del proveedor caen sobre el hombre dejado; en ellos cierra el ayudante en el 56 % y otro defensor en el 44 %, frente al 43 % de cierres de otro defensor cuando nadie ayudó (56 casos). Viaja como límite."),
+  source("sondas second_help_probe.py y second_help_closeouts.py del 28 de octubre de 2026, registradas en tasks/todo.md."),
+  h2("10.4 Lo decidido"),
+  bullet([bold("Título: \"Nobody helps the helper\". "), run("Lo eligió Javier frente a la recomendación del planificador, que proponía mantener el anterior con este como subtítulo: la segunda ayuda que no llega pasa al frente. Tesis en una línea: la ayuda sopla desde el centro y nunca desde la esquina, y nadie ayuda al que ayuda; al hombre que deja le cubre el propio ayudante o nadie, medido contra un placebo.")]),
+  bullet([bold("Repositorio público: este. "), run("Se etiqueta el estado actual como bounce-final y el README del rebote pasa a docs/bounce/; el paquete, la caché y los tests compartidos se quedan donde ya funcionan al clonar.")]),
+  bullet([bold("Figura 2: quién cubre al hombre dejado. "), run("Los puntos se colorean según quién es su defensor más cercano y, debajo, la rotación frente al placebo con su intervalo y la tasa base en la misma frase.")]),
+  bullet([bold("Cómo se trabaja. "), run("El plan por fases lo escribió Fable 5.1 como planificador, y cada tarea se ejecuta con el modelo de su etiqueta (Sonnet la mayoría, Haiku lo mecánico, Opus el motor de la página y la verificación final, Fable el guion visual de la página). A petición de Javier, una sola revisión adversarial, al cierre, y ninguna puerta que bloquee.")]),
+];
+
+const s11 = [
+  h1("11. Plan y calendario"),
+  grid(["Fase", "Fechas", "Trabajo", "Estado"], [
+    ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
+    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Pendiente"],
+    ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en canvas sin CDN conducida desde la consola; memoria v0.4", "Pendiente"],
+    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público y el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.5", "Pendiente"],
+    ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.6", "Pendiente"],
+    ["E", "14 a 18 de diciembre", "Dispositivos reales, memoria v1.0, la verificación final con la única revisión adversarial, y el envío antes del 17", "Pendiente"],
+  ], [1300, 2000, 4426, 1300]),
+  p("Cada fase cierra con ruff y pytest en verde y una revisión con Javier. El detalle de cada tarea, con su criterio de aceptación y su modelo, está en tasks/todo.md."),
+  h2("11.1 Riesgos asumidos"),
+  bullet("La fase B tiene tres semanas a tiempo parcial para el canvas, la reproducción de las penetraciones y la conducción desde la consola, sin holgura dentro; la voz necesita a Javier en una ventana de siete días."),
   bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, lo que separa las dos cosas en la tabla pero no en la imagen."),
   bullet("Todo depende de la tabla matchups del proveedor para saber quién es el emparejado del balón y a quién marcaba el ayudante. Donde falta, se usa el defensor más cercano para el primero y se deja vacío el segundo."),
   bullet("Diez partidos: las firmas por equipo son ilustración; el campo de la liga es el entregable."),
@@ -393,19 +434,18 @@ const s10 = [
   bullet("Las posiciones extrapoladas (jugadores fuera de plano) tienen un error de 4 a 5 pies. La tabla guarda la bandera de detección del ayudante en los dos extremos para poder contar cuántas ayudas descansan en una posición extrapolada."),
 ];
 
-const s11 = [
-  h1("11. Pendientes y decisiones abiertas"),
-  numbered("Confirmar en las bases si una persona puede presentar más de una entrada. Hay tres en distinto estado: el rebote (completo, a falta de la voz), el kit de calibración (sondas y página) y esta."),
-  numbered("Decidir dónde vive el repositorio público de esta entrada. Hoy se construye dentro de skillcorner_basket_data, el repo del rebote, porque comparte la caché de fotogramas y el paquete; para enviar harán falta un README y un repo propios, con scbasket como dependencia o con los módulos necesarios dentro."),
-  numbered("Avisar a SkillCorner del hallazgo del kit de calibración antes de enviarlo, si se envía."),
-  numbered("Grabar la voz del vídeo del rebote."),
-  numbered("Un fichero suelto, range.bin (100 bytes de JSON con otro esquema), en la raíz del repo sin referencia alguna; Javier decide si se borra."),
+const s12 = [
+  h1("12. Pendientes y decisiones abiertas"),
+  numbered("Un fichero suelto, range.bin (100 bytes de JSON con otro esquema), en la raíz del repo sin referencia alguna; Javier decide si se borra antes del 29 de noviembre."),
+  numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
+  numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
 ];
 
-const s12 = [
-  h1("12. Registro de versiones de este documento"),
+const s13 = [
+  h1("13. Registro de versiones de este documento"),
   grid(["Versión", "Fecha", "Cambios"], [
     ["0.1", "28 de octubre de 2026", "Creación. Competición, dato, antecedentes, ideación con las tres sondas, definiciones, implementación y resultados de la semana 1, las dos figuras de la semana 2, plan y pendientes."],
+    ["0.2", "28 de octubre de 2026", "Título nuevo, \"Nobody helps the helper\". Sección 10 nueva: una sola entrada de baloncesto, el council (37 sobre 100) y la sonda de la segunda ayuda. Tasa base junto al porcentaje de hombres libres en las secciones 8 y 9. Plan por fases A a E en la sección 11. Pendientes depurados por la decisión de entrada única."],
   ], [1200, 2200, 5626]),
 ];
 
@@ -413,7 +453,7 @@ const s12 = [
 
 const doc = new Document({
   creator: "Javier Sánchez Rueda",
-  title: "Nobody helps from the corner: memoria del proyecto",
+  title: "Nobody helps the helper: memoria del proyecto",
   description: "Memoria viva de la entrada a la Analytics Cup 2.0",
   styles: {
     default: { document: { run: { font: "Arial", size: BODY } } },
@@ -440,14 +480,14 @@ const doc = new Document({
               margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
     },
     headers: { default: new Header({ children: [new Paragraph({ children: [
-      new TextRun({ text: "Nobody helps from the corner | memoria del proyecto", size: 16, color: "777777" }),
+      new TextRun({ text: "Nobody helps the helper | memoria del proyecto", size: 16, color: "777777" }),
     ] })] }) },
     footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [
       new TextRun({ text: `v${VERSION} | página `, size: 16, color: "777777" }),
       new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "777777" }),
     ] })] }) },
     children: [...cover, ...toc, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...s8, ...s9,
-               ...s10, ...s11, ...s12],
+               ...s10, ...s11, ...s12, ...s13],
   }],
 });
 
