@@ -119,6 +119,19 @@ def test_a_defender_who_only_sinks_with_the_drive_scores_negative():
     assert (still.abs() < 1e-6).all()
 
 
+def test_a_defender_above_the_ball_who_only_sinks_scores_positive():
+    start, end = START.copy(), END.copy()
+    start[9], end[9] = [-14.0, 6.0], [-18.0, 6.0]  # 10 ft farther out than the handler's end
+    vectors = help_vectors(_scene(start=start, end=end), _drives()).set_index("def_slot")
+    above = vectors.loc[4]
+    assert above["dy"] == pytest.approx(0.0) and above["dx"] == pytest.approx(-4.0, abs=1e-3)
+    assert above["target_dist"] == pytest.approx(10.0, abs=1e-3)
+    assert above["target_bearing_x"] == pytest.approx(-1.0, abs=1e-6)
+    assert above["help_move"] == pytest.approx(4.0, abs=1e-3)  # the whole sink is credited
+    below = vectors.loc[2]  # the sinker of the test above, nearer the hoop line than the spot
+    assert below["target_bearing_x"] == pytest.approx(np.sqrt(0.5), abs=1e-6)
+
+
 def test_the_handlers_matchup_is_never_the_helper():
     end = END.copy()
     end[5] = END[0] + np.array([0.5, 0.5])  # the matchup lands on top of the handler

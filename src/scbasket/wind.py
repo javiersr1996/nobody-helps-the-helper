@@ -16,8 +16,10 @@ Definitions, fixed once and reported with a sensitivity table next to every head
 - **Help movement.** For a defender who is NOT the ball handler's matchup, his OWN
   displacement over the horizon projected on the unit vector from where he started to
   where the ball handler IS at the horizon. Feet; positive means he moved toward where the
-  ball was going. A defender who merely sinks with the drive scores low on it, because
-  sinking runs along the court and the handler's future position is mostly across from him.
+  ball was going. A defender who merely sinks with the drive scores low on it when he stands
+  nearer the hoop line than where the handler ends up, and positive when he stands farther
+  out (`target_bearing_x` < 0): above the ball, a plain sink counts as help movement.
+  `scripts/help_wind.py` reports the helper rate standardised by that bearing.
 - **Helper.** The non-matchup defender with the largest help movement, when that movement
   is at least HELP_FT. The table always describes the largest mover, so the threshold can
   be swept afterwards without recomputing anything.
@@ -138,6 +140,10 @@ def _scene(frames: GameFrames, matchup0: np.ndarray, r0: int, r1: int, s: int) -
             "zone0": _zone(p0),
             "detected0": bool(frames.detected[r0, N_SIDE + j]),
             "detected1": bool(frames.detected[r1, N_SIDE + j]),
+            # The target of the projection: how far it is, and how much of the way to it runs
+            # along the court (x is never mirrored; negative is toward the hoop line).
+            "target_dist": norm,
+            "target_bearing_x": float(to_ball[0] / norm) if norm > 0 else 0.0,
         })
     top = max(vectors, key=lambda v: v["help_move"])
     j = top["def_slot"]

@@ -459,6 +459,50 @@ intervals, into `help_wind` and a CSV, with a test; (2) whether the gradient sur
 measuring help against each defender's distance to the ball's future spot; (3) Javier
 decides the thesis's first half and figure 1's title; (4) figure 1 redrawn (rate per
 defender or ratio, n shown, text >= 11 pt); (5) memoria 8 and 9.1 follow.
+**(1) and (2) DONE 2026-10-29**, as code: `wind` vectors gain `target_dist` and
+`target_bearing_x` (the projection's target: how far, and the along-court share of the way,
+negative toward the hoop line); `help_wind.py` gains `helper_flags`, `helper_rate` (rate per
+defender by group, and helpers over what the group's strata predict, 95 % by bootstrap over
+drives, seed 0) and writes `reports/help_base_rate.csv` (|y| band and zone, each raw and
+standardised by distance, bearing and both); `summarise` gains `defenders_from_middle`,
+`defenders_from_corner_side`, `helper_rate`, `helper_rate_middle`, `helper_rate_corner_side`,
+`n_defenders_corner_side`, `helper_above_ball` (share of helpers with `target_bearing_x` < 0)
+and `helper_along_court_share` (median share of a helper's help movement that is his
+along-court component), so all twelve sensitivity cells and every game carry them; the CSV
+also carries the raw rate by bearing band. The
+script refuses to run if the helper read off the vectors is not `help_table`'s. Every older
+column of the five `help_*.csv` is unchanged against HEAD. Tests: `test_help_wind.py` (a
+group that helps only as its stratum says reads ratio 1.0; standardising inside each group
+makes the raw ratio 1.0 too, and the test fails on that mutation, 1.0 against 1.28: seen
+once, reverted) and a `test_wind` case pinning a defender above the ball whose pure 4 ft
+sink scores 4 ft of help. 299 tests pass, ruff clean. Read back off the CSVs:
+- **The corner is empty, not measurably stingy.** 45 of 2,472 off-ball defenders (1.8 %)
+  start at |y| > 18 ft, none in `corner_3`; 7 of 280 helpers. Per defender 15.6 %
+  (5.7-27.3 %) against 13.7 % (11.9-15.5 %) from the middle and 11.3 % overall. In the eight
+  sensitivity cells at 1.0 and 1.5 s, corner minus middle runs -0.036 to +0.058; at 0.5 s the
+  corner has 0 or 1 helpers. "Nobody helps from the corner" is "nobody stands there".
+- **Distance does not explain the perimeter gradient** (the hypothesis written above is
+  refuted: inside defenders are NOT nearer the ball's future spot). Ratio to expected, raw
+  then by distance: top_3 2.06 -> 1.90, wing_3 2.19 -> 2.16, mid_range 0.77 -> 0.79, paint
+  0.73 -> 0.70, restricted area 0.16 -> 0.16.
+- **The bearing does.** Helper rate 31.7 % (26.3-37.0) when the spot lies mostly toward the
+  hoop line from the defender (bearing <= -0.7), 5.4 % (3.9-7.0) when it lies mostly away
+  (> 0.7); 65.7 % of helpers stand farther out than the spot, and the along-court part is a
+  median 49 % of a helper's help movement. Across the twelve cells: above the ball 57-100 %,
+  along-court 44-96 %, both rising with the threshold (the bigger the mover, the more of it
+  is the sink). Ratio to expected by bearing: top_3
+  1.07 (0.88-1.27), paint 0.98 (0.73-1.23), mid_range 0.87 (0.77-0.97), wing_3 1.43
+  (1.05-1.80), restricted area 0.25 (0-0.84, 1 helper of 55); |y| bands 1.04 / 0.93 / 0.91
+  and the corner side 1.86 (0.71-3.22). Distance and bearing together change none of these
+  materially. Same verdict with 3, 8 or decile bearing bins (scratchpad `bearing_binning.py`,
+  a robustness probe for this record, not shipped).
+- Left after the bearing: wing_3 at about 1.4x, the restricted area low, and `far` (beyond
+  32 ft) at 2.5x: 15 helpers there with a median dx of -11.1 ft, defenders running back.
+- **Qualifier on the helper definition (lesson 2):** `wind`'s docstring said a defender who
+  only sinks "scores low"; that holds below the ball only, and is now corrected there. Above
+  the ball the sink is help movement, so part of the 45.3 % with a helper is the defence's
+  common retreat seen from above the ball. README and memoria need it next to the helper.
+Next: (3) is Javier's.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
