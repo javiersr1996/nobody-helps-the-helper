@@ -326,7 +326,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       Order: research spike (assets) -> storyboard amendment (section 2.2, 2.3, 3) -> a hook
       prototype Javier judges as a capture (GIF/MP4) BEFORE the rest is polished -> integrate.
       Accept: Javier says it hooks; B5 passes; page under 8 MB; 60 fps desktop.
-- [ ] B5 `scripts/drive_wind_page.py` [sonnet] (Playwright headless, under a new `page` extra,
+- [x] B5 (DONE 2026-10-29 on B4's page; rerun on B4b's; see the record) `scripts/drive_wind_page.py` [sonnet] (Playwright headless, under a new `page` extra,
       never core): drives the built page from the console: `seek(1.0)` puts the helper within
       0.1 ft of the JSON; `play()` and wait reads `ended` with the last frame drawn; pause then
       play resumes at the same `t`; `next()` changes scene and numbers; the page opens in
@@ -743,6 +743,22 @@ full-court floor with the far half's lines only; plan crop on the canvas's botto
 40 % lighter than tokens (B5's pixel checks); `#league` not `#wind` (a `wind` id shadows
 `window.wind`). The stage column is sticky, so the measure column scrolls beside it.
 Not verified: the hidden-tab clock (headless cannot hide a tab). 328 tests pass, ruff clean.
+**B5 DONE 2026-10-29** (Sonnet agent, written from the storyboard without reading the
+template; rerun here: `uv run --extra page python scripts/drive_wind_page.py`, exit 0, 178
+passed, 0 failed, 48 s). Path or URL argument (C1b reuses it). Expected values read from the
+JSON/CSVs at run time; 136 injected elements checked by `data-src`/`data-value` and by their
+printed digits; true top-down by pixel centroids through `unproject` (0.004 ft). Mutations,
+each built to a scratch file: a typed `helper_help_move` (caught by data-value and digits), a
+`seek` at t * 0.5 (18 failures), a perspective camera in plan (orthographic checks and the
+unproject check, 0.31 ft), trails in broadcast (the pixel scan: 315-1203 px vs plan's
+513-2207): exit 1 each. Its first run's 15 failures were all the driver's own (def_slot is
+`others[j] - 5`; the percentile counts the drive itself; a "1.5s" key; a package-constant
+data-src; a 16 px rule it narrowed to prose of 60+ characters, 12 px for short labels: its own
+threshold). Not covered: a number typed with no `data-src`; the hidden-tab clock. New extra
+`page = ["playwright>=1.45"]`, E501 ignored for the driver (embedded JS).
+Javier then opened the page: the hook does not hook (B4b); the CC0 Quaternius UAL mannequin
+(598 KB trimmed, 10 clips, no kit, no strafe, no dribble) was chosen by a research spike, and
+a hook prototype with players is being built in an isolated worktree (Opus agent).
 
 ### NEXT SESSION (left 2026-10-29)
 1. B4b: Javier opened B4's page and rejected the hook ("no engancha nada; las fichas deben ser

@@ -18,6 +18,10 @@ forward = ["scikit-learn>=1.4"]
 # P7.4 only: the two figures. Same rule as above, the package draws nothing by itself
 # and every number behind a figure is in a reports/*.csv that needs no plotting library.
 figures = ["matplotlib>=3.8"]
+# B5 only: drives the built wind page in headless Chromium (scripts/drive_wind_page.py).
+# Same rule as above, the page and the package need none of it; after installing run
+# `playwright install chromium` once.
+page = ["playwright>=1.45"]
 
 [build-system]
 requires = ["hatchling"]
@@ -36,3 +40,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# The driver embeds JavaScript snippets and one-line check names; wrapping them costs clarity.
+"scripts/drive_wind_page.py" = ["E501"]
