@@ -166,8 +166,8 @@ footer code{font-family:var(--mono);font-size:15px}
           toward the man he leaves. The README's two figures draw the same drive and the result;
           the measures beside and below this box need no GPU and still work.</p>
       </div>
-      <p class="drawn" id="drawn">Only where each player stands is tracked; bodies, facing and
-        stride are drawn; the ball's height is the provider's.</p>
+      <p class="drawn" id="drawn">Only where each player stands is tracked; the bodies, their
+        facing and stride, and the arena are drawn; the ball's height is the provider's.</p>
       <div class="controls">
         <div class="row">
           <button class="btn" id="play" type="button">Play</button>
@@ -341,19 +341,30 @@ const HIPS_LO = 3, HIPS_HI = 8, TWIST_MAX = 70, HEAD_MAX = 60;
 const NEAR_LO = 4, NEAR_HI = 9, STANCE_LO = 5, STANCE_HI = 11, CROUCH = 0.4;
 const SMOOTH_F = 2, TURN_LO = 1, TURN_HI = 4, REACH_SLACK = 1.5, HAND_LOW = 2.4;
 /* The kits: no team's, no league's; attack in white, defence in navy. Jersey numbers are
-   decoration, and none is 1, 2 or 3, which label the three other defenders. Skin tones are
-   spread across both teams. */
+   decoration, and none is 1, 2 or 3, which label the three other defenders. Skin tones, hair
+   colours and hairlines (bind-pose heights at the brow and at the nape, metres: a crop, a fade
+   that keeps the top, a fuller cut) are dealt per player of each scene by a seeded generator
+   (B4b-2), the darker skins drawing from the darker hair: decoration, the same on every load. */
 const KITS = [{top: "#f2efe8", ink: "#1d2f5e", edge: "#f2efe8", shorts: "#f2efe8", stripe: "#1d2f5e",
                shoe: "#f4f2ee", numbers: [7, 10, 14, 22, 31]},
               {top: "#1d2f5e", ink: "#f2efe8", edge: "#c9a227", shorts: "#1d2f5e", stripe: "#f2efe8",
                shoe: "#22252b", numbers: [5, 9, 12, 21, 34]}];
-const SKINS = ["#8d5a3b", "#c68e64", "#5e3a26", "#e0b48f", "#a86f4a"];
+const SKINS = ["#f0c8a8", "#e0ae88", "#c99168", "#ad7650", "#8d5a3b", "#74472d", "#5e3a26", "#4a2c1d"];
+const HAIRS = ["#15100d", "#241812", "#3a2719", "#5a3b24", "#86653f", "#b09062"];
+const HAIRLINES = [[1.745, 1.63], [1.77, 1.71], [1.735, 1.6]];
 const SOCK = "#f2efe8", SOLE = "#2a2a2a";
-/* The arena, drawn: the dark beyond the court, the hardwood, the painted key, the lines, the
-   apron of wood past them (feet), the stands' slope, the rim and the net. */
-const ARENA = {dark: "#15110e", wood: "#c4874f", paint: "#6e2330", line: "#f4ecdc", rim: "#e0622a",
-               net: "#f2efe8", stands: "#2a221d", pad: "#1d2f5e", steel: "#3b2f29"};
+/* The arena, drawn: the dark beyond the court, the hardwood, the painted key, the apron past
+   the lines, the lines, the stands and their seats, the light the crowd is seen in, the rim and
+   the net; the apron of wood past the lines (feet), the stands' rise and run. The crowd (B4b-2):
+   rows and seats per texture, the feet of stand one texture spans, the share of empty seats, the
+   shirts (no team's). */
+const ARENA = {dark: "#15110e", wood: "#c4874f", paint: "#6e2330", apron: "#3a171c", line: "#f4ecdc",
+               rim: "#e0622a", net: "#f2efe8", stands: "#1d1714", seat: "#2c2522", crowdLight: "#c8beb4",
+               pad: "#1d2f5e", steel: "#3b2f29"};
 const APRON = 7, STANDS_H = 30, STANDS_RUN = 40;
+const CROWD = {rows: 16, seats: 28, span: 48, empty: 0.1,
+               shirts: ["#d8d2c6", "#3b4a63", "#7a2f2f", "#2f5a46", "#b08c3c", "#5a4a6e", "#1f2226",
+                        "#8c5a3a", "#456b8a", "#c46a3a", "#e8e4dc", "#4a4f57"]};
 /* Its light: a fill everywhere, a spot this high and this far up-court of the hoop with this
    cone (degrees) and soft edge, and a cool light from the camera's side; intensities as three.js
    takes them (B4's plan light sums to pi). */
@@ -502,17 +513,26 @@ function accessor(g, i) {
 
 /* The kit, in the mannequin's bind pose (metres, y up, +z front, a T-pose). The baggy shorts
    are a shell cut from its surface, pushed out along the normals (more toward the hem) and
-   skinned to the same bones; the tank top, its numbers, the socks and the shoes are painted
-   by the fragment shader from where each point sits in that pose, so their edges are crisp
-   whatever the triangles. */
+   skinned to the same bones; the tank top, its numbers, the shorts' side stripe and hem, the
+   socks, the shoes and the hair are painted by the fragment shader from where each point sits
+   in that pose, so their edges are crisp whatever the triangles (B4b-2: one shader for body and
+   shell, so the page compiles one program for every player). The hair covers the head above a
+   hairline that runs from the brow down to the nape (its two heights per player). */
 const KIT = {shortsLo: 0.585, shortsHi: 1, shortsX: 0.27, shortsOff: 0.02, flare: 0.07, flareTop: 0.8};
 const inShorts = (x, y) => y >= KIT.shortsLo && y <= KIT.shortsHi && Math.abs(x) <= KIT.shortsX;
 const KIT_GLSL = `
-uniform vec3 kitSkin, kitTop, kitInk, kitEdge, kitShorts, kitSock, kitShoe, kitSole;
+uniform vec3 kitSkin, kitTop, kitInk, kitEdge, kitShorts, kitStripe, kitSock, kitShoe, kitSole, kitHair;
+uniform vec2 kitHairline;
+uniform float kitShell;
 uniform sampler2D kitNumber;
 varying vec3 vRest, vRestN;
 vec3 kitColour() {
   float y = vRest.y, ax = abs(vRest.x);
+  if (kitShell > 0.5) {
+    float u = ax / ${KIT.shortsX.toFixed(3)}, v = (y - ${KIT.shortsLo.toFixed(3)}) / ${(KIT.shortsHi - KIT.shortsLo).toFixed(3)};
+    return (u > 0.72 && u < 0.83) || (v > 0.05 && v < 0.12) ? kitStripe : kitShorts;
+  }
+  if (y > 1.58 && y > mix(kitHairline.y, kitHairline.x, smoothstep(-0.05, 0.08, vRest.z))) return kitHair;
   if (y < 0.03) return kitSole;
   if (y < 0.125) return kitShoe;
   if (y < 0.215) return kitSock;
@@ -533,13 +553,17 @@ vec3 kitColour() {
   return kitSkin;
 }
 `;
-function kitMaterial(look) {
-  const m = new THREE.MeshStandardMaterial({roughness: 0.66, metalness: 0});
-  const u = {kitSkin: look.skin, kitTop: look.top, kitInk: look.ink, kitEdge: look.edge,
-             kitShorts: look.shorts, kitSock: SOCK, kitShoe: look.shoe, kitSole: SOLE};
+/** A player's kit, `shell` for his shorts' shell. Its uniforms live on the material
+    (userData.kit), so `dress` can give him another skin and hair without a new program. */
+function kitMaterial(look, shell) {
+  const m = new THREE.MeshStandardMaterial({roughness: shell ? 0.74 : 0.66, metalness: 0});
+  const u = m.userData.kit = {kitShell: {value: shell ? 1 : 0}, kitNumber: {value: look.number},
+                              kitHairline: {value: new THREE.Vector2(...HAIRLINES[0])}};
+  const colours = {kitSkin: SKINS[0], kitTop: look.top, kitInk: look.ink, kitEdge: look.edge, kitShorts: look.shorts,
+                   kitStripe: look.stripe, kitSock: SOCK, kitShoe: look.shoe, kitSole: SOLE, kitHair: HAIRS[0]};
+  for (const k in colours) u[k] = {value: new THREE.Color(colours[k])};
   m.onBeforeCompile = shader => {
-    for (const k in u) shader.uniforms[k] = {value: new THREE.Color(u[k])};
-    shader.uniforms.kitNumber = {value: look.number};
+    Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vRest, vRestN;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvRest = position; vRestN = normal;");
@@ -550,12 +574,15 @@ function kitMaterial(look) {
   m.customProgramCacheKey = () => "kit";
   return m;
 }
+/* The textures' canvases are painted in software (B4b-2): a GPU canvas would queue its drawing
+   on the GPU process, behind the shaders the stage is compiling, and hold up the first frame. */
+const SOFT = {willReadFrequently: true};
 /** A jersey number as a mask (canvas, no image file): fill in red, outline in green. */
 function numberTexture(number) {
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 128;
-  const x = c.getContext("2d");
+  const x = c.getContext("2d", SOFT);
   x.fillStyle = "#000";
   x.fillRect(0, 0, 256, 128);
   x.textAlign = "center";
@@ -571,20 +598,6 @@ function numberTexture(number) {
   tex.anisotropy = 4;
   return tex;
 }
-function shortsTexture(base, stripe) {
-  const c = document.createElement("canvas");
-  c.width = 64;
-  c.height = 64;
-  const x = c.getContext("2d");
-  x.fillStyle = base;
-  x.fillRect(0, 0, 64, 64);
-  x.fillStyle = stripe;
-  x.fillRect(46, 0, 7, 64);                    // the outer side of each leg
-  x.fillRect(0, 56, 64, 5);                    // the hem
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
 
 /** The mannequin's geometry (one body, one shorts shell), skeleton and clips. */
 function buildRig(bytes) {
@@ -594,7 +607,7 @@ function buildRig(bytes) {
     joi: accessor(g, p.attributes.JOINTS_0), wei: accessor(g, p.attributes.WEIGHTS_0), idx: accessor(g, p.indices)}));
   let nv = 0, ni = 0;
   for (const p of prims) { nv += p.pos.length / 3; ni += p.idx.length; }
-  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), joi = new Uint16Array(nv * 4);
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), joi = new Float32Array(nv * 4);
   const wei = new Float32Array(nv * 4), idx = new Uint32Array(ni);
   let ov = 0, oi = 0;
   for (const p of prims) {
@@ -620,7 +633,7 @@ function buildRig(bytes) {
     if (t3.every(v => inShorts(pos[v * 3], pos[v * 3 + 1]))) tris.push(...t3);
   }
   const n = tris.length, P = new Float32Array(n * 3), N = new Float32Array(n * 3);
-  const I = new Uint16Array(n * 4), Wt = new Float32Array(n * 4), UV = new Float32Array(n * 2);
+  const I = new Float32Array(n * 4), Wt = new Float32Array(n * 4), UV = new Float32Array(n * 2);
   tris.forEach((v, o) => {
     const x = pos[v * 3], y = pos[v * 3 + 1];
     const d = KIT.shortsOff + KIT.flare * Math.max(0, (KIT.flareTop - y) / (KIT.flareTop - KIT.shortsLo));
@@ -668,7 +681,7 @@ function makeBody(rig, look) {
   armature.add(B.bones[0]);
   armature.scale.setScalar(BODY_H / rig.height);
   const skeleton = new THREE.Skeleton(B.bones, rig.joints.map((_, k) => new THREE.Matrix4().fromArray(rig.ibm, k * 16)));
-  const mats = [kitMaterial(look), new THREE.MeshStandardMaterial({map: look.shortsMap, roughness: 0.74, metalness: 0})];
+  const mats = [kitMaterial(look, false), kitMaterial(look, true)];
   const meshes = [rig.body, rig.shorts].map((geo, i) => {
     const m = new THREE.SkinnedMesh(geo, mats[i]);
     m.castShadow = true;
@@ -898,6 +911,9 @@ const canvas = at("court");
 let GL = false, renderer = null;
 try {
   renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: true});
+  // B4b-2: three.js reads every program's info log on its first use, and on ANGLE that read waits
+  // for the driver; skipping it was most of the start-up (the console check sees a broken stage)
+  renderer.debug.checkShaderErrors = false;
   GL = true;
 } catch (e) {
   GL = false;
@@ -911,6 +927,8 @@ const size = {w: 0, h: 0, square: false};
 let scene3, persp, ortho, active, current = null, hover = -1;
 let pucks = [], ball, shadow, plan = [], hoverTris = [];
 let playRaf = 0, playLast = null, holdTimer = 0, flyRaf = 0, flyLast = null, fadeRaf = 0;
+/* B4b-2: the hook waits for its shaders (see warmUp); any call before they are ready cancels it. */
+let booting = false;
 /* B4b: the bodies, their rings, the arena and the two looks the rise blends between. */
 let rig = null, bodies = [], rings = [], look = null, lookE = 0;
 
@@ -1000,14 +1018,15 @@ function seeded(seed) {
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
-/** The hardwood over the court and its apron, boards along the court, the keys, the centre
-    circle and the apron stained in the paint colour (canvas, no image file). */
+/** The hardwood over the court and its apron, boards along the court, the keys and the centre
+    circle stained in the paint colour, the apron past the lines in a darker one, so the lit
+    court stands out of its surround (B4b-2) (canvas, no image file). */
 function woodTexture() {
   const hw = G.half_width_ft, along = -BASELINE + APRON, across = hw + APRON;
   const c = document.createElement("canvas");
   c.width = 1024;
   c.height = 2048;
-  const x = c.getContext("2d"), rnd = seeded(7), base = hexRGB(ARENA.wood), board = 4;
+  const x = c.getContext("2d", SOFT), rnd = seeded(7), base = hexRGB(ARENA.wood), board = 4;
   for (let col = 0; col < c.width; col += board) {
     let y = -Math.floor(rnd() * 120);
     while (y < c.height) {
@@ -1023,14 +1042,16 @@ function woodTexture() {
   }
   const sx = c.width / (2 * across), sy = c.height / (2 * along);
   const px = (X, Y) => [(Y + across) * sx, (along - X) * sy];   // drive (x, y) to canvas
-  x.globalAlpha = 0.82;
-  x.fillStyle = ARENA.paint;
+  x.globalAlpha = 0.9;
+  x.fillStyle = ARENA.apron;
   // the apron: everything outside the lines
   x.beginPath();
   x.rect(0, 0, c.width, c.height);
   const [ax, ay] = px(-BASELINE, -hw), [bx2, by2] = px(BASELINE, hw);
   x.rect(ax, ay, bx2 - ax, by2 - ay);
   x.fill("evenodd");
+  x.globalAlpha = 0.82;
+  x.fillStyle = ARENA.paint;
   const pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
   for (const sign of [1, -1]) {
     const [k0, k1] = px(sign * BASELINE, -pw), [k2, k3] = px(sign * ftx, pw);
@@ -1046,29 +1067,44 @@ function woodTexture() {
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
-/** A crowd for the stands: rows of seats and heads, dim (canvas, seeded). */
+/** A crowd for the stands (B4b-2): CROWD.rows rows of seats a texture tall, CROWD.seats a texture
+    wide (one texture spans CROWD.span feet of stand), most seats taken; each spectator a shirt
+    from CROWD.shirts, a face and hair from the players' palettes, sitting a little higher or
+    lower (canvas, seeded: the same crowd on every load, and it never moves). */
 function crowdTexture() {
   const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 256;
-  const x = c.getContext("2d"), rnd = seeded(11);
-  x.fillStyle = "#1b1512";
-  x.fillRect(0, 0, 512, 256);
-  const tones = ["#6b4a3a", "#8a6a55", "#3d2c25", "#5a5e6e", "#7a3a34", "#2f3b52", "#9a8a70", "#4c5a44"];
-  for (let row = 0; row < 16; row++) {
-    x.fillStyle = "#241c18";
-    x.fillRect(0, row * 16 + 11, 512, 4);
-    for (let i = 0; i < 70; i++) {
-      if (rnd() < 0.15) continue;
-      x.fillStyle = tones[Math.floor(rnd() * tones.length)];
+  c.width = 1024;
+  c.height = 512;
+  const x = c.getContext("2d", SOFT), rnd = seeded(11), rowH = c.height / CROWD.rows, w = c.width / CROWD.seats;
+  x.fillStyle = ARENA.stands;
+  x.fillRect(0, 0, c.width, c.height);
+  for (let row = 0; row < CROWD.rows; row++) {
+    const y0 = row * rowH;
+    x.fillStyle = ARENA.seat;                                 // the row of seat backs
+    x.fillRect(0, y0 + rowH * 0.74, c.width, rowH * 0.18);
+    for (let i = 0; i < CROWD.seats; i++) {
+      const cx = (i + 0.5 + (rnd() - 0.5) * 0.2) * w;
+      if (rnd() < CROWD.empty) continue;
+      const up = rowH * (rnd() - 0.5) * 0.12, shirt = CROWD.shirts[Math.floor(rnd() * CROWD.shirts.length)];
+      const skin = SKINS[Math.floor(rnd() * SKINS.length)], hair = HAIRS[Math.floor(rnd() * HAIRS.length)];
+      x.fillStyle = shirt;
       x.beginPath();
-      x.ellipse((i + rnd() * 0.6) * 512 / 70, row * 16 + 6 + rnd() * 2, 2.6, 3.2, 0, 0, 2 * Math.PI);
+      x.roundRect(cx - w * 0.34, y0 + rowH * 0.46 + up, w * 0.68, rowH * 0.5, w * 0.16);
+      x.fill();
+      x.fillStyle = skin;
+      x.beginPath();
+      x.ellipse(cx, y0 + rowH * 0.3 + up, w * 0.16, rowH * 0.17, 0, 0, 2 * Math.PI);
+      x.fill();
+      x.fillStyle = hair;
+      x.beginPath();
+      x.ellipse(cx, y0 + rowH * 0.25 + up, w * 0.17, rowH * 0.13, 0, Math.PI, 2 * Math.PI);
       x.fill();
     }
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
 /** The ball's leather and seams (canvas, mapped as the sphere maps it). */
@@ -1076,7 +1112,7 @@ function ballTexture() {
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 128;
-  const x = c.getContext("2d"), img = x.createImageData(256, 128), rnd = seeded(3), base = hexRGB(ARENA.rim);
+  const x = c.getContext("2d", SOFT), img = x.createImageData(256, 128), rnd = seeded(3), base = hexRGB(ARENA.rim);
   const side = Math.cos(55 * DEG), seam = 0.035;
   for (let j = 0; j < 128; j++) {
     for (let i = 0; i < 256; i++) {
@@ -1110,6 +1146,12 @@ function buildArena() {
   const fade = [];
   const fading = m => { m.transparent = true; fade.push(m); return m; };
   const L = {arena, fade};
+  // B4b-2: every lit surface of the arena is one kind of material (a map, white where it has no
+  // texture, both sides, in the key light's shadow), so the GPU compiles one program for all
+  const white = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  white.needsUpdate = true;
+  const lit = (params, map = white) => new THREE.MeshStandardMaterial({map, side: THREE.DoubleSide, metalness: 0, ...params});
+  const receive = m => { m.receiveShadow = true; return m; };
   // the arena's light: a soft pool over the attacked half (the far court and the stands fall
   // off into the dark), a dim fill everywhere, and a light from the camera's side; all warm, so
   // no surface renders the neutral greys the plan's trails use
@@ -1135,34 +1177,35 @@ function buildArena() {
   ground.renderOrder = -7;
   L.ground = ground;
   scene3.add(ground);
-  const wood = new THREE.Mesh(new THREE.PlaneGeometry(2 * (hw + APRON), -2 * BASELINE + 2 * APRON),
-    new THREE.MeshStandardMaterial({map: woodTexture(), roughness: 0.62, metalness: 0, depthWrite: false}));
+  const wood = receive(new THREE.Mesh(new THREE.PlaneGeometry(2 * (hw + APRON), -2 * BASELINE + 2 * APRON),
+    lit({roughness: 0.62, depthWrite: false})));
   wood.rotation.x = -Math.PI / 2;
-  wood.receiveShadow = true;
   wood.renderOrder = -6;
   arena.add(wood);
   const lines = new Tris(ARENA.line, 12000, 0.012, -5);
-  lines.mat = lines.mesh.material = new THREE.MeshStandardMaterial({color: ARENA.line, roughness: 0.5,
-    depthWrite: false, depthTest: false, side: THREE.DoubleSide});
-  lines.mesh.receiveShadow = true;
+  lines.mat = lines.mesh.material = lit({color: ARENA.line, roughness: 0.5, depthWrite: false, depthTest: false});
+  // a strip's triangles face down (its quads turn clockwise seen from above); both sides are drawn
+  // and the seen side's normal is flipped, so a downward normal lights them from above
+  lines.geom.setAttribute("normal", new THREE.BufferAttribute(lines.pos.map((_, i) => (i % 3 === 1 ? -1 : 0)), 3));
+  receive(lines.mesh);
   for (const line of courtLines()) strip(lines, line.map(flat), LINE_W);
   lines.commit();
   arena.add(lines.mesh);
 
   // the stands on four sides, a slope of crowd beyond the apron
-  const crowd = fading(new THREE.MeshStandardMaterial({map: crowdTexture(), color: "#8a7f76", roughness: 1}));
+  const crowd = fading(lit({color: ARENA.crowdLight, roughness: 1}));
   const xa = -BASELINE + APRON + 5, ya = hw + APRON + 5, R = STANDS_RUN, H = STANDS_H;
   for (const [corners, len] of [
     [[[-xa, ya, 0], [xa, ya, 0], [xa, ya + R, H], [-xa, ya + R, H]], 2 * xa],
     [[[xa, -ya, 0], [-xa, -ya, 0], [-xa, -ya - R, H], [xa, -ya - R, H]], 2 * xa],
     [[[xa, ya, 0], [xa, -ya, 0], [xa + R, -ya, H], [xa + R, ya, H]], 2 * ya],
     [[[-xa, -ya, 0], [-xa, ya, 0], [-xa - R, ya, H], [-xa - R, -ya, H]], 2 * ya]]) {
-    const n = len / 24;
-    arena.add(quad(corners, [[0, 0], [n, 0], [n, 1], [0, 1]], crowd));
+    const n = len / CROWD.span;
+    arena.add(receive(quad(corners, [[0, 0], [n, 0], [n, 1], [0, 1]], crowd)));
   }
   // the far basket and both stanchions, the net under each rim
-  const pad = fading(new THREE.MeshStandardMaterial({color: ARENA.pad, roughness: 0.8}));
-  const metal = fading(new THREE.MeshStandardMaterial({color: "#2b2d31", roughness: 0.5, metalness: 0.3}));
+  const pad = fading(lit({color: ARENA.pad, roughness: 0.8}));
+  const metal = fading(lit({color: "#2b2d31", roughness: 0.5, metalness: 0.3}));
   const net = new THREE.LineBasicMaterial({color: ARENA.net, transparent: true});
   fade.push(net);
   for (const sign of [1, -1]) {
@@ -1174,8 +1217,7 @@ function buildArena() {
       post.position.copy(V(back, 0, (BOARD_HIGH + 0.9) / 2));
       const base = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3, 5), pad);
       base.position.copy(V(back - sign * 1.2, 0, 1.5));
-      arena.add(arm, post, base);
-      for (const m of [arm, post, base]) m.castShadow = true;
+      arena.add(receive(arm), receive(post), receive(base));
     }
     const pts = [];
     for (let i = 0; i < 16; i++) {
@@ -1185,34 +1227,43 @@ function buildArena() {
     }
     arena.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), net));
     if (sign < 0) {
-      const glassMat = fading(new THREE.MeshStandardMaterial({color: C.white, opacity: 0.25, depthWrite: false}));
+      const glassMat = fading(lit({color: C.white, opacity: 0.25, depthWrite: false}));
       glassMat.userData.opacity = 0.25;
       const glass = new THREE.Mesh(new THREE.BoxGeometry(2 * BOARD_HALF, BOARD_HIGH - BOARD_LOW, 0.08), glassMat);
       glass.position.copy(V(-bxb, 0, (BOARD_LOW + BOARD_HIGH) / 2));
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), fading(new THREE.MeshStandardMaterial({color: ARENA.rim})));
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), fading(lit({color: ARENA.rim})));
       rim.rotation.x = Math.PI / 2;
       rim.position.copy(V(-HOOP_X, 0, RIM_Z));
-      arena.add(glass, rim);
+      arena.add(receive(glass), receive(rim));
     }
   }
   // the textured ball, the bodies (one per slot, in his team's kit) and the rings under them
-  L.ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20),
-    new THREE.MeshStandardMaterial({map: ballTexture(), roughness: 0.6, metalness: 0}));
+  L.ball = receive(new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20), lit({roughness: 0.6})));
+  // the canvases are painted by finishStage, once the GPU is compiling (a map's presence, not its
+  // pixels, decides the program)
+  L.painted = [[wood.material, woodTexture], [crowd, crowdTexture], [L.ball.material, ballTexture]];
   scene3.add(L.ball);
-  const bytes = Uint8Array.from(atob(at("players-glb").textContent.trim()), ch => ch.charCodeAt(0));
+  // B4b-2: the browser's own decoder where there is one; a plain loop otherwise (a mapped
+  // Array.from took a tenth of the start-up)
+  const b64 = at("players-glb").textContent.trim();
+  const bytes = Uint8Array.fromBase64 ? Uint8Array.fromBase64(b64) : (bin => {
+    const out = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) out[k] = bin.charCodeAt(k);
+    return out;
+  })(atob(b64));
   rig = buildRig(bytes);
-  GAIT = {idle: {clip: rig.clips.Idle_Loop, stride: 0, speed: 0, offset: 0},
-          cIdle: {clip: rig.clips.Crouch_Idle_Loop, stride: 0, speed: 0, offset: 0},
-          walk: gaitOf(rig, rig.clips.Walk_Loop), jog: gaitOf(rig, rig.clips.Jog_Fwd_Loop),
-          cFwd: gaitOf(rig, rig.clips.Crouch_Fwd_Loop)};
+  // the key light's shadow pass draws the bodies with this depth material (three.js's default
+  // one, made ours so warmUp can compile it too)
+  L.depth = new THREE.MeshDepthMaterial();
   bodies = Array.from({length: 10}, (_, k) => {
-    const kit = KITS[k < 5 ? 0 : 1], n = kit.numbers[k % 5];
-    const B = makeBody(rig, {skin: SKINS[(k * 3) % SKINS.length], top: kit.top, ink: kit.ink, edge: kit.edge,
-                             shorts: kit.shorts, shoe: kit.shoe, number: numberTexture(n),
-                             shortsMap: shortsTexture(kit.shorts, kit.stripe)});
+    const kit = KITS[k < 5 ? 0 : 1];
+    const B = makeBody(rig, {top: kit.top, ink: kit.ink, edge: kit.edge, shorts: kit.shorts, stripe: kit.stripe,
+                             shoe: kit.shoe, number: white});
     const s = BODY_H / rig.height, bone = name => B.byName[name].position.length() * s;
     B.arm = bone("lowerarm_r") + bone("hand_r");
     B.palm = bone("middle_01_r");
+    B.number = kit.numbers[k % 5];
+    for (const m of B.meshes) m.customDepthMaterial = L.depth;
     scene3.add(B.group);
     return B;
   });
@@ -1359,6 +1410,39 @@ function buildStage() {
   // plain ball (the textured one stands in for it until the plan)
   for (const m of pucks) m.castShadow = false;
   ball.castShadow = false;
+}
+
+/** Start the GPU on every program the stage draws with (B4b-2). The first draw with a program
+    waits for its compile, and on ANGLE that was most of the start-up: compiling them all at once,
+    on the GPU's threads (KHR_parallel_shader_compile, through compileAsync), while the page
+    lays itself out, lets the hook's first frame wait only for the slowest. The plan look's are
+    started too, so the rise never waits; the promise is the broadcast look's. */
+function warmUp() {
+  setLook(1);
+  renderer.compile(scene3, ortho);
+  setLook(0);
+  // the shadow pass's program: the bodies' depth material on a skinned mesh, into a render target,
+  // facing as three.js turns it for a front-sided body (its shadowSide table)
+  const probe = new THREE.SkinnedMesh(rig.body, look.depth), target = new THREE.WebGLRenderTarget(1, 1);
+  probe.bind(bodies[0].meshes[0].skeleton, bodies[0].meshes[0].bindMatrix);
+  look.depth.side = THREE.BackSide;
+  renderer.setRenderTarget(target);
+  const shadows = renderer.compileAsync(probe, persp, scene3);
+  renderer.setRenderTarget(null);
+  return Promise.all([shadows, renderer.compileAsync(scene3, persp)]).then(() => target.dispose());
+}
+/** What the shaders do not depend on, done while they compile (B4b-2): the canvas textures and
+    the jersey numbers, painted, and the gait read from the clips. */
+function finishStage() {
+  for (const [material, paint] of look.painted) material.map = paint();
+  for (const B of bodies) {
+    const tex = numberTexture(B.number);
+    for (const m of B.meshes) m.material.userData.kit.kitNumber.value = tex;
+  }
+  GAIT = {idle: {clip: rig.clips.Idle_Loop, stride: 0, speed: 0, offset: 0},
+          cIdle: {clip: rig.clips.Crouch_Idle_Loop, stride: 0, speed: 0, offset: 0},
+          walk: gaitOf(rig, rig.clips.Walk_Loop), jog: gaitOf(rig, rig.clips.Jog_Fwd_Loop),
+          cFwd: gaitOf(rig, rig.clips.Crouch_Fwd_Loop)};
 }
 
 /** The orthographic frame that contains a scene's crop in the canvas's aspect ("contain",
@@ -1740,8 +1824,9 @@ function handleBall(B, s, P) {
   }
 }
 
-/** Draw the scene at clip time t: tokens, ball, and (in plan) the trails; then the panels. */
-function drawAt(t) {
+/** Draw the scene at clip time t: tokens, ball, and (in plan) the trails; then the panels.
+    `draw` false poses everything and leaves the canvas as it was (B4b-2: the start-up). */
+function drawAt(t, draw = true) {
   const s = SCENES[st.scene];
   current = posAt(s, t);
   const P = current;
@@ -1773,14 +1858,29 @@ function drawAt(t) {
     const inPlan = st.view === "plan";
     for (const m of [...plan, ...hoverTris]) m.mesh.visible = inPlan;
     if (inPlan) drawPlan(s, P);
-    render();
+    if (draw) render();
   }
   if (!measure.hidden) updateMeasure(P);
   scrub.value = String(Math.round(t * FPS));
   scrub.setAttribute("aria-valuetext", `t = ${t.toFixed(2)} s`);
 }
 
-/** A scene's colours and labels onto the stage. */
+/** Each player of the scene his skin, hair colour and hairline, from a generator seeded by the
+    scene and his slot (B4b-2): decoration, set as uniforms of his kit. */
+function dress() {
+  bodies.forEach((B, k) => {
+    const rnd = seeded(1000 * (st.scene + 1) + k), skin = Math.floor(rnd() * SKINS.length);
+    const hair = Math.floor(rnd() * (skin >= SKINS.length / 2 ? 2 : HAIRS.length)), line = HAIRLINES[Math.floor(rnd() * HAIRLINES.length)];
+    for (const m of B.meshes) {
+      const u = m.material.userData.kit;
+      u.kitSkin.value.set(SKINS[skin]);
+      u.kitHair.value.set(HAIRS[hair]);
+      u.kitHairline.value.set(line[0], line[1]);
+    }
+  });
+}
+
+/** A scene's colours, players and labels onto the stage. */
 function loadScene() {
   const s = SCENES[st.scene];
   hover = -1;
@@ -1788,6 +1888,7 @@ function loadScene() {
     pucks.forEach((m, k) => m.material.color.set(s.colour[k]));
     rings.forEach((m, k) => m.material.color.set(s.colour[k]));
     plan.forEach((t, k) => t.mat.color.set(trailOf(s.colour[k])));
+    dress();
     buildTags(s);
   }
 }
@@ -1798,7 +1899,8 @@ function loadScene() {
 const measure = at("measure"), scrub = at("scrub"), playBtn = at("play"), nextBtn = at("next");
 const viewB = at("view-broadcast"), viewP = at("view-plan");
 
-const cancelHold = () => { clearTimeout(holdTimer); holdTimer = 0; };
+// cancels the pending automatic step: the rise after a broadcast run, or the hook's start (B4b-2)
+const cancelHold = () => { clearTimeout(holdTimer); holdTimer = 0; booting = false; };
 const stopPlay = () => { cancelAnimationFrame(playRaf); playRaf = 0; playLast = null; };
 const stopFlight = () => { cancelAnimationFrame(flyRaf); flyRaf = 0; flyLast = null; };
 const stopFade = () => { cancelAnimationFrame(fadeRaf); fadeRaf = 0; };
@@ -1899,7 +2001,7 @@ function syncUI() {
   viewB.setAttribute("aria-pressed", String(st.view === "broadcast"));
   viewP.setAttribute("aria-pressed", String(st.view === "plan"));
   const where = st.view === "broadcast"
-    ? `the broadcast camera, ${RATE === 0.5 ? "half speed" : RATE + "× speed"}`
+    ? `the broadcast camera, slow motion (${RATE === 0.5 ? "half speed" : RATE + "× speed"} on average)`
     : "from above: the measure";
   at("stage-caption").textContent = rising ? "rising to the top-down view"
     : `Drive ${st.scene + 1} of ${SCENES.length} · game ${s.game} · `
@@ -2356,7 +2458,7 @@ function sample(x, y) {
   return dx === null || dy === null ? null : [dx, dy];
 }
 const breeze = {w: 0, h: 0, s: 1, yLo: -(G.half_width_ft + MARGIN), xHi: xs[xs.length - 1] + GRID / 2 + MARGIN,
-              xLo: BASELINE - MARGIN, raf: 0, last: null, parts: [], seen: false};
+              xLo: BASELINE - MARGIN, raf: 0, last: null, parts: [], seen: false, drawn: false};
 const wpx = y => (y - breeze.yLo) * breeze.s, wpy = x => (breeze.xHi - x) * breeze.s;
 const defined = F.mean_dx.map((v, r) => (v === null ? -1 : r)).filter(r => r >= 0);
 
@@ -2373,10 +2475,18 @@ function sizeWind() {
     c.style.height = h + "px";
     c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  drawWindBase(dpr);
+  breeze.drawn = false;
+  if (breeze.seen) drawWind();
+}
+/** The map under the wind and, under reduced motion, its streamlines: drawn when the block first
+    comes near the viewport and again after a resize (B4b-2: sized at load, so the page's height
+    never shifts, but drawn off the hook's first second). */
+function drawWind() {
+  if (breeze.drawn || !breeze.w) return;
+  breeze.drawn = true;
+  drawWindBase(Math.min(window.devicePixelRatio || 1, 2));
   breeze.parts = [];
-  const ctx = flow.getContext("2d");
-  ctx.clearRect(0, 0, w, h);
+  at("wind-flow").getContext("2d").clearRect(0, 0, breeze.w, breeze.h);
   if (STILL) drawStreamlines();
 }
 function drawWindBase(dpr) {
@@ -2521,7 +2631,7 @@ function renderStatic() {
   const towardRow = `grouping=bearing_band;group=${B.toward.group}`, awayRow = `grouping=bearing_band;group=${B.away.group}`;
   const HS = L.horizon_s.toFixed(0) + NB + "s";
   at("eyebrow").textContent = `SkillCorner open ACB tracking · ${tb.n_games} games · the second help`;
-  at("watch").innerHTML = `The broadcast camera behind the basket, at ${RATE === 0.5 ? "half speed" : RATE + "× speed"}.`
+  at("watch").innerHTML = `The broadcast camera behind the basket, in slow motion, slowest as the helper steps.`
     + ` Watch the helper (orange ring) step toward the ball, and the man he left (black ring) drift free.`
     + ` When the clip ends the camera rises: the measure is taken from above, where feet on the`
     + ` floor are not distorted. Every number waits for that view.`;
@@ -2583,7 +2693,8 @@ function renderStatic() {
       + ` provider_direction and flip)</span>`,
     `Players stand on their tracked (x, y): bodies in the broadcast view, tokens from above. The`
       + ` bundle has no bodies, no pose, no facing; the bodies' stride, facing and hands are drawn from`
-      + ` (x, y) and the ball, and nothing is measured from them. The`
+      + ` (x, y) and the ball, their skin, hair and kits (and the crowd) are decoration, and nothing is`
+      + ` measured from any of them. The`
       + ` ${SCENES.length} drives shown have all ten players detected on every frame of their window (the rule);`
       + ` the tables behind the numbers include extrapolated positions: ${q(D.vectors.detected_both, pct(D.vectors.detected_both, 1), "help_vectors.csv", "detected0 and detected1")}`
       + ` of the defenders off the ball are detected at both ends of the first second. <span class="src">(help_vectors.csv,`
@@ -2649,7 +2760,8 @@ function relayout() {
 
 /* -------------------------------------------------------------------- start */
 renderStatic();
-if (GL) buildStage();
+const warm = GL ? (buildStage(), warmUp()) : null;
+if (GL) finishStage();
 sizeStage();
 sizeWind();
 loadScene();
@@ -2672,8 +2784,19 @@ if (!GL) {
   st.view = "broadcast";
   st.t = 0;
   placeCamera(0);
-  drawAt(0);
-  startPlay();
+  drawAt(0, false);
+  booting = true;
+  warm.then(() => {
+    if (!booting) return;
+    drawAt(0);
+    // the clock starts two frames later: the GPU's first use of each program and texture makes
+    // the frames after the first long, and a clock running under them would jump the clip
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!booting) return;
+      booting = false;
+      startPlay();
+    }));
+  });
 }
 syncUI();
 new ResizeObserver(relayout).observe(document.body);
@@ -2681,6 +2804,9 @@ const watcher = new IntersectionObserver(entries => {
   for (const e of entries) { if (e.isIntersecting) api.field.start(); else api.field.stop(); }
 });
 watcher.observe(at("windbox"));
+new IntersectionObserver(entries => {
+  if (entries.some(e => e.isIntersecting)) { breeze.seen = true; drawWind(); }
+}, {rootMargin: "300px 0px"}).observe(at("windbox"));
 </script>
 </body>
 </html>
