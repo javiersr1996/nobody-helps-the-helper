@@ -208,6 +208,16 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       absence of rotation toward the man left, not a rotation away from him. The figure carries
       it next to the mean, and the README and page must too. Open share at 1.5 s: 58 % against
       76 % without a helper (41 % and 62 % at 0 s). Two look-and-fix passes.
+      **Revised 2026-10-29 after a council screening (47/100, "not ready").** Taken: the 60 %
+      is near-persistence (the helper guarded that man at the start; with no helper his own
+      defender is nearest 78 %), so the title now states the measured absence ("Nobody else
+      moves toward the man the helper left"); the grey series overlaps the black at every
+      horizon, written on the figure and guarded by a ValueError (seen to fire once); the
+      placebo panel promoted, 11 pt, 252 of 258 explained, one robustness line (15 of 18
+      cells, 7 of 10 games, both computed). Rejected: the screening's title "58 % unguarded vs
+      76 % when nobody helped", which reads the base rate as a cost (41 -> 58 % against
+      62 -> 76 % are similar rises). Final 1440 x 2262 px. Memoria 9.2 and the 11 sentence on
+      the nearest defender follow it.
 - [ ] A6 Memoria v0.3 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
       (the new figure 2); new section 13 "La segunda ayuda: una ausencia medida" (the council's
       37/100 and why points per chance has no power; the placebo design; the three results; the

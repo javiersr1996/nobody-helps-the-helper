@@ -25,7 +25,7 @@ Every number printed on either figure is computed here from the CSVs, never type
 is drawn inside the court but the court, the data and the ball's median path: numbers,
 keys and legends live in a strip under it, where no streamline can cross them.
 
-Needs `reports/second_help_summary.csv` and `second_help_drives.csv` too, which
+Needs the `second_help_*.csv` drives, summary, sensitivity and by_game too, which
 `scripts/second_help.py` writes.
 
 Writes {out}/wind_figure_1_wind_map.png and {out}/wind_figure_2_who_covers.png.
@@ -90,10 +90,11 @@ CORNER_Y_FT = 18.0
 FIGSIZE = (7.2, 8.9)
 COURT_BOX = (0.03, 0.175, 0.94, 0.745)
 STRIP_TOP = 0.15
-#: Figure 2 carries more in its strip (a chart, three lines of numbers and a sentence), so it
-#: is taller; the court keeps the width and the strip gets the extra height.
-FIGSIZE_2 = (7.2, 10.8)
-COURT_BOX_2 = (0.03, 0.33, 0.94, 0.61)
+#: Figure 2 is laid out top-down in inches (the strip carries a chart and five paragraphs at
+#: TEXT_PT, so its height follows from what it holds): width, the court's height, the side
+#: margin, the line spacing and the characters per line that fit the width at TEXT_PT.
+FIG2_WIDTH_IN, COURT_IN, MARGIN_IN = 7.2, 4.9, 0.3
+TEXT_PT, LINE_SPACING, WRAP_CHARS = 11, 1.4, 82
 
 
 def to_plot(x, y) -> tuple[np.ndarray, np.ndarray]:
@@ -236,82 +237,124 @@ def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, numbers: dict, path: Pa
     plt.close(fig)
 
 
-def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, path: Path) -> None:
+def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, sensitivity: pd.DataFrame,
+             by_game: pd.DataFrame, path: Path) -> None:
     def cell(horizon: int, helped: bool) -> pd.Series:
         return summary[(summary["horizon"] == horizon) & (summary["helped"] == helped)].iloc[0]
+
+    for h in CHART_HORIZONS:  # the sentence under the chart says they overlap: fail if not
+        a, b = cell(h, True), cell(h, False)
+        if a["ci_low"] > b["ci_high"] or b["ci_low"] > a["ci_high"]:
+            raise ValueError(f"the helped and no-helper CIs do not overlap at {h} frames")
 
     head, base = cell(HEADLINE_HORIZON, True), cell(HEADLINE_HORIZON, False)
     seconds = f"{head['horizon_s']:.1f} s"
     dots = drives[drives["helped"]].dropna(subset=[f"left_x_{HEADLINE_HORIZON}",
                                                    f"nearest_who_{HEADLINE_HORIZON}"])
+    n_cut = int(drives["helped"].sum()) - len(dots)
+    excludes = int(((sensitivity["ci_low"] > 0) | (sensitivity["ci_high"] < 0)).sum())
+    games = by_game[(by_game["horizon"] == HEADLINE_HORIZON) & by_game["helped"]]
+    pct = lambda v: f"{100 * v:.0f}%"  # noqa: E731
 
-    fig = plt.figure(figsize=FIGSIZE_2)
-    ax = fig.add_axes(COURT_BOX_2)
-    draw_court(ax)
-    for z, (who, (color, marker, _)) in enumerate(WHO_STYLE.items()):
-        mine = dots[dots[f"nearest_who_{HEADLINE_HORIZON}"] == who]  # the rarer on top
-        px, py = to_plot(mine[f"left_x_{HEADLINE_HORIZON}"], mine[f"left_y_{HEADLINE_HORIZON}"])
-        ax.scatter(px, py, s=34, marker=marker, color=color, edgecolor="white", linewidth=0.5,
-                   zorder=4 + z)
-    ax.set_title(f"The man the helper left, {seconds} into the drive: the defender\n"
-                 f"nearest to him is, most often, the helper himself.", fontsize=11, loc="left")
+    def build(height: float, out: Path | None) -> float:
+        """Draw top-down on a figure `height` inches tall; return the inches used."""
+        fig = plt.figure(figsize=(FIG2_WIDTH_IN, height))
+        inches = fig.dpi_scale_trans
+        used = [0.2]
 
-    fig.text(0.04, 0.322, f"One dot per helped drive ({len(dots)}), where the man left stands. "
-             f"Colour and shape: the defender nearest to him.", fontsize=8, color=INK, va="top")
-    fig.legend(handles=[Line2D([], [], marker=m, linestyle="none", markersize=6, color=c, label=n)
-                        for c, m, n in WHO_STYLE.values()],
-               loc="upper left", bbox_to_anchor=(0.03, 0.308), ncol=3, frameon=False, fontsize=8,
-               handletextpad=0.2, columnspacing=1.6, borderaxespad=0)
+        def put(text: str, gap: float = 0.14, **style) -> None:
+            wrapped = textwrap.fill(text, WRAP_CHARS)
+            fig.text(MARGIN_IN, height - used[0], wrapped, transform=inches, va="top",
+                     fontsize=TEXT_PT, color=INK, linespacing=LINE_SPACING, **style)
+            used[0] += (wrapped.count("\n") + 1) * TEXT_PT * LINE_SPACING / 72 + gap
 
-    fig.text(0.04, 0.282, "The three other defenders: rotation\ntoward him minus toward the other\n"
-             "attackers off the ball (the placebo), feet.", fontsize=8, color=INK,
-             va="top", linespacing=1.4)
-    chart = fig.add_axes([0.10, 0.115, 0.27, 0.085])
-    spots = np.arange(len(CHART_HORIZONS))
-    labels = []
-    for helped, color, shift in ((True, INK, -0.07), (False, GREY, 0.07)):
-        rows = [cell(h, helped) for h in CHART_HORIZONS]
-        mean = np.array([r["mean_diff"] for r in rows])
-        low, high = np.array([r["ci_low"] for r in rows]), np.array([r["ci_high"] for r in rows])
-        chart.errorbar(spots + shift, mean, yerr=[mean - low, high - mean], fmt="o", color=color,
-                       markersize=4, capsize=2.5, linewidth=1.1)
-        labels.append(Line2D([], [], marker="o", color=color, markersize=4, linewidth=1.1,
-                             label="helped drives" if helped else "drives with no helper"))
-    chart.axhline(0, color=COURT, linewidth=0.8)
-    chart.set_xticks(spots, [f"{cell(h, True)['horizon_s']:.1f}" for h in CHART_HORIZONS])
-    chart.set_xlim(-0.5, len(CHART_HORIZONS) - 0.5)
-    chart.set_xlabel("seconds after the drive starts", fontsize=7.5, labelpad=2)
-    chart.tick_params(labelsize=7, length=2)
-    for spine in ("top", "right"):
-        chart.spines[spine].set_visible(False)
-    fig.legend(handles=labels, loc="upper left", bbox_to_anchor=(0.04, 0.222), ncol=2,
-               frameon=False, fontsize=7.5, handletextpad=0.2, columnspacing=1.2, borderaxespad=0)
+        def frac(left, top, width, tall):  # inches from the top-left -> figure fractions
+            return [left / FIG2_WIDTH_IN, 1 - (top + tall) / height, width / FIG2_WIDTH_IN,
+                    tall / height]
 
-    lines = ["Helped drives, by horizon: mean over drives (95% CI of the mean);",
-             "median over pairs; share of pairs above 0."]
-    for h in CHART_HORIZONS:
-        r = cell(h, True)
-        lines.append(f"{r['horizon_s']:.1f} s: mean {r['mean_diff']:+.2f} ({r['ci_low']:+.2f} to "
-                     f"{r['ci_high']:+.2f}); median {r['median_diff']:+.2f}; "
-                     f"{100 * r['share_diff_positive']:.0f}% of pairs > 0")
-    lines += ["A pair is one drive and one of the three defenders. The median and the",
-              "share show the typical pair close to the placebo: the mean is pulled by",
-              "the tails."]
-    fig.text(0.45, 0.272, "\n".join(lines), fontsize=7.5, color=INK, va="top", linespacing=1.5)
+        put("Nobody else moves toward the man the helper left", gap=0.06, weight="bold")
+        put(f"{seconds} into the drive the three other defenders move toward him no more than "
+            f"toward the other off-ball attackers, with or without a helper.", gap=0.1)
+        ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
+        draw_court(ax)
+        for z, (who, (color, marker, _)) in enumerate(WHO_STYLE.items()):
+            mine = dots[dots[f"nearest_who_{HEADLINE_HORIZON}"] == who]  # the rarer on top
+            px, py = to_plot(mine[f"left_x_{HEADLINE_HORIZON}"],
+                             mine[f"left_y_{HEADLINE_HORIZON}"])
+            ax.scatter(px, py, s=34, marker=marker, color=color, edgecolor="white",
+                       linewidth=0.5, zorder=4 + z)
+        used[0] += COURT_IN + 0.1
 
-    text = (f"At {seconds} the defender nearest to the man left is the helper in "
-            f"{100 * head['nearest_helper']:.0f}% of helped drives, the ball handler's defender "
-            f"in {100 * head['nearest_handler_def']:.0f}% and a third defender in "
-            f"{100 * head['nearest_third']:.0f}%. He is open (nobody within {OPEN_FT:.0f} ft) in "
-            f"{100 * head['left_open_share']:.0f}% of them at {seconds}, from "
-            f"{100 * head['left_open0_share']:.0f}% at 0 s; the comparable man in drives with no "
-            f"helper is open in {100 * base['left_open_share']:.0f}% at {seconds}, from "
-            f"{100 * base['left_open0_share']:.0f}% at 0 s.")
-    fig.text(0.04, 0.062, textwrap.fill(text, 112), fontsize=8, color=INK, va="top",
-             linespacing=1.5)
+        shares = {"helper": (f"{pct(head['nearest_helper'])} (with no helper, his own "
+                             f"defender: {pct(base['nearest_helper'])})"),
+                  "handler_def": f"{pct(head['nearest_handler_def'])} "
+                                 f"({pct(base['nearest_handler_def'])})",
+                  "third": f"{pct(head['nearest_third'])} ({pct(base['nearest_third'])})"}
+        key = fig.legend(
+            handles=[Line2D([], [], marker=m, linestyle="none", markersize=8, color=c,
+                            label=f"{n} {shares[who]}") for who, (c, m, n) in WHO_STYLE.items()],
+            title=f"Nearest at {seconds} (no helper). {len(dots)} of {len(dots) + n_cut} helped "
+                  f"drives; {n_cut} end sooner",
+            loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
+                                              1 - used[0] / height),
+            frameon=False, fontsize=TEXT_PT, title_fontsize=TEXT_PT, handletextpad=0.3,
+            labelspacing=0.5, borderaxespad=0)
+        key._legend_box.align = "left"
+        used[0] += 4 * TEXT_PT * LINE_SPACING / 72 + 0.25
+        put("Rotation toward him minus toward the placebo: mean over drives, 95% CI.",
+            gap=0.04)
+        fig.legend(handles=[Line2D([], [], marker="o", color=c, markersize=8, linewidth=1.6,
+                                   label=n) for c, n in ((INK, "helped drives"),
+                                                         (GREY, "drives with no helper"))],
+                   loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
+                                                     1 - used[0] / height),
+                   ncol=2, frameon=False, fontsize=TEXT_PT, handletextpad=0.3,
+                   columnspacing=1.4, borderaxespad=0)
+        used[0] += 0.4
+        chart_h = 1.4
+        chart = fig.add_axes(frac(0.85, used[0] + 0.3, 3.5, chart_h))
+        rows = np.arange(len(CHART_HORIZONS))
+        for helped, color, shift in ((True, INK, -0.16), (False, GREY, 0.16)):
+            cells = [cell(h, helped) for h in CHART_HORIZONS]
+            mean = np.array([c["mean_diff"] for c in cells])
+            low, high = (np.array([c["ci_low"] for c in cells]),
+                         np.array([c["ci_high"] for c in cells]))
+            chart.errorbar(mean, rows + shift, xerr=[mean - low, high - mean], fmt="o",
+                           color=color, markersize=8, capsize=4, linewidth=1.8)
+        chart.axvline(0, color=COURT, linewidth=1.0)
+        chart.set_yticks(rows, [f"{cell(h, True)['horizon_s']:.1f} s" for h in CHART_HORIZONS])
+        chart.set_ylim(len(CHART_HORIZONS) - 0.5, -0.5)
+        chart.tick_params(labelsize=TEXT_PT, length=3)
+        chart.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
+        for spine in ("top", "right"):
+            chart.spines[spine].set_visible(False)
+        columns = (0.15 / 3.5, 0.95 / 3.5, 1.8 / 3.5)  # inches from the chart, over its width
+        for x, label in zip(columns, ("mean", "median", "pairs > 0"), strict=True):
+            chart.text(1.0 + x, 1.05, label, transform=chart.transAxes, fontsize=TEXT_PT,
+                       color=INK, ha="left", va="bottom")
+        for row, h in zip(rows, CHART_HORIZONS, strict=True):
+            c = cell(h, True)
+            for x, value in zip(columns, (f"{c['mean_diff']:+.2f}", f"{c['median_diff']:+.2f}",
+                                          pct(c["share_diff_positive"])), strict=True):
+                chart.text(1.0 + x, row, value, transform=chart.get_yaxis_transform(),
+                           fontsize=TEXT_PT, color=INK, ha="left", va="center")
+        used[0] += 0.3 + chart_h + 0.5
+        put("A pair = one drive and one of the three others. Median near 0: the typical pair "
+            "moves as toward the placebo, and the mean is pulled by the tails. Grey overlaps "
+            "black at every horizon: no rotation beyond the no-helper baseline.", gap=0.12)
+        put(f"Open (nobody within {OPEN_FT:.0f} ft), 0 -> {seconds[:-2]} s: "
+            f"{pct(head['left_open0_share'])} -> {pct(head['left_open_share'])} helped; "
+            f"{pct(base['left_open0_share'])} -> {pct(base['left_open_share'])} no helper.",
+            gap=0.06)
+        put(f"{excludes} of {len(sensitivity)} sensitivity cells exclude 0; "
+            f"{int((games['median_diff_pairs'] < 0).sum())} of {len(games)} games negative at "
+            f"{seconds[:-2]} s.", gap=0.1)
+        if out is not None:
+            fig.savefig(out, dpi=200)
+        plt.close(fig)
+        return used[0]
 
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
+    build(build(40.0, None), path)  # the first pass only measures the height it needs
 
 
 def main() -> int:
@@ -321,7 +364,9 @@ def main() -> int:
     args = parser.parse_args()
     for name, script in (("help_table.csv", "help_wind"), ("help_vectors.csv", "help_wind"),
                          ("second_help_drives.csv", "second_help"),
-                         ("second_help_summary.csv", "second_help")):
+                         ("second_help_summary.csv", "second_help"),
+                         ("second_help_sensitivity.csv", "second_help"),
+                         ("second_help_by_game.csv", "second_help")):
         if not (args.reports / name).exists():
             print(f"no {args.reports / name}; run scripts/{script}.py first", file=sys.stderr)
             return 1
@@ -329,6 +374,8 @@ def main() -> int:
     vectors = pd.read_csv(args.reports / "help_vectors.csv")
     second = pd.read_csv(args.reports / "second_help_drives.csv")
     summary = pd.read_csv(args.reports / "second_help_summary.csv")
+    sensitivity = pd.read_csv(args.reports / "second_help_sensitivity.csv")
+    by_game = pd.read_csv(args.reports / "second_help_by_game.csv")
     numbers = headline(table)
     print("numbers printed on the figures (from help_table.csv):")
     for key, value in numbers.items():
@@ -337,7 +384,7 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     figure_1(table, vectors, numbers, args.out / "wind_figure_1_wind_map.png")
-    figure_2(second, summary, args.out / "wind_figure_2_who_covers.png")
+    figure_2(second, summary, sensitivity, by_game, args.out / "wind_figure_2_who_covers.png")
     print(f"wrote {args.out / 'wind_figure_1_wind_map.png'} and "
           f"{args.out / 'wind_figure_2_who_covers.png'}")
     return 0
