@@ -601,6 +601,17 @@ under 2 ft above any trail), so the drive fills the width. Checked downscaled to
 text about 17 px, nothing overlaps. 1440 x 2593 px. Figure 2 byte-identical. Memoria 9.1
 (the strip) and 9.3 (the 48, the one-defender split computed from the JSON, what was applied)
 read back from the PDF: 7 of 7, plus the section-12 17 of 17.
+**Javier, looking at it, asked "qué estamos representando en esta nueva figura 1?"**: it does
+not explain itself, the Outsider's point in the 48. Written as pending in memoria 14.
+
+### NEXT SESSION (left 2026-10-29)
+1. Figure 1's legibility: decide whether to simplify (fewer categories on the court, the
+   bars and strip carrying the reading) and/or re-screen with the council; then Javier looks.
+2. B1 (kernel field into `scbasket.wind`) as planned; the wind map, now `wind_map_league.png`,
+   is the page's hook (B3), not a README figure.
+3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
+   next to the 45.3 %; nothing says where help comes from.
+4. Memoria v0.4 is built and committed (30 pages) and not yet shared; each step updates it.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

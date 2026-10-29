@@ -641,7 +641,7 @@ const s13 = [
   numbered("Cerrado el 29 de octubre: range.bin, un fichero suelto de 100 bytes (el principio de un frame de tracking en JSON) en la raíz del repo y sin referencia alguna, se borró por decisión de Javier."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
-  numbered("La figura 1 redibujada el 29 de octubre espera la mirada de Javier."),
+  numbered("La figura 1 (la penetración que enseña la medida) no se explica sola: al verla, Javier preguntó qué representa, y es el riesgo de comunicación que señaló el segundo cribado del council (48 sobre 100). Antes del README hay que decidir si se simplifica o se repasa por el council otra vez."),
   numbered(`El README y la página tienen que llevar el matiz del ayudante (sección 12.3) junto al ${pct(N.shareHelped, 1)}, y la esquina como ocupación, no como afirmación.`),
 ];
 
