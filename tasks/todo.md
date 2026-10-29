@@ -758,12 +758,43 @@ threshold). Not covered: a number typed with no `data-src`; the hidden-tab clock
 `page = ["playwright>=1.45"]`, E501 ignored for the driver (embedded JS).
 Javier then opened the page: the hook does not hook (B4b); the CC0 Quaternius UAL mannequin
 (598 KB trimmed, 10 clips, no kit, no strafe, no dribble) was chosen by a research spike, and
-a hook prototype with players is being built in an isolated worktree (Opus agent).
+a hook prototype with players was built in an isolated worktree (c59e335, merged 905ed37).
+Javier watched its video and approved the direction (players, camera behind the hoop) and the
+four fixes I found reviewing it as a stranger: players too small (about 50 px on the desktop
+canvas, 25 px on the phone; the top 40 % of the frame is empty far court), tags landing on
+the wrong player at the help step, 2.7 s before the hook moves (pucks: 0.46 s), bald heads
+and no crowd. On this laptop's GPU (Intel Arc, ANGLE D3D11, headless) it runs at 16.7 ms a
+frame, and B5 gives 176 of 178: the constant-rate check (the slow motion now plays about 0.3x
+at the help and about 0.6x elsewhere) and the reduced-motion ink check, which fails the same
+way on B4's page, so it predates B4b. Under SwiftShader the timing rows fail on frame time
+alone, so B5 moves to the GPU. The four fixes, made in a second worktree pass (ef61367 to
+c9e1cfe, fast-forwarded): camera at 32° (28° square) on the hoop's axis, framing the six story
+players, ball and hoop with a sideways lens shift of at most an eighth; median story-player
+height 85.6-109.9 px at 1440 and 41.9-55.2 px at 390 (from 39.4-44.1 and 16.7-19.2); tags
+with a leader to their own head, 0 wrong, 0 overlapping, 0 on the ball on every frame; the
+start-up cause was 12 shader programs compiled serially at the first draw (about 915 ms
+blocked), now shared and compiled in parallel: first frame 0.56-0.70 s in my B5 run; hair,
+skin tones and a seeded crowd, procedural. The ink flake was GPU readback (the first
+`getImageData` rounds differently), not a redraw. Storyboard amended (slow-motion profile in
+5.3). B5 on the GPU, my run: 184 passed, 0 failed; full suite 329 passed. Left, as a stranger
+sees it: the bottom fifth of the desktop frame is dark apron, and the crowd shows only as a
+thin strip, so the arena still reads empty; the helper hides the handler at the help step
+(the story's own geometry from behind the hoop). Javier watched the video and said it hooks
+("sí"); one short pass follows for the apron (a vertical lens shift) and a crowd that shows,
+leaving the backboard and the hidden handler as they are.
 
 ### NEXT SESSION (left 2026-10-29)
-1. B4b: Javier opened B4's page and rejected the hook ("no engancha nada; las fichas deben ser
-   jugadores de baloncesto"). Research spike for CC0 rigged players running; B5 (console
-   driver) running in parallel on B4's page, whose state machine and plan view B4b keeps.
+1. B4b, nearly closed. Main is at c9e1cfe (players, the four fixes; Javier said it hooks).
+   The short follow-up pass (apron and a visible crowd) was stopped at the end of the session
+   (2026-10-30 00:08) while writing its report, NOT reviewed and NOT merged: four commits on
+   branch `worktree-agent-ada1dd0fe1ae15475` (21b09a4 storyboard bottom-room rule, 0c1ab86
+   vertical lens shift, faca83d crowd courtside, 8534983 driver rule plus the software guard
+   on every timed row), worktree clean. Its last B5 run (scratchpad b4b3, b5_final.txt) read
+   184 passed, 0 failed; video and stills were in that session's scratchpad `b4b3\`, which
+   may be gone. Next: look at the branch's page as a stranger (render it at 1440 and 390;
+   the bottom 10 % rule, the crowd reads as people), rerun B5 alone on the GPU, merge,
+   update memoria (section 13, D8, version row) and `todo` in the same commit, close B4b.
+   Then remove the two merged worktrees under `.claude/worktrees/` (ask Javier first).
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.

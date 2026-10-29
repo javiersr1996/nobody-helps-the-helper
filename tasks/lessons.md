@@ -14,8 +14,8 @@ artefact (video said 60 s, file 68); counts too ("8 of 10" was 7). Assert and re
 ## Verify what moves by driving it, not by looking at it
 **Why:** clips checked with screenshots shipped nine defects, all in transitions a still cannot
 show (end of a clip, resume after pause, a button's label); two flipped with the possession.
-**How to apply:** assert the state machine from the console (draw, seek, end, reveal) and give
-the data its own gate (refuse a clip whose winner is over 3 ft off). Older: [[lessons-archive]].
+**How to apply:** assert the state machine from the console (draw, seek, end); time it alone on
+the real GPU (SwiftShader or a second browser faked 3 timing failures). [[lessons-archive]].
 
 ## A check that cannot fail has checked nothing
 **Why:** the drive-frame check compared `direction` with the sign of a lateral motion ALREADY
