@@ -435,6 +435,29 @@ man left, 258 helped). **The second help, as a rotation by a third defender, is 
   helper 56 %, someone else 44 %; with no helper, someone other than the receiver's own defender
   closes 43 % (n=56). Too few to say anything.
 
+### OPEN 2026-10-29: the corner headline has no base rate (session probe, not yet code)
+On `help_vectors.csv` x `help_table.csv` (2,472 off-ball defenders, 618 drives): only 1.8 % of
+off-ball defenders START at |y| > 18 ft and none in the corner-3 zone (`zone0`), against
+46.6 % at |y| < 8 ft. Helpers come from there 2.5 % / 56.4 % (n = 280). Per defender, the
+chance of being the helper: |y| > 18 ft 7 of 45 (15.6 %), |y| > 14 ft 9.2 %, |y| < 8 ft 13.7 %;
+by zone top_3 23 %, wing_3 25 %, mid_range 8.7 %, paint 8.3 %, restricted area 1.8 %. So
+"nobody helps from the corner" (2.5 %, 0-4 % in all twelve cells, a sweep that could not
+have come out otherwise) is mostly "no defender stands in the corner"; the per-defender
+gradient is perimeter-high against inside, not middle against corner. Lessons 2 and 4 both
+apply. Needs: the base rate in `help_wind.summarise` and the sensitivity table, written as
+code, then Javier decides what the first half of the thesis and figure 1's title say.
+Council screening of figure 1, same day: 46/100, not ready, on exactly this (the orange is a
+raw origin density, not a rate per defender; strip text 8-9 pt). Its proposed title "Help
+comes from the three-point line, not the paint. The corner is empty, not stingy" is NOT
+taken as is: 7 of 45 cannot say "not stingy" (a 95 % interval runs roughly 8 to 29 %), and
+the perimeter-against-inside gradient may be mechanical (the helper is the largest mover
+TOWARD the ball's future spot, and an inside defender already stands near it). Order for the
+next session: (1) the base rate and the per-defender rate by zone and by |y| band, with
+intervals, into `help_wind` and a CSV, with a test; (2) whether the gradient survives
+measuring help against each defender's distance to the ball's future spot; (3) Javier
+decides the thesis's first half and figure 1's title; (4) figure 1 redrawn (rate per
+defender or ratio, n shown, text >= 11 pt); (5) memoria 8 and 9.1 follow.
+
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
   The field shows it as it is; the helper is the max mover toward the ball's FUTURE
