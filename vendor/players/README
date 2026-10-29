@@ -1,0 +1,18 @@
+The players' body on the page (scripts/wind_html.py inlines it as base64 and checks the hash below).
+
+Source: Quaternius, "Universal Animation Library [Standard]", https://quaternius.itch.io/universal-animation-library
+Licence: CC0 1.0 Universal, public domain dedication (LICENSE.txt, the file shipped in the same archive).
+Source file: Unreal-Godot/UAL1_Standard.glb (no root motion), sha256 69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997
+
+The trim (trim.mjs, here; @gltf-transform/core and @gltf-transform/functions 4.5.1, node 24) keeps
+the mannequin mesh, its 65-bone skeleton and ten of the library's 43 clips (Idle_Loop, Walk_Loop,
+Jog_Fwd_Loop, Sprint_Loop, Crouch_Idle_Loop, Crouch_Fwd_Loop, Jump_Start, Jump_Loop, Jump_Land,
+Push_Loop); in those it drops the finger tracks and every translation track but the root's and the
+pelvis's, then resamples (tolerance 2e-3), dedups and prunes. To reproduce, in an empty directory:
+  npm install @gltf-transform/core@4.5.1 @gltf-transform/functions@4.5.1
+  node trim.mjs UAL1_Standard.glb ual_mannequin_trimmed.glb
+which wrote, byte for byte, the file vendored here (checked 2026-10-29):
+ual_mannequin_trimmed.glb sha256 2b88e86cc3d612f08399ae1aee61fbf3377e94c7e314f66b27d5ee73f951576f
+
+Mesh "Mannequin" (materials M_Main, M_Joints, both replaced on the page by a kit painted from the
+bind pose), metres, y up, facing +z. The page's own reader parses this GLB (no loader addon).

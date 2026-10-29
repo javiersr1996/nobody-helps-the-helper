@@ -26,6 +26,7 @@ from wind_html import (  # noqa: E402
     assemble,
     inlined_block,
     payload,
+    players,
     prove_loads,
     vendored,
 )
@@ -33,6 +34,7 @@ from wind_scenes import paired_means  # noqa: E402
 
 REPORTS = ROOT / "reports"
 VENDOR = ROOT / "vendor" / "three"
+PLAYERS = ROOT / "vendor" / "players"
 #: B4's acceptance: no number with a decimal point and a unit typed in the template.
 TYPED = re.compile(r"[0-9]+\.[0-9]+ ?(%|ft)")
 
@@ -198,20 +200,44 @@ def test_the_vendored_three_is_the_pinned_file_and_exports_what_the_page_uses(tm
         vendored(spoilt, template)
 
 
+def test_the_vendored_players_are_the_pinned_glb_with_every_clip_and_bone_the_page_names(tmp_path):
+    template = TEMPLATE.read_text(encoding="utf-8")
+    body, size = players(PLAYERS, template)
+    assert size == (PLAYERS / "ual_mannequin_trimmed.glb").stat().st_size
+    assert re.fullmatch(r"[A-Za-z0-9+/=]+", body)
+    assert "CC0" in (PLAYERS / "LICENSE.txt").read_text(encoding="utf-8")
+    assert (PLAYERS / "trim.mjs").exists()
+    with pytest.raises(Refused, match="lacks the clips"):
+        players(PLAYERS, template + " rig.clips.Moonwalk_Loop ")
+    with pytest.raises(Refused, match="lacks the bones"):
+        players(PLAYERS, template + " B.byName.tail_01 ")
+    spoilt = tmp_path / "players"
+    shutil.copytree(PLAYERS, spoilt)
+    with open(spoilt / "ual_mannequin_trimmed.glb", "ab") as f:
+        f.write(b"\0")
+    with pytest.raises(Refused, match="does not hash"):
+        players(spoilt, template)
+
+
 def test_assembly_fills_each_marker_once_and_keeps_the_payload_inside_its_script():
-    template = "<script id=\"three-js\">/*THREE*/</script><script>/*PAYLOAD*/</script>"
-    page = assemble(template, {"a": "</script><b>"}, "var x = 1;")
-    assert page.count("</script>") == 2
-    assert '"<\\/script><b>"' in page
+    template = ("<script id=\"three-js\">/*THREE*/</script><script>/*PAYLOAD*/</script>"
+                "<script>/*PLAYERS*/</script>")
+    page = assemble(template, {"a": "</script><b>"}, "var x = 1;", "Z2xURg==")
+    assert page.count("</script>") == 3
+    assert '"<\\/script><b>"' in page and "Z2xURg==" in page
     with pytest.raises(SystemExit, match="exactly once"):
-        assemble(template.replace("/*THREE*/", ""), {}, "")
+        assemble(template.replace("/*THREE*/", ""), {}, "", "")
+    with pytest.raises(SystemExit, match="exactly once"):
+        assemble(template.replace("/*PLAYERS*/", ""), {}, "", "")
+    with pytest.raises(Refused, match="base64"):
+        assemble(template, {}, "", "</script>")
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not on the PATH")
 def test_the_inlined_three_loads_and_a_broken_one_is_refused(built):
     template = TEMPLATE.read_text(encoding="utf-8")
     code, release = vendored(VENDOR, template)
-    page = assemble(template, built, code)
+    page = assemble(template, built, code, players(PLAYERS, template)[0])
     assert "three r185" in prove_loads(page, release)
     block = inlined_block(page)
     broken = page.replace(block, block.replace("'use strict';", "'use strict'; )", 1))
@@ -222,8 +248,8 @@ def test_the_inlined_three_loads_and_a_broken_one_is_refused(built):
 def test_the_page_loads_nothing_from_the_network(built):
     template = TEMPLATE.read_text(encoding="utf-8")
     code, _ = vendored(VENDOR, template)
-    page = assemble(template, built, code)
-    loads = r"<script[^>]*\bsrc=|<link\b|<img\b|<iframe\b|@import|url\(\s*['\"]?https?:"
+    page = assemble(template, built, code, players(PLAYERS, template)[0])
+    loads =r"<script[^>]*\bsrc=|<link\b|<img\b|<iframe\b|@import|url\(\s*['\"]?https?:"
     assert not re.search(loads, page)
     linked = set(re.findall(r"""\b(?:src|href|action)\s*=\s*["'](https?:[^"']*)""", page))
     # a link to click, not a load

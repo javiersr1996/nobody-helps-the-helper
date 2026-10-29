@@ -22,12 +22,18 @@ here, behind a two-line `module.exports` shim (section 8). Its hash is checked a
 `node` is on the PATH, the exact inlined block is run once in a bare context to prove it loads.
 No CDN, no font, no request leaves the page.
 
+The players' body (B4b) is Quaternius' CC0 mannequin, trimmed and vendored in `vendor/players/`
+with its licence and the trim script; it is inlined as base64 at `/*PLAYERS*/` after its hash is
+checked against `vendor/players/README` and its glTF is checked to hold every clip and bone the
+template names, so a different file cannot be drawn silently.
+
 Writes {out} (default `reports/nobody_helps_the_helper.html`).
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -54,10 +60,17 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path(__file__).with_name("wind_template.html")
 PAYLOAD = "/*PAYLOAD*/"
 THREE = "/*THREE*/"
+PLAYERS = "/*PLAYERS*/"
 THREE_FILE = "three.cjs"
+PLAYERS_FILE = "ual_mannequin_trimmed.glb"
 #: What the inlined three.js must never contain: an HTML parser would end or re-enter the
 #: script element on the first two, and the markers would be substituted twice.
-FORBIDDEN_IN_SCRIPT = ("</script", "<script", "<!--", PAYLOAD, THREE)
+FORBIDDEN_IN_SCRIPT = ("</script", "<script", "<!--", PAYLOAD, THREE, PLAYERS)
+#: The mannequin's clips and bones the template reads by name (rig.clips.X, byName.X, and the
+#: `upperarm_` / `lowerarm_` / `hand_` arms it builds from a side): the vendored GLB must hold
+#: them all.
+GLB_MAGIC, GLB_JSON = b"glTF", 0x4E4F534A
+PLAYER_NAMES = ("upperarm_r", "upperarm_l", "lowerarm_r", "lowerarm_l", "hand_r", "hand_l")
 
 #: How far a scene may be from the CSV row it is held to, in feet (the JSON's coordinates
 #: ship rounded to 3 decimals, which moves a distance by far less than this).
@@ -337,15 +350,59 @@ def vendored(vendor: Path, template: str) -> tuple[str, str]:
     return text, pinned.group(1)
 
 
-def assemble(template: str, data: dict, three: str) -> str:
-    """The template with three.js and the payload in place of their markers, once each."""
-    for marker in (PAYLOAD, THREE):
+def glb_json(glb: bytes) -> dict:
+    """The JSON chunk of a binary glTF, or a refusal if the bytes are not one."""
+    if glb[:4] != GLB_MAGIC or len(glb) < 20:
+        raise Refused(f"{PLAYERS_FILE} is not a binary glTF")
+    length, kind = int.from_bytes(glb[12:16], "little"), int.from_bytes(glb[16:20], "little")
+    if kind != GLB_JSON:
+        raise Refused(f"{PLAYERS_FILE}'s first chunk is not its JSON")
+    return json.loads(glb[20:20 + length])
+
+
+def players(vendor: Path, template: str) -> tuple[str, int]:
+    """The vendored mannequin as base64 and its size in bytes, after the checks: its hash is
+    the one in `vendor/players/README` (a binary file, hashed as it is), and it holds every
+    clip (`rig.clips.<name>`) and bone (`byName.<name>`, the arms) the template asks for."""
+    readme = (vendor / "README").read_text(encoding="utf-8")
+    digest = re.search(re.escape(PLAYERS_FILE) + r" sha256 ([0-9a-f]{64})", readme)
+    if digest is None:
+        raise Refused(f"{vendor / 'README'} must give {PLAYERS_FILE}'s sha256")
+    glb = (vendor / PLAYERS_FILE).read_bytes()
+    if hashlib.sha256(glb).hexdigest() != digest.group(1):
+        raise Refused(f"{vendor / PLAYERS_FILE} does not hash to the sha256 in its README")
+    gltf = glb_json(glb)
+    clips = {a["name"] for a in gltf.get("animations", [])}
+    bones = {gltf["nodes"][j]["name"] for skin in gltf.get("skins", []) for j in skin["joints"]}
+    want_clips = set(re.findall(r"rig\.clips\.([A-Za-z0-9_]+)", template))
+    want_bones = set(re.findall(r"byName\.([A-Za-z0-9_]+)", template))
+    want_bones |= set(re.findall(r'byName\["([A-Za-z0-9_]+)"\]', template))
+    want_bones |= set(re.findall(r'"(spine_0[0-9])"', template)) | set(PLAYER_NAMES)
+    if not want_clips:
+        raise Refused("the template names no clip of the mannequin")
+    if want_clips - clips:
+        raise Refused(f"{PLAYERS_FILE} lacks the clips {sorted(want_clips - clips)}")
+    if want_bones - bones:
+        raise Refused(f"{PLAYERS_FILE} lacks the bones {sorted(want_bones - bones)}")
+    return base64.b64encode(glb).decode("ascii"), len(glb)
+
+
+def assemble(template: str, data: dict, three: str, body: str) -> str:
+    """The template with three.js, the players' GLB (base64) and the payload in place of their
+    markers, once each."""
+    for marker in (PAYLOAD, THREE, PLAYERS):
         if template.count(marker) != 1:
             raise SystemExit(f"{TEMPLATE} must hold {marker} exactly once")
+    if re.fullmatch(r"[A-Za-z0-9+/=]*", body) is None:
+        raise Refused("the players' GLB is not plain base64")
     # `</` inside a <script> would close it early, whatever the JSON says it means.
     blob = json.dumps(data, allow_nan=False).replace("</", "<\\/")
     head, tail = template.split(PAYLOAD)
-    return head.replace(THREE, three) + blob + tail.replace(THREE, three)
+
+    def fill(part: str) -> str:
+        return part.replace(THREE, three).replace(PLAYERS, body)
+
+    return fill(head) + blob + fill(tail)
 
 
 #: Runs one classic script in a bare context (no require, no module, no DOM) and prints what
@@ -394,19 +451,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--reports", type=Path, default=ROOT / "reports")
     parser.add_argument("--vendor", type=Path, default=ROOT / "vendor" / "three")
+    parser.add_argument("--players", type=Path, default=ROOT / "vendor" / "players")
     parser.add_argument("--out", type=Path, default=ROOT / "reports/nobody_helps_the_helper.html")
     args = parser.parse_args()
 
     template = TEMPLATE.read_text(encoding="utf-8")
     three, release = vendored(args.vendor, template)
+    body, body_bytes = players(args.players, template)
     data = payload(args.reports)
-    page = assemble(template, data, three)
+    page = assemble(template, data, three, body)
     proof = prove_loads(page, release)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(page, encoding="utf-8")
 
     print(f"wrote {args.out} ({args.out.stat().st_size / 1024:.0f} KB: three.js {release} "
-          f"{len(three) / 1024:.0f} KB, payload {len(json.dumps(data)) / 1024:.0f} KB)")
+          f"{len(three) / 1024:.0f} KB, players {body_bytes / 1024:.0f} KB as "
+          f"{len(body) / 1024:.0f} KB of base64, payload {len(json.dumps(data)) / 1024:.0f} KB)")
     print(f"  {len(data['scenes']['scenes'])} scenes, strip of {len(data['strip']['means'])} "
           f"drives, field of {len(data['field']['x'])} cells; three.js {proof}")
     return 0
