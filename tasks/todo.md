@@ -276,7 +276,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       frame; no ids, no names, as in `court_scenes.py`. Accept: a test asserts each scene's
       helper movement at 1.0 s equals `help_table.csv` within 0.01 ft and refuses a scene that
       disagrees.
-- [ ] B3 Storyboard before the engine [fable], in `tasks/wind_page.md`: the three-second hook
+- [x] B3 (DONE 2026-10-29, accepted by Javier: "dale") Storyboard before the engine [fable], in `tasks/wind_page.md`: the three-second hook
       per D8 (the rule's drive in 3D from a broadcast-like camera, moving with no click: the
       helper stepping toward the ball, the man he leaves drifting free; then the camera rises to
       the top-down view, where every measure is shown); the camera path and when it rises; the
@@ -293,7 +293,8 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       Accept: Javier accepts it before B4 starts; every claim in it names its CSV column; no
       measure is shown in the perspective view.
 - [ ] B4 `scripts/wind_template.html` + `scripts/wind_html.py` [opus] ->
-      `reports/nobody_helps_from_the_corner.html` (slug follows D1): self-contained, no CDN,
+      `reports/nobody_helps_the_helper.html` (slug per D1 and B3; the storyboard
+      `tasks/wind_page.md` is the spec and wins where this text is shorter): self-contained, no CDN,
       no network; payload injected at `/*PAYLOAD*/` from `help_*.csv`, `second_help_*.csv`,
       `help_field.csv` and `wind_scenes.json` (lesson 1, nothing typed); per D8 a WebGL court
       with three.js vendored in the repo at a pinned release with its MIT licence and inlined
@@ -692,7 +693,7 @@ comes from the vectors in memory and not from their CSV re-read (last-digit floa
 rebuilt from the re-read vectors in a scratch dir it was byte-identical (agent's check).
 Kept the new PNG: it is what the committed code produces from a clean clone. Memoria 12.5
 and version row. 312 tests pass (agent's full run), ruff clean, `test_wind.py` 16 of 16 here.
-**B3 written 2026-10-29, awaiting Javier's acceptance** (Fable agent): `tasks/wind_page.md`.
+**B3 written 2026-10-29 and accepted by Javier the same day ("dale")** (Fable agent): `tasks/wind_page.md`.
 Slug `reports/nobody_helps_the_helper.html`; the clip is frames 0-38 at half speed (3.04 s),
 frozen on the measured frame, then a pitch-only rise (1.5 s, dolly-zoom to an orthographic
 camera) into figure 1's layout; every measure in a `#measure` DOM container hidden outside
@@ -708,9 +709,9 @@ not -13.8). Open points settled here, technical: gravity in words only; the mirr
 kept (the plan view equals figure 1); C2 moves to the 1.5 s open pair (written into C2).
 
 ### NEXT SESSION (left 2026-10-29)
-1. B3: Javier reads the storyboard in `tasks/wind_page.md` and accepts it or not; B4 does not
-   start before.
-2. After B3 is accepted, B4 (the page, Opus) reads `help_field.csv`; the wind map, now
+1. B4 (the page, Opus agent, launched 2026-10-29 after Javier accepted B3), then B5 (the
+   console driver, Sonnet, written from the storyboard, not from B4's code).
+2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
