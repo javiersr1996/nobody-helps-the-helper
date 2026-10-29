@@ -49,6 +49,12 @@ h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:80
      background:rgba(255,255,255,.86);color:var(--ink)}
 .tag.helper{color:var(--orange-ink)}
 .tag.other{color:var(--purple-ink);font-size:14px}
+.leaders{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
+.leaders line{stroke-linecap:round}
+.leaders .halo{stroke:rgba(255,255,255,.85);stroke-width:4}
+.leaders .lead{stroke:var(--ink);stroke-width:1.6}
+.leaders .lead.helper{stroke:var(--orange-ink)}
+.leaders .lead.other{stroke:var(--purple-ink)}
 .no-gl{position:absolute;inset:0;margin:0;padding:24px;display:flex;align-items:center;
        font-size:17px;background:var(--paper)}
 .drawn{margin:8px 0 0;font-size:16px;color:var(--faint)}
@@ -296,18 +302,21 @@ const LINE_W = 0.2, TRAIL_W = 0.35, STAYED = 1.5, ARROW_BACK = 1, CROP_TOP = 27,
    edge, the rim's radius and height. Court geometry, drawn only. */
 const FT_CIRCLE = 5.91, BOARD_FROM_BASELINE = 3.94, BOARD_HALF = 2.95;
 const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
-/* The broadcast camera (storyboard 2.3, as B4b amends it): on the hoop's axis, behind and
-   above it, looking down at `pitch` degrees with a vertical field of view `fov`; the square
-   canvas looks down more steeply. For each frame of a scene the page fits the tightest such
-   camera that keeps every player (feet and head), the ball and a margin (a fraction of the
-   canvas, FRAME_MARGIN) inside the canvas, the hoop on the axis and below HOOP_LOW in normalised
-   device height (the bottom part of the canvas). Over the clip the fit only ever closes in,
-   smoothed over PUSH_SMOOTH frames, and the camera starts PUSH further back than the fit and
-   closes to it by the end: the push-in. FOV_PLAN: the narrowest field of view the rise reaches
-   before the swap to the orthographic camera. Degrees and feet. */
-const CAMERA = {wide: {pitch: 52, fov: 34}, square: {pitch: 58, fov: 40}};
-const FRAME_MARGIN = 0.05, HOOP_LOW = -0.25, PUSH_SMOOTH = 8, PUSH = 0.3, LOOK_Z = 3;
-const FOV_PLAN = 1;
+/* The broadcast camera (storyboard 2.3, as B4b-2 amends it): on the hoop's axis, behind and
+   above it, looking down at `pitch` degrees with a vertical field of view `fov`. For each frame
+   of a scene the page fits the tightest such camera that holds the six story players (the ball
+   handler, the helper, the man he left and the three others: feet and head, BODY_HALF feet
+   either side), the ball and the hoop (base and rim) inside the canvas less a margin (a fraction
+   of the canvas, FRAME_MARGIN), with the hoop's base below HOOP_LOW in normalised device height
+   (the bottom part of the canvas); the other four players may leave the frame. The frame may
+   slide sideways by up to SHIFT of the canvas's half-width, a lens shift: the camera stays on the
+   axis and never turns, and the rise takes the shift back to zero. Over the clip the fit only
+   ever closes in, smoothed over PUSH_SMOOTH frames, and the camera starts PUSH further back than
+   the fit and closes to it by the end: the push-in. FOV_PLAN: the narrowest field of view the
+   rise reaches before the swap to the orthographic camera. Degrees and feet. */
+const CAMERA = {wide: {pitch: 32, fov: 22}, square: {pitch: 28, fov: 22}};
+const FRAME_MARGIN = 0.03, HOOP_LOW = -0.3, SHIFT = 0.25, BODY_HALF = 1, PUSH_SMOOTH = 6, PUSH = 0.1;
+const LOOK_Z = 3, FOV_PLAN = 1;
 const DEG = Math.PI / 180;
 /* Slow motion around the help step, on the wall clock only (seek(t) never sees it): playback
    slows to SLOW clip seconds per wall second over a window SLOW_W clip seconds either side of
@@ -317,7 +326,8 @@ const DEG = Math.PI / 180;
 const SLOW = 0.3, SLOW_W = 0.26;
 
 /* The players, drawn (B4b): only (x, y) is tracked. A body BODY_H feet tall, a ring on the
-   floor under each (inner and outer radius, feet), the labels at TAG_Z feet over a body. A
+   floor under each (inner and outer radius, feet), the tags' anchors at TAG_Z feet, the top of
+   a body (B4b-2). A
    defender faces the ball handler; past HIPS_LO feet per second his hips turn toward his line
    of motion (fully at HIPS_HI), and his torso twists back toward the ball handler by up to
    TWIST_MAX degrees; a head turns toward the ball by up to HEAD_MAX more. A defender near an
@@ -326,7 +336,7 @@ const SLOW = 0.3, SLOW_W = 0.26;
    SMOOTH_F frames (a Gaussian's sigma); an attacker turns to his motion from TURN_LO to
    TURN_HI feet per second. A hand reaches for the ball while it is within the arm's length
    plus REACH_SLACK feet, and the dribbling hand waits no lower than HAND_LOW feet. */
-const BODY_H = 6.5, RING_IN = 1.05, RING_OUT = 1.45, TAG_Z = 7.6;
+const BODY_H = 6.5, RING_IN = 1.05, RING_OUT = 1.45, TAG_Z = BODY_H;
 const HIPS_LO = 3, HIPS_HI = 8, TWIST_MAX = 70, HEAD_MAX = 60;
 const NEAR_LO = 4, NEAR_HI = 9, STANCE_LO = 5, STANCE_HI = 11, CROUCH = 0.4;
 const SMOOTH_F = 2, TURN_LO = 1, TURN_HI = 4, REACH_SLACK = 1.5, HAND_LOW = 2.4;
@@ -1367,67 +1377,105 @@ function planFrame(s) {
     The field of view narrows as the distance grows, holding the crop near its final size, and
     at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
     straight down at the same centre: on the floor the two project the same. */
-/** The broadcast camera of a scene, per frame (B4b): its look-at point on the hoop's axis and
-    its distance back along the fixed pitch. Each frame takes the tightest camera that holds the
-    players (feet, head, ring), the ball and the hoop inside the margin with the hoop low; the
-    distance is then never allowed to grow (the push-in), smoothed, and refitted where smoothing
-    cut a player off. Cached per canvas size. */
+/** The broadcast camera of a scene, per frame (B4b-2): its look-at point on the hoop's axis, its
+    distance back along the fixed pitch and its lens shift. Each frame takes the tightest camera
+    that holds the six story players, the ball and the hoop inside the margin with the hoop's
+    base low, shifted as little as that allows; the distance is then never allowed to grow (the
+    push-in), smoothed, and refitted where smoothing cut a story player off. Cached per canvas
+    size. */
 function shotOf(s) {
   const key = `${size.w}x${size.h}`;
   if (s.shot && s.shot.key === key) return s.shot;
   const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
-  const tv = t0 * (1 - 2 * FRAME_MARGIN), th = t0 * size.w / size.h * (1 - 2 * FRAME_MARGIN);
+  const inner = 1 - 2 * FRAME_MARGIN, tv = t0 * inner, A = t0 * size.w / size.h;
   const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
-  const hoop = [[HOOP_X, 0, 0], [HOOP_X, 0, RIM_Z]];
+  const r = s.roles, story = [r.handler, r.helper, r.left, ...r.others];
   const pointsAt = f => {
-    const pts = [...hoop];
-    for (const [x, y] of s.xy[f]) pts.push([x, y - RING_OUT, 0], [x, y + RING_OUT, 0], [x - RING_OUT, y, 0],
-                                           [x + RING_OUT, y, 0], [x, y - 1, BODY_H], [x, y + 1, BODY_H]);
+    const pts = [[HOOP_X, 0, 0], [HOOP_X, 0, RIM_Z]];
+    for (const k of story) {
+      const [x, y] = s.xy[f][k];
+      for (const z of [0, BODY_H]) pts.push([x, y - BODY_HALF, z], [x, y + BODY_HALF, z]);
+      pts.push([x - BODY_HALF, y, 0], [x + BODY_HALF, y, 0]);
+    }
     const b = s.ball[f];
-    pts.push([b[0], b[1] - BALL_R, Math.max(b[2], BALL_R) + BALL_R], [b[0], b[1] + BALL_R, Math.max(b[2], BALL_R) + BALL_R]);
+    pts.push([b[0], b[1], Math.max(b[2], BALL_R) + BALL_R], [b[0], b[1], 0]);
     return pts;
   };
-  const need = (pts, lx) => {
+  // the distance back from (lx, 0, LOOK_Z) that holds pts with the frame shifted by sx (in NDC)
+  const need = (pts, lx, sx) => {
     let D = 0;
     for (const [x, y, z] of pts) {
-      const dx = x - lx, dz = z - LOOK_Z, along = dx * fx + dz * fz, up = dx * ux + dz * uz;
-      D = Math.max(D, Math.abs(y) / th - along, Math.abs(up) / tv - along);
+      const dx = x - lx, dz = z - LOOK_Z, along = dx * fx + dz * fz;
+      D = Math.max(D, Math.abs(dx * ux + dz * uz) / tv - along, (y > 0 ? y / (inner - sx) : -y / (inner + sx)) / A - along);
     }
     return D;
   };
-  const most = lx => Math.min(...hoop.map(([x, , z]) => {
-    const dx = x - lx, dz = z - LOOK_Z;
+  // the least distance that holds pts with some shift, and the shift nearest 0 that does: each
+  // point bounds the shift from one side, more loosely the farther back the camera is, so the
+  // distance is found by bisection on whether the shifts left are an empty interval
+  const shiftFor = (pts, lx) => {
+    const n = pts.length, along = new Float64Array(n);
+    let lo = 0;
+    pts.forEach(([x, , z], i) => {
+      const dx = x - lx, dz = z - LOOK_Z;
+      along[i] = dx * fx + dz * fz;
+      lo = Math.max(lo, Math.abs(dx * ux + dz * uz) / tv - along[i], 0.01 - along[i]);
+    });
+    const shifts = D => {
+      let a = -SHIFT, b = SHIFT;
+      for (let i = 0; i < n; i++) {
+        const q = pts[i][1] / (A * (along[i] + D));
+        a = Math.max(a, -inner - q);
+        b = Math.min(b, inner - q);
+      }
+      return [a, b];
+    };
+    let hi = lo + 8;
+    while (shifts(hi)[0] > shifts(hi)[1]) hi = lo + 2 * (hi - lo);
+    for (let it = 0; it < 22; it++) {
+      const mid = (lo + hi) / 2, [a, b] = shifts(mid);
+      if (a <= b) hi = mid; else lo = mid;
+    }
+    const [a, b] = shifts(hi);
+    return [clamp(0, a, b), hi];
+  };
+  // the farthest the camera may be with the hoop's base still below HOOP_LOW
+  const most = lx => {
+    const dx = HOOP_X - lx, dz = -LOOK_Z;
     return (dx * ux + dz * uz) / (HOOP_LOW * t0) - (dx * fx + dz * fz);
-  }));
+  };
   const frames = Array.from({length: F_END + 1}, (_, f) => pointsAt(f));
-  const look = [], dist = [];
+  const look = [], dist = [], shift = [];
+  const better = (c, best) => !best || (c.ok && !best.ok) || (c.ok === best.ok && (c.ok ? c.D < best.D : c.over < best.over));
   for (const pts of frames) {
     let best = null;
-    for (let lx = HOOP_X - 10; lx <= HOOP_X + 60; lx += 0.25) {
-      const D = need(pts, lx), ok = D <= most(lx);
-      if (!best || (ok && !best.ok) || (ok === best.ok && (ok ? D < best.D : most(lx) - D > best.slack))) {
-        best = {lx, D, ok, slack: most(lx) - D};
-      }
-    }
+    const tryAt = lx => {
+      const [sx, D] = shiftFor(pts, lx), c = {lx, sx, D, ok: D <= most(lx), over: D - most(lx)};
+      if (better(c, best)) best = c;
+    };
+    for (let lx = HOOP_X - 5; lx <= HOOP_X + 50; lx += 2) tryAt(lx);       // coarse, then fine
+    const lc = best.lx;
+    for (let lx = lc - 2; lx <= lc + 2; lx += 0.25) tryAt(lx);
     look.push(best.lx);
     dist.push(best.D);
+    shift.push(best.sx);
   }
   const blur = arr => smoothPts(arr.map(v => [v, 0]), PUSH_SMOOTH).map(v => v[0]);
   const closing = arr => { for (let f = arr.length - 2; f >= 0; f--) arr[f] = Math.max(arr[f], arr[f + 1]); return arr; };
-  const L = blur(look), D = blur(closing(dist.slice()));
-  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], need(frames[f], L[f]));
+  const L = blur(look), S = blur(shift), D = blur(closing(dist.slice()));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], need(frames[f], L[f], S[f]));
   closing(D);
   // the push-in: further back at the start, onto the fit by the end (only ever wider than it)
   for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], Math.min(D[f] * (1 + PUSH * (1 - smooth(f / F_END))), most(L[f])));
-  s.shot = {key, look: L, dist: D, pitch: p, fov: cam.fov,
-            hoopLow: D.every((d, f) => d <= most(L[f]) + 1e-6)};
+  s.shot = {key, look: L, dist: D, shift: S, pitch: p, fov: cam.fov};
   return s.shot;
 }
 /** The broadcast camera at clip time t: frames interpolated, so a pure function of t. */
 function broadcastAt(s, t) {
   const sh = shotOf(s), f = clamp(t * FPS, 0, F_END), i = Math.min(Math.floor(f), F_END), j = Math.min(i + 1, F_END), a = f - i;
-  const lx = sh.look[i] + (sh.look[j] - sh.look[i]) * a, D = sh.dist[i] + (sh.dist[j] - sh.dist[i]) * a;
-  return {look: V(lx, 0, LOOK_Z), eye: V(lx - D * Math.cos(sh.pitch), 0, LOOK_Z + D * Math.sin(sh.pitch)), fov: sh.fov};
+  const lerpF = arr => arr[i] + (arr[j] - arr[i]) * a, lx = lerpF(sh.look), D = lerpF(sh.dist);
+  return {look: V(lx, 0, LOOK_Z), eye: V(lx - D * Math.cos(sh.pitch), 0, LOOK_Z + D * Math.sin(sh.pitch)), fov: sh.fov,
+          shift: lerpF(sh.shift)};
 }
 
 /** The hook's wall clock (B4b): clip time against wall time for a broadcast run of a scene,
@@ -1494,12 +1542,25 @@ function placeCamera(p) {
   persp.position.set(0, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
   persp.up.set(0, 1 - e, -e).normalize();
   persp.lookAt(target);
+  // B4b-2: the broadcast frame's lens shift, taken back to zero on the way up (the camera itself
+  // never leaves the axis)
+  persp.setViewOffset(size.w, size.h, -cam.shift * (1 - e) * size.w / 2, 0, size.w, size.h);
   persp.updateProjectionMatrix();
   persp.updateMatrixWorld();
   active = persp;
 }
 
 /* ------------------------------------------------------------------ labels */
+/* The tags (B4b-2): each names one of the six story players and points at him, with a leader
+   from the tag to his anchor, the top of his head over his tracked (x, y) (TAG_Z feet up; the
+   token's top, LABEL_Z, in plan). Every drawn frame places the six in a fixed order, each at the
+   cheapest of eight directions by TAG_GAPS around its anchor (a wider gap costs its pixels, each
+   45 degrees away from its own side TAG_TURN more) whose box stays in the canvas, keeps TAG_PAD
+   pixels from every tag placed before it and from the ball, and covers no player's anchor;
+   failing all, the spot that breaks the fewest. A function of the drawn frame alone, as the pose
+   is. Pixels and degrees. */
+const TAG_GAPS = [6, 14, 24, 36, 50, 66], TAG_TURN = 12, TAG_PAD = 3;
+const TAG_HOME = {handler: -90, helper: -45, left: -135, other: -60};
 const tagLayer = at("tags");
 let tags = [];
 function buildTags(s) {
@@ -1507,39 +1568,68 @@ function buildTags(s) {
   const list = [[r.handler, "handler", "ball handler"], [r.helper, "helper", "helper"],
                 [r.left, "left", "the man he left"],
                 ...r.others.map((k, i) => [k, "other", String(i + 1)])];
-  tagLayer.replaceChildren();
+  const svg = el("svg", {class: "leaders"});
+  tagLayer.replaceChildren(svg);
   tags = list.map(([slot, kind, text]) => {
     const node = document.createElement("div");
     node.className = "tag " + kind;
     node.textContent = text;
     tagLayer.appendChild(node);
-    return {slot, kind, node, w: 0, h: 0};
+    const halo = el("line", {class: "halo"}), lead = el("line", {class: "lead " + kind, "data-tag": text});
+    svg.append(halo, lead);
+    return {slot, kind, node, lines: [halo, lead], w: 0, h: 0, spots: null};
   });
 }
 function project(x, y, z = 0) {
   const v = V(x, y, z).project(active);
   return [(v.x + 1) / 2 * size.w, (1 - v.y) / 2 * size.h];
 }
-/** Each label beside its token's top, on its own side (the helper up-right, the man he left
-    down-left, so the two never cover each other), and always inside the canvas. */
+/** A tag's candidate spots around its anchor, cheapest first: box offsets from the anchor. */
+function spotsOf(t) {
+  const out = [];
+  for (let k = 0; k < 8; k++) {
+    const a = (TAG_HOME[t.kind] + 45 * k) * DEG, ux = Math.cos(a), uy = Math.sin(a), turn = Math.min(k, 8 - k);
+    for (const g of TAG_GAPS) {
+      const reach = g + Math.abs(ux) * t.w / 2 + Math.abs(uy) * t.h / 2;
+      out.push({dx: ux * reach - t.w / 2, dy: uy * reach - t.h / 2, cost: g + TAG_TURN * turn});
+    }
+  }
+  return out.sort((p, q) => p.cost - q.cost);
+}
+/** Each tag at its cheapest free spot, its leader from the box's nearest point to its anchor. */
 function placeTags() {
   if (!current) return;
-  const z = TAG_Z + (LABEL_Z - TAG_Z) * lookE;          // over the heads, down to the tokens on the rise
-  const placed = [], free = (x, y, t) => !placed.some(q => x < q.x + q.w && q.x < x + t.w && y < q.y + q.h && q.y < y + t.h);
+  const z = TAG_Z + (LABEL_Z - TAG_Z) * lookE;          // the heads, down to the tokens on the rise
+  const anchors = current.players.map(p => project(p[0], p[1], z));
+  const B = current.ball, bz = Math.max(B[2], BALL_R) * (1 - lookE), ball = project(B[0], B[1], bz);
+  const rim = project(B[0], B[1] + BALL_R, bz), ballR = Math.hypot(rim[0] - ball[0], rim[1] - ball[1]) + TAG_PAD;
+  const nearest = (b, p) => [clamp(p[0], b.x, b.x + b.w), clamp(p[1], b.y, b.y + b.h)];
+  const apart = (b, q) => b.x >= q.x + q.w + TAG_PAD || q.x >= b.x + b.w + TAG_PAD
+                       || b.y >= q.y + q.h + TAG_PAD || q.y >= b.y + b.h + TAG_PAD;
+  const covers = (b, p) => p[0] > b.x - TAG_PAD && p[0] < b.x + b.w + TAG_PAD && p[1] > b.y - TAG_PAD && p[1] < b.y + b.h + TAG_PAD;
+  const placed = [];
   for (const t of tags) {
-    if (!t.w) { t.w = t.node.offsetWidth; t.h = t.node.offsetHeight; }
-    const p = current.players[t.slot], [px, py] = project(p[0], p[1], z);
-    const first = {handler: [-t.w / 2, -t.h - 10], helper: [8, -t.h - 8], left: [-t.w - 8, 8],
-                   other: [10, -t.h / 2]}[t.kind];
-    // B4b: a label that would cover one already placed tries the other sides of its point
-    let x = 0, y = 0;
-    for (const [dx, dy] of [first, [-t.w / 2, -t.h - 10], [10, -t.h / 2], [-t.w - 10, -t.h / 2], [-t.w / 2, 12], first]) {
-      x = clamp(px + dx, 2, size.w - t.w - 2);
-      y = clamp(py + dy, 2, size.h - t.h - 2);
-      if (free(x, y, t)) break;
+    if (!t.w) { t.w = t.node.offsetWidth; t.h = t.node.offsetHeight; t.spots = spotsOf(t); }
+    const a = anchors[t.slot];
+    let best = null;
+    for (const c of t.spots) {
+      const b = {x: clamp(a[0] + c.dx, 2, size.w - t.w - 2), y: clamp(a[1] + c.dy, 2, size.h - t.h - 2), w: t.w, h: t.h};
+      const n = nearest(b, ball);
+      let bad = placed.some(q => !apart(b, q)) ? 100 : 0;
+      if (Math.hypot(n[0] - ball[0], n[1] - ball[1]) < ballR) bad += 100;
+      for (const p of anchors) if (covers(b, p)) bad += 10;
+      if (!best || bad < best.bad) best = {b, bad};
+      if (!bad) break;
     }
-    placed.push({x, y, w: t.w, h: t.h});
-    t.node.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    const b = best.b, n = nearest(b, a);
+    placed.push(b);
+    t.node.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px)`;
+    for (const line of t.lines) {
+      line.setAttribute("x1", n[0].toFixed(1));
+      line.setAttribute("y1", n[1].toFixed(1));
+      line.setAttribute("x2", a[0].toFixed(1));
+      line.setAttribute("y2", a[1].toFixed(1));
+    }
   }
 }
 
