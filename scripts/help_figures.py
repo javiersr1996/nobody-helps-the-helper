@@ -25,7 +25,7 @@ Every number printed on either figure is computed here from the CSVs, never type
 is drawn inside the court but the court, the data and the ball's median path: numbers,
 keys and legends live in a strip under it, where no streamline can cross them.
 
-Needs the `second_help_*.csv` drives, summary, sensitivity and by_game too, which
+Needs the `second_help_*.csv` drives, summary, contrast and contrast_sensitivity too, which
 `scripts/second_help.py` writes.
 
 Writes {out}/wind_figure_1_wind_map.png and {out}/wind_figure_2_who_covers.png.
@@ -44,7 +44,7 @@ import pandas as pd
 
 from scbasket.court import CORNER_LINE_Y_FT, FIBA, HOOP_X, THREE_RADIUS_FT
 from scbasket.rotation import HEADLINE_HORIZON
-from scbasket.wind import HELP_FT, HORIZON_S, OPEN_FT
+from scbasket.wind import HELP_FT, HORIZON_S
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -237,23 +237,25 @@ def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, numbers: dict, path: Pa
     plt.close(fig)
 
 
-def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, sensitivity: pd.DataFrame,
-             by_game: pd.DataFrame, path: Path) -> None:
+def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFrame,
+             sweep: pd.DataFrame, path: Path) -> None:
     def cell(horizon: int, helped: bool) -> pd.Series:
         return summary[(summary["horizon"] == horizon) & (summary["helped"] == helped)].iloc[0]
 
-    for h in CHART_HORIZONS:  # the sentence under the chart says they overlap: fail if not
-        a, b = cell(h, True), cell(h, False)
-        if a["ci_low"] > b["ci_high"] or b["ci_low"] > a["ci_high"]:
-            raise ValueError(f"the helped and no-helper CIs do not overlap at {h} frames")
+    contrast = {h: contrasts[contrasts["horizon"] == h].iloc[0] for h in CHART_HORIZONS}
+    for h, c in contrast.items():  # the figure says "no more than with no helper": fail if not
+        if c["contrast_ci_low"] > 0:
+            raise ValueError(f"helped minus no-helper is above 0 at {h} frames "
+                             f"(95% CI low {c['contrast_ci_low']:+.2f}): the claim does not hold")
 
     head, base = cell(HEADLINE_HORIZON, True), cell(HEADLINE_HORIZON, False)
     seconds = f"{head['horizon_s']:.1f} s"
     dots = drives[drives["helped"]].dropna(subset=[f"left_x_{HEADLINE_HORIZON}",
                                                    f"nearest_who_{HEADLINE_HORIZON}"])
     n_cut = int(drives["helped"].sum()) - len(dots)
-    excludes = int(((sensitivity["ci_low"] > 0) | (sensitivity["ci_high"] < 0)).sum())
-    games = by_game[(by_game["horizon"] == HEADLINE_HORIZON) & by_game["helped"]]
+    contain = int(((sweep["contrast_ci_low"] <= 0) & (sweep["contrast_ci_high"] >= 0)).sum())
+    above = int((sweep["contrast_ci_low"] > 0).sum())
+    thresholds = ", ".join(f"{t:.0f}" for t in sorted(sweep["help_ft"].unique()))
     pct = lambda v: f"{100 * v:.0f}%"  # noqa: E731
 
     def build(height: float, out: Path | None) -> float:
@@ -273,8 +275,8 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, sensitivity: pd.DataFr
                     tall / height]
 
         put("Nobody else moves toward the man the helper left", gap=0.06, weight="bold")
-        put(f"{seconds} into the drive the three other defenders move toward him no more than "
-            f"toward the other off-ball attackers, with or without a helper.", gap=0.1)
+        put(f"{seconds} into the drive, with a helper the three other defenders move toward him "
+            f"no more than they do when there is no helper.", gap=0.1)
         ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
         draw_court(ax)
         for z, (who, (color, marker, _)) in enumerate(WHO_STYLE.items()):
@@ -293,14 +295,15 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, sensitivity: pd.DataFr
         key = fig.legend(
             handles=[Line2D([], [], marker=m, linestyle="none", markersize=8, color=c,
                             label=f"{n} {shares[who]}") for who, (c, m, n) in WHO_STYLE.items()],
-            title=f"Nearest at {seconds} (no helper). {len(dots)} of {len(dots) + n_cut} helped "
-                  f"drives; {n_cut} end sooner",
+            title=f"Nearest defender at {seconds}, median {head['nearest_dist_median']:.1f} ft "
+                  f"away (no helper: {base['nearest_dist_median']:.1f} ft)\n"
+                  f"{len(dots)} of {len(dots) + n_cut} helped drives; {n_cut} end sooner",
             loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
                                               1 - used[0] / height),
             frameon=False, fontsize=TEXT_PT, title_fontsize=TEXT_PT, handletextpad=0.3,
             labelspacing=0.5, borderaxespad=0)
         key._legend_box.align = "left"
-        used[0] += 4 * TEXT_PT * LINE_SPACING / 72 + 0.25
+        used[0] += 5 * TEXT_PT * LINE_SPACING / 72 + 0.25
         put("Rotation toward him minus toward the placebo: mean over drives, 95% CI.",
             gap=0.04)
         fig.legend(handles=[Line2D([], [], marker="o", color=c, markersize=8, linewidth=1.6,
@@ -340,15 +343,15 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, sensitivity: pd.DataFr
                            fontsize=TEXT_PT, color=INK, ha="left", va="center")
         used[0] += 0.3 + chart_h + 0.5
         put("A pair = one drive and one of the three others. Median near 0: the typical pair "
-            "moves as toward the placebo, and the mean is pulled by the tails. Grey overlaps "
-            "black at every horizon: no rotation beyond the no-helper baseline.", gap=0.12)
-        put(f"Open (nobody within {OPEN_FT:.0f} ft), 0 -> {seconds[:-2]} s: "
-            f"{pct(head['left_open0_share'])} -> {pct(head['left_open_share'])} helped; "
-            f"{pct(base['left_open0_share'])} -> {pct(base['left_open_share'])} no helper.",
-            gap=0.06)
-        put(f"{excludes} of {len(sensitivity)} sensitivity cells exclude 0; "
-            f"{int((games['median_diff_pairs'] < 0).sum())} of {len(games)} games negative at "
-            f"{seconds[:-2]} s.", gap=0.1)
+            "moves as toward the placebo, and the mean is pulled by the tails. Grey is below 0 "
+            "too, so the baseline is the grey series, not 0.", gap=0.1)
+        put("Helped minus no helper, mean (95% CI): " + "; ".join(
+            f"{cell(h, True)['horizon_s']:.1f} s {c['contrast_mean']:+.2f} "
+            f"({c['contrast_ci_low']:+.2f} to {c['contrast_ci_high']:+.2f})"
+            for h, c in contrast.items()) + ". Every interval contains 0: no more rotation "
+            "than with no helper.", gap=0.1)
+        put(f"Helper threshold {thresholds} ft x three horizons: {contain} of {len(sweep)} "
+            f"of these intervals contain 0, and {above or 'none'} lie above it.", gap=0.1)
         if out is not None:
             fig.savefig(out, dpi=200)
         plt.close(fig)
@@ -365,8 +368,8 @@ def main() -> int:
     for name, script in (("help_table.csv", "help_wind"), ("help_vectors.csv", "help_wind"),
                          ("second_help_drives.csv", "second_help"),
                          ("second_help_summary.csv", "second_help"),
-                         ("second_help_sensitivity.csv", "second_help"),
-                         ("second_help_by_game.csv", "second_help")):
+                         ("second_help_contrast.csv", "second_help"),
+                         ("second_help_contrast_sensitivity.csv", "second_help")):
         if not (args.reports / name).exists():
             print(f"no {args.reports / name}; run scripts/{script}.py first", file=sys.stderr)
             return 1
@@ -374,8 +377,8 @@ def main() -> int:
     vectors = pd.read_csv(args.reports / "help_vectors.csv")
     second = pd.read_csv(args.reports / "second_help_drives.csv")
     summary = pd.read_csv(args.reports / "second_help_summary.csv")
-    sensitivity = pd.read_csv(args.reports / "second_help_sensitivity.csv")
-    by_game = pd.read_csv(args.reports / "second_help_by_game.csv")
+    contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
+    sweep = pd.read_csv(args.reports / "second_help_contrast_sensitivity.csv")
     numbers = headline(table)
     print("numbers printed on the figures (from help_table.csv):")
     for key, value in numbers.items():
@@ -384,7 +387,7 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     figure_1(table, vectors, numbers, args.out / "wind_figure_1_wind_map.png")
-    figure_2(second, summary, sensitivity, by_game, args.out / "wind_figure_2_who_covers.png")
+    figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
     print(f"wrote {args.out / 'wind_figure_1_wind_map.png'} and "
           f"{args.out / 'wind_figure_2_who_covers.png'}")
     return 0

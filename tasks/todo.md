@@ -218,6 +218,23 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       76 % when nobody helped", which reads the base rate as a cost (41 -> 58 % against
       62 -> 76 % are similar rises). Final 1440 x 2262 px. Memoria 9.2 and the 11 sentence on
       the nearest defender follow it.
+      **Second council screening, same day (45/100).** Taken: overlapping CIs are not a test,
+      and the grey series being negative too shows the metric's own geometric bias, so the
+      null is the no-helper baseline, not zero. `second_help.py` now writes
+      `second_help_contrast.csv` (helped minus no helper, two-sample bootstrap):
+      -0.12 (-0.45..+0.20), -0.16 (-0.65..+0.32), -0.11 (-0.74..+0.52) ft at 1.0 / 1.5 / 2.0 s,
+      every CI contains 0, and `second_help_contrast_sensitivity.csv` (3 / 4 / 5 ft x three
+      horizons): 8 of 9 contain 0, none above (3 ft at 1.0 s is below, -0.61..-0.01). The
+      claim is now "no more rotation than with no helper", guarded in figure and memoria
+      (fail if any contrast CI low > 0; seen to fire once). The robustness line counts the
+      contrast, not cells against zero. Nearest-defender median distance on the legend
+      (7.5 ft, 9.4 ft with no helper). Open line moved off the figure: it goes in the README
+      next to 58.5 %. **Consequence for the README:** "-0.68 ft below the placebo" and
+      "15 of 18 cells exclude 0" test against zero, the wrong null; the README headline for the
+      second help is the contrast. The CI tops (+0.20 / +0.32 / +0.52 ft) are the most extra
+      rotation the data cannot rule out: an absence with that bound, not a proven zero.
+      Rejected: colouring the map by distance (against D3), merging 7/10 and 8/10 (only one
+      is on the figure). Final 1440 x 2437 px; 295 tests pass.
 - [ ] A6 Memoria v0.3 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
       (the new figure 2); new section 13 "La segunda ayuda: una ausencia medida" (the council's
       37/100 and why points per chance has no power; the placebo design; the three results; the

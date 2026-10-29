@@ -15,8 +15,10 @@ Writes to {out}:
   second_help_pairs.csv        one row per (drive, other defender, horizon)
   second_help_drives.csv       one row per drive: best movers, nearest_who, the clearance curve
   second_help_summary.csv      per horizon x helped: the paired difference with its CI and shares
+  second_help_contrast.csv     helped minus no helper, per horizon, with a two-sample bootstrap CI
   second_help_by_game.csv      the paired median per game x horizon x helped, reported not gated
   second_help_sensitivity.csv  the summary over HELP_FT x horizon
+  second_help_contrast_sensitivity.csv  the contrast over HELP_FT x horizon
   second_help_pass.csv         the first pass after the drive, per helped
   second_help_closeouts.csv    the first closeout after the drive, per helped x receiver (a limit)
 """
@@ -92,6 +94,27 @@ def summarise(pairs: pd.DataFrame, drives: pd.DataFrame, horizon: int, helped: b
         "n_clear": int(len(clear)), "left_open_share": float((clear >= OPEN_FT).mean()),
         "n_clear0": int(len(clear0)), "left_open0_share": float((clear0 >= OPEN_FT).mean()),
     }
+
+
+def contrast(pairs: pd.DataFrame, horizon: int, help_ft: float = HELP_FT) -> dict:
+    """Helped minus no-helper, on the per-drive mean paired difference of `summarise`.
+
+    The no-helper group is the baseline: the man left stands out on the perimeter, so even
+    with no helper the paired difference is not zero. Two-sample bootstrap: each group is
+    resampled on its own, with the same seed and number of draws as `bootstrap_ci`.
+    """
+    p = pairs[pairs["horizon"] == horizon].dropna(subset=["placebo"])
+    diff = p["to_left"] - p["placebo"]
+    per_drive = diff.groupby([p["helped"], p["drive_id"]]).mean()
+    helped, base = per_drive.loc[True].to_numpy(), per_drive.loc[False].to_numpy()
+    rng = np.random.default_rng(BOOTSTRAP_SEED)
+    draws = (helped[rng.integers(0, len(helped), size=(BOOTSTRAP_DRAWS, len(helped)))].mean(axis=1)
+             - base[rng.integers(0, len(base), size=(BOOTSTRAP_DRAWS, len(base)))].mean(axis=1))
+    low, high = np.percentile(draws, [2.5, 97.5])
+    return {"horizon": horizon, "horizon_s": horizon / FPS, "help_ft": help_ft,
+            "n_helped": len(helped), "n_no_helper": len(base),
+            "contrast_mean": float(helped.mean() - base.mean()),
+            "contrast_ci_low": float(low), "contrast_ci_high": float(high)}
 
 
 def by_game(pairs: pd.DataFrame) -> pd.DataFrame:
@@ -235,17 +258,22 @@ def main() -> int:
     summary = pd.DataFrame([summarise(pairs, drives_out, h, helped, HELP_FT)
                             for h in ROTATION_HORIZONS for helped in (True, False)])
     summary.to_csv(args.out / "second_help_summary.csv", index=False)
+    contrasts = pd.DataFrame([contrast(pairs, h) for h in ROTATION_HORIZONS])
+    contrasts.to_csv(args.out / "second_help_contrast.csv", index=False)
     game_table = by_game(pairs)
     game_table.to_csv(args.out / "second_help_by_game.csv", index=False)
 
-    rows = []
+    rows, contrast_rows = [], []
     for help_ft in SENSITIVITY_HELP_FT:
         relabel = drives_out.assign(helped=drives_out["helper_help_move"] >= help_ft)
         pairs_h = pairs.drop(columns="helped").merge(relabel[["drive_id", "helped"]],
                                                      on="drive_id")
         rows += [summarise(pairs_h, relabel, h, helped, help_ft)
                  for h in ROTATION_HORIZONS for helped in (True, False)]
+        contrast_rows += [contrast(pairs_h, h, help_ft) for h in ROTATION_HORIZONS]
     pd.DataFrame(rows).to_csv(args.out / "second_help_sensitivity.csv", index=False)
+    pd.DataFrame(contrast_rows).to_csv(args.out / "second_help_contrast_sensitivity.csv",
+                                       index=False)
 
     pass_table = pass_summary(pd.DataFrame(pass_rows))
     pass_table.to_csv(args.out / "second_help_pass.csv", index=False)
