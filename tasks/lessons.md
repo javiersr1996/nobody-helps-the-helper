@@ -3,13 +3,11 @@
 ## A number with no code behind it is not a finding
 **Why:** findings 4 and 5 opened the README with no code in the repo (111a9ac); rebuilt, 5
 reversed and its replacement was refuted, and 4 answered a question Goldsberry never asked.
-**How to apply:** name the script that prints it, RUN it, and read the value back off the
-BUILT artefact (video reported at 60 s, file 68). Counts too: "8 of 10 games" was 7, read by
-eye off a printout and copied into four places. Printing "ok" patched nothing: assert, re-read.
+**How to apply:** name the script that prints it, RUN it, read the value back off the BUILT
+artefact (video said 60 s, file 68); counts too ("8 of 10" was 7). Assert and re-read.
 
 ## A null that lives only in the record is an overclaim in the deliverable
-**Why:** F6 has a replicated buy side and NO established cost side, written in `todo.md` and
-`angle_tradeoff.csv` and in neither the README nor the page. The user found it in one question.
+**Why:** F6's missing cost side lived in `todo.md` and a CSV, not the README or the page.
 **How to apply:** ship the negative that qualifies a claim NEXT TO it, not in the record.
 "What happened to X?" means X is missing from the deliverable, not that X needs explaining.
 
