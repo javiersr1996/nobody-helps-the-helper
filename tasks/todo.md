@@ -561,7 +561,24 @@ ft and toward the placebo +5.06 / +4.85 / +7.16. The council's figure assumed fl
 the thesis is an absence against a placebo (a >= 4 ft mover toward him in 44 % of helped
 drives, 42 % toward the placebo), which one drive cannot show as "nobody moves". Picking
 another drive that looks flat would be the cherry-picking the rule exists to prevent.
-Back to Javier.
+Back to Javier. **He chose (2026-10-29) the drive as the measurement, not the conclusion.**
+**(b) DONE:** `reports/figures/wind_figure_1_one_drive.png` (1440 x 2405 px), "How the absence
+is measured, on one drive": the rule's first scene to 1.5 s (helper orange, man left a
+diamond, the three others purple and numbered, handler's defender blue, other attackers
+grey; hollow at the start, filled at 1.5 s); under it each other's projection toward him
+against the placebo; the strip states the rule, the drive's numbers and its percentile (23
+of 252, median -0.25 ft), and sends the claim to figure 2. Every number from
+`wind_scenes.json`; the figure refuses to draw if its projections do not give the scene's
+recorded mean. Looked at twice (man left hollow at both ends against the key; "23th"; a
+number split from its unit; one decimal against figure 2's two). The wind map is now
+`wind_map_league.png` (byte-identical to the v0.4 figure 1), out of the README, kept in
+memoria 12.5 and for the page; `.gitignore` whitelist updated, the old file removed.
+Figure 2 byte-identical. **(c) DONE:** memoria v0.4 (30 pages): 9 intro, 9.1 the new figure
+with its numbers read from the JSON (the build throws if the first scene is not the first
+game's choice), 9.3 the council's 37 and the stop, 12.4 revised, 12.5 the wind map, plan and
+version row; section-12 readback still 17 of 17. 309 tests pass, ruff clean.
+Open: Javier looks at the new figure 1; README C2 carries the corner and helper context in
+two sentences.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

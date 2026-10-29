@@ -22,8 +22,10 @@ reports/figures/*
 !reports/figures/figure_1_lift_by_distance.png
 !reports/figures/figure_2_pwin_by_angle.png
 # The second entry's two figures, scripts/help_figures.py, versioned for the same reason.
-!reports/figures/wind_figure_1_wind_map.png
+!reports/figures/wind_figure_1_one_drive.png
 !reports/figures/wind_figure_2_who_covers.png
+# The wind map left the README on 2026-10-29; the memoria and the page keep it.
+!reports/figures/wind_map_league.png
 # The video's slides and the silent cut: regenerable by scripts/video_slides.py, and the
 # submitted file is the one with a voice on it, which is not made here.
 reports/video/

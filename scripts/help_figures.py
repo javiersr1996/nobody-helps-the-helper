@@ -1,13 +1,22 @@
-"""The two figures of the second entry: the wind map, and the man it leaves (P8, W2).
+"""The two figures of the second entry, and the wind map behind them (P8, W2).
 
 Usage: uv run --extra figures python scripts/help_figures.py [--reports DIR] [--out DIR]
 
 Needs `reports/help_table.csv` and `reports/help_vectors.csv`, which `scripts/help_wind.py`
-writes. Both figures are drawn in the DRIVE FRAME and in shot-chart orientation: the attacked
+writes. Everything is drawn in the DRIVE FRAME and in shot-chart orientation: the attacked
 hoop at the bottom, the baseline under it, and the ball handler's lateral motion to the
 RIGHT, so left- and right-hand drives pool and "the corner side" is always bottom right.
 
-  1. **The wind map.** The mean displacement, over the first second of every drive, of the
+  1. **How the absence is measured, on one drive.** The first scene of
+     `reports/wind_scenes.json` (`scripts/wind_scenes.py`, chosen by rule, not by look):
+     the ten players from the start to the headline horizon, the helper's step, the man he
+     left, and the three other defenders, whose own movement is projected toward the man
+     left and toward the placebo. Under the court, those two projections per defender, and
+     where this drive's mean difference sits among all helped drives, so one drive is never
+     sold as typical. The claim itself is figure 2's.
+
+  0. **The wind map** (not one of the README's two since 2026-10-29; the memoria and the
+     page keep it). The mean displacement, over the first second of every drive, of the
      four defenders who are not the ball handler's matchup: a kernel-smoothed field drawn as
      streamlines, line width by how far the defence moves. Under it, in orange, the share of
      the defenders starting at each spot who are the HELPER (the largest mover, HELP_FT or
@@ -27,15 +36,18 @@ Every number printed on either figure is computed here from the CSVs, never type
 is drawn inside the court but the court, the data and the ball's median path: numbers,
 keys and legends live in a strip under it, where no streamline can cross them.
 
-Needs `reports/help_base_rate.csv` from the same script, and the `second_help_*.csv` drives,
-summary, contrast and contrast_sensitivity, which `scripts/second_help.py` writes.
+Needs `reports/help_base_rate.csv` from the same script, the `second_help_*.csv` drives,
+summary, contrast and contrast_sensitivity, which `scripts/second_help.py` writes, and
+`reports/wind_scenes.json`.
 
-Writes {out}/wind_figure_1_wind_map.png and {out}/wind_figure_2_who_covers.png.
+Writes {out}/wind_figure_1_one_drive.png, {out}/wind_figure_2_who_covers.png and
+{out}/wind_map_league.png.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import textwrap
 from pathlib import Path
@@ -171,7 +183,132 @@ def headline(table: pd.DataFrame) -> dict:
     }
 
 
-def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, numbers: dict,
+def figure_1(scenes: dict, path: Path) -> None:
+    scene, t = scenes["scenes"][0], scenes["headline_frame"]
+    xy = np.array(scene["xy"], dtype=float)[: t + 1]  # frames, slots 0-4 attack 5-9 defence
+    roles = scene["roles"]
+    others = roles["others"]
+    to_left = np.array([row[t] for row in scene["to_left"]])
+    placebo = np.array([row[t] for row in scene["placebo"]])
+    mean_diff = float((to_left - placebo).mean())
+    if abs(mean_diff - scene["paired_mean_1_5s"]) > 0.01:
+        raise ValueError(f"the scene's projections give {mean_diff:+.2f} ft, its record "
+                         f"{scene['paired_mean_1_5s']:+.2f}: rerun scripts/wind_scenes.py")
+    among = scene["paired_mean_1_5s_among_helped"]
+    clear = scene["clearance_ft"]
+    seconds = t / scenes["fps"]
+    window = (scenes["n_frames"] - 1) / scenes["fps"]
+    left_in = {roles["left"]}
+    placebo_men = [a for a in roles["off_ball"] if a not in left_in]
+    #: Who is drawn how: slot -> colour, line width, marker, size, edge.
+    style = {roles["handler"]: (INK, 2.2, "o", 70, INK),
+             roles["left"]: (INK, 1.2, "D", 80, INK),
+             roles["handler_def"]: (BLUE, 1.6, "s", 55, BLUE),
+             roles["helper"]: (ORANGE, 3.0, "o", 80, ORANGE),
+             **{s: (PURPLE, 1.6, "^", 70, PURPLE) for s in others},
+             **{s: (GREY, 1.0, "o", 45, GREY) for s in placebo_men}}
+    fmt = lambda v, d=1: f"{v:+.{d}f}".replace("-", "−")  # noqa: E731
+    nb = " "  # a number and its unit never split across lines
+
+    def build(height: float, out: Path | None) -> float:
+        """Draw top-down on a figure `height` inches tall; return the inches used."""
+        fig = plt.figure(figsize=(FIG2_WIDTH_IN, height))
+        inches = fig.dpi_scale_trans
+        used = [0.2]
+
+        def put(text: str, gap: float = 0.14, **style_) -> None:
+            wrapped = textwrap.fill(text, WRAP_CHARS)
+            fig.text(MARGIN_IN, height - used[0], wrapped, transform=inches, va="top",
+                     fontsize=TEXT_PT, color=INK, linespacing=LINE_SPACING, **style_)
+            used[0] += (wrapped.count("\n") + 1) * TEXT_PT * LINE_SPACING / 72 + gap
+
+        def frac(left, top, width, tall):  # inches from the top-left -> figure fractions
+            return [left / FIG2_WIDTH_IN, 1 - (top + tall) / height, width / FIG2_WIDTH_IN,
+                    tall / height]
+
+        put("How the absence is measured, on one drive", gap=0.06, weight="bold")
+        put("Each other defender's own movement is projected toward the man the helper left, "
+            "and toward the other attackers off the ball as a placebo. Only the difference "
+            "counts: the whole defence closes in.", gap=0.1)
+        ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
+        draw_court(ax)
+        for slot, (colour, width, marker, size, edge) in style.items():
+            px, py = to_plot(xy[:, slot, 0], xy[:, slot, 1])
+            ax.plot(px, py, color=colour, linewidth=width, solid_capstyle="round", zorder=3)
+            ax.scatter(px[:1], py[:1], s=size, marker=marker, facecolor="white", edgecolor=edge,
+                       linewidth=1.4, zorder=4)
+            ax.scatter(px[-1:], py[-1:], s=size, marker=marker, facecolor=colour, edgecolor=edge,
+                       linewidth=1.0, zorder=5)
+        for n, slot in enumerate(others, start=1):
+            px, py = to_plot(xy[-1, slot, 0], xy[-1, slot, 1])
+            ax.text(px + 1.1, py + 0.6, str(n), fontsize=TEXT_PT, color=PURPLE,
+                    weight="bold", zorder=6)
+        used[0] += COURT_IN + 0.1
+
+        key = fig.legend(
+            handles=[Line2D([], [], marker=m, color=c, markersize=8, linewidth=w, label=name)
+                     for name, (c, w, m) in (
+                         ("the ball handler", (INK, 2.2, "o")),
+                         ("the man the helper left", (INK, 1.2, "D")),
+                         ("the helper", (ORANGE, 3.0, "o")),
+                         ("the ball handler's defender", (BLUE, 1.6, "s")),
+                         ("the three other defenders", (PURPLE, 1.6, "^")),
+                         ("the other attackers off the ball", (GREY, 1.0, "o")))],
+            title=f"From the start (hollow) to {seconds:.1f} s (filled)", ncol=2,
+            loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
+                                              1 - used[0] / height),
+            frameon=False, fontsize=TEXT_PT - 1, title_fontsize=TEXT_PT, handletextpad=0.4,
+            columnspacing=1.2, labelspacing=0.45, borderaxespad=0)
+        key._legend_box.align = "left"
+        used[0] += 4 * TEXT_PT * LINE_SPACING / 72 + 0.2
+
+        put(f"The three other defenders at {seconds:.1f} s: their own movement toward the man "
+            f"left, and toward the placebo (the mean over the attackers off the ball who are "
+            f"not the man left and not their own man), in feet.", gap=0.05)
+        chart_h = 1.25
+        chart = fig.add_axes(frac(0.75, used[0] + 0.1, 4.2, chart_h))
+        rows = np.arange(len(others))
+        chart.barh(rows - 0.18, to_left, height=0.34, color=PURPLE, label="toward the man left")
+        chart.barh(rows + 0.18, placebo, height=0.34, color=GREY, label="toward the placebo")
+        chart.axvline(0, color=COURT, linewidth=1.0)
+        span = max(abs(to_left).max(), abs(placebo).max())
+        chart.set_xlim(-span - 2.5, span + 2.5)
+        for row, a, b in zip(rows, to_left, placebo, strict=True):
+            for value, shift in ((a, -0.18), (b, 0.18)):
+                chart.text(value + (0.3 if value >= 0 else -0.3), row + shift, fmt(value),
+                           fontsize=TEXT_PT - 1, va="center",
+                           ha="left" if value >= 0 else "right")
+        chart.set_yticks(rows, [str(n) for n in range(1, len(others) + 1)])
+        chart.set_ylim(len(others) - 0.5, -0.5)
+        chart.tick_params(labelsize=TEXT_PT, length=3)
+        chart.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
+        for spine in ("top", "right"):
+            chart.spines[spine].set_visible(False)
+        chart.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False,
+                     fontsize=TEXT_PT - 1, handlelength=1.2)
+        used[0] += 0.1 + chart_h + 0.55
+
+        put(f"Chosen by rule, not by look: the first drive with a helper, in the first game, "
+            f"with all ten players detected in every frame of its {window:.0f}{nb}s window "
+            f"(it ends in a {scene['end_type']}). In 1.0{nb}s the helper moves "
+            f"{scene['helper_help_move']:.1f}{nb}ft toward where the ball goes; the man he left "
+            f"is {clear['0.0s']:.1f}{nb}ft from the nearest defender at the start, "
+            f"{clear['1.0s']:.1f}{nb}ft at 1.0{nb}s and {clear['1.5s']:.1f}{nb}ft at "
+            f"{seconds:.1f}{nb}s.")
+        put(f"Toward him minus toward the placebo, mean of the three: "
+            f"{fmt(mean_diff, 2)}{nb}ft. That puts this drive at percentile "
+            f"{among['percentile']:.0f} of the {among['n_helped']} helped drives (median "
+            f"{fmt(among['median'], 2)}{nb}ft): a clearer case than most, not a typical one. "
+            f"Figure 2 averages them all, against drives with no helper.", gap=0.1)
+        if out is not None:
+            fig.savefig(out, dpi=200)
+        plt.close(fig)
+        return used[0]
+
+    build(build(40.0, None), path)  # the first pass only measures the height it needs
+
+
+def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, numbers: dict,
              path: Path) -> None:
     px, py = to_plot(vectors["origin_x"], vectors["origin_y"])
     u, v = vectors["dy"].to_numpy(float), vectors["dx"].to_numpy(float)  # lateral, along
@@ -421,7 +558,8 @@ def main() -> int:
                          ("second_help_drives.csv", "second_help"),
                          ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
-                         ("second_help_contrast_sensitivity.csv", "second_help")):
+                         ("second_help_contrast_sensitivity.csv", "second_help"),
+                         ("wind_scenes.json", "wind_scenes")):
         if not (args.reports / name).exists():
             print(f"no {args.reports / name}; run scripts/{script}.py first", file=sys.stderr)
             return 1
@@ -432,6 +570,7 @@ def main() -> int:
     summary = pd.read_csv(args.reports / "second_help_summary.csv")
     contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
     sweep = pd.read_csv(args.reports / "second_help_contrast_sensitivity.csv")
+    scenes = json.loads((args.reports / "wind_scenes.json").read_text(encoding="utf-8"))
     numbers = headline(table)
     print("numbers printed on the figures (from help_table.csv):")
     for key, value in numbers.items():
@@ -439,10 +578,11 @@ def main() -> int:
     print(f"vectors in the field: {len(vectors)}; helper threshold {HELP_FT} ft in {HORIZON_S} s")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    figure_1(table, vectors, rates, numbers, args.out / "wind_figure_1_wind_map.png")
+    figure_1(scenes, args.out / "wind_figure_1_one_drive.png")
     figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
-    print(f"wrote {args.out / 'wind_figure_1_wind_map.png'} and "
-          f"{args.out / 'wind_figure_2_who_covers.png'}")
+    wind_map(table, vectors, rates, numbers, args.out / "wind_map_league.png")
+    print(f"wrote {args.out / 'wind_figure_1_one_drive.png'}, "
+          f"{args.out / 'wind_figure_2_who_covers.png'} and {args.out / 'wind_map_league.png'}")
     return 0
 
 
