@@ -188,7 +188,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       in the council section). Shared columns of `help_*.csv` unchanged against HEAD. Test (b)
       fails on its mutation (0.064 against 0.0), as does A4's (`left_nearest0` at the horizon).
       `rotation.py` and `second_help.py` import `wind._row_of`, a private name.
-- [ ] A5 Figure 2 redrawn per decision D3 [sonnet] (default if no answer by 1 Nov: "who covers
+- [x] A5 Figure 2 redrawn per decision D3 [sonnet] (default if no answer by 1 Nov: "who covers
       the man he left": dots at the headline horizon coloured by the nearest defender's
       identity, helper / handler's defender / third; in the strip under the court the rotation
       toward him against the placebo at 1.0 / 1.5 / 2.0 s with its CI, and the open share with
@@ -196,6 +196,18 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       `help_sensitivity.csv`, none typed; looked at before accepting, as in W2. Accept:
       `reports/figures/wind_figure_2_*.png` rebuilt, every number on it greps back to a CSV
       column, Javier has looked at it.
+      **DONE 2026-10-29** (814dab0) except Javier's look, which moves to A7.
+      `reports/figures/wind_figure_2_who_covers.png` replaces `wind_figure_2_open_man.png`.
+      `rotation_table` gained `left_x_T`, `left_y_T` in the drive frame; at T = 25 they equal
+      `help_table` `left_x1, left_y1` on 587 of 587 drives (max diff 0.0, and dropping the
+      flip breaks 44 % of them; the new test fails on that mutation). Every older column of the
+      seven `second_help_*.csv` is unchanged against HEAD. Every number on the figure is read
+      from `second_help_summary.csv` / `second_help_drives.csv`. **New qualifier:** the -0.68 ft
+      is the MEAN over drives; the median over pairs is -0.05 (-0.15 / -0.10 at 1.0 / 2.0 s) and
+      49 % of pairs are > 0. The typical pair sits on the placebo, so the honest claim is an
+      absence of rotation toward the man left, not a rotation away from him. The figure carries
+      it next to the mean, and the README and page must too. Open share at 1.5 s: 58 % against
+      76 % without a helper (41 % and 62 % at 0 s). Two look-and-fix passes.
 - [ ] A6 Memoria v0.3 [sonnet]: amend 8.2 (the base rate next to 58.5 %, lesson 2) and 9.2
       (the new figure 2); new section 13 "La segunda ayuda: una ausencia medida" (the council's
       37/100 and why points per chance has no power; the placebo design; the three results; the
@@ -204,8 +216,20 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       closing reason kept); `SECTIONS` index and version row 0.2; rebuild with
       `NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js`, export to PDF, look at
       it. Accept: the PDF is read; section 13 is in the index; its numbers match the CSVs.
+      **DONE 2026-10-29, v0.3, 21 pages.** The new section is 11 "La segunda ayuda: una
+      ausencia medida" (8 subsections, every number from `second_help_*.csv`, two asserts in
+      the build: no 11.2 CI contains zero, helped and unhelped CIs overlap); plan is now 12,
+      pending 13, version log 14. 10.3 keeps only the design and points to 11. Typed numbers
+      in 8, 8.3, 8.4, 9.1 and 10.3 now read from CSVs. Per-game signs computed in the build:
+      7 of 10 by pair median, 8 of 10 by drive median at 1.5 s (as recorded). The 21 helped
+      numbers of 11.2-11.6 read back from the PDF text by script against the CSV: 21 of 21.
+      **New qualifier for the README:** in the sensitivity grid 15 of 18 CI cells exclude zero;
+      helped at 5 ft and 2.0 s (-1.20 to +0.14) and two unhelped 3 ft cells do not. Left typed,
+      no CSV carries them: 7.1's 283 tests (true at W1), 9.3's 55 % (history), section 5 and
+      10.2's council numbers. The PDF is ignored by `.gitignore:32`; E2 decides whether it ships.
 - [ ] A7 Phase close [haiku]: `uv run ruff check .` and `uv run pytest` exit 0; then Javier's
       check (figure 2, decisions D1, D3, D4).
+      2026-10-29: ruff clean, 293 passed. Javier's look at figure 2 pending.
 
 #### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
 - [ ] B1 Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
