@@ -345,7 +345,9 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       exits 0 (so `drive_wind_page.py` takes a path or a URL); C2's README links to that URL.
 - [ ] C2 `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
       help (corner side 2.5 %, 0-4 % in all twelve cells); the man left with its base rate in
-      the same sentence (58.5 % against 72.6 %); the second help as a measured absence with its
+      the same sentence (58.5 % against 72.6 % is the 1.0 s pair; per B3, C2 quotes the 1.5 s
+      pair from `second_help_summary.csv`, 58.3 % against 75.9 % today, like both figures and
+      the page, and names the horizon); the second help as a measured absence with its
       placebo (-0.68 ft, CI, per-game signs: 8 of 10 by drive, 7 of 10 by pair) and who covers him (the helper, 60 %); the pass in
       one sentence with its n (D7); the limits (X-out n = 18, the mirror on near-straight
       drives, ten games, extrapolated positions); what ships; run it; licence. Nothing says a
@@ -690,6 +692,20 @@ comes from the vectors in memory and not from their CSV re-read (last-digit floa
 rebuilt from the re-read vectors in a scratch dir it was byte-identical (agent's check).
 Kept the new PNG: it is what the committed code produces from a clean clone. Memoria 12.5
 and version row. 312 tests pass (agent's full run), ruff clean, `test_wind.py` 16 of 16 here.
+**B3 written 2026-10-29, awaiting Javier's acceptance** (Fable agent): `tasks/wind_page.md`.
+Slug `reports/nobody_helps_the_helper.html`; the clip is frames 0-38 at half speed (3.04 s),
+frozen on the measured frame, then a pitch-only rise (1.5 s, dolly-zoom to an orthographic
+camera) into figure 1's layout; every measure in a `#measure` DOM container hidden outside
+`plan`; ball at its height in broadcast, flat in plan, its limit in words with no number (no
+CSV here carries the gravity fit); no orbit; additions to `window.wind`: `T`, `flight(p)`,
+`camera()`, `unproject`, `field`. Its quoted numbers checked here by script against the files
+they name (`check_storyboard.py` in the session scratchpad): open shares 58.3/75.9 % at 1.5 s
+and 58.5/72.6 % at 1.0 s, 8 of 9 sensitivity CIs contain 0 (3 ft at 1.0 s below), 957/756/478
+field cells and 8.9 ft/s top speed, statuses 618/39/3, provider agreement 219 of 326 and 209
+of 292 on resolved drives, scene 1's helper and man left moving to screen-left (dy -5.15 and
+-9.20 ft at 1.0 s), ball z 10.06 ft at frame 38; one error fixed (scene 3's crop top is -12.8,
+not -13.8). Open points settled here, technical: gravity in words only; the mirrored world
+kept (the plan view equals figure 1); C2 moves to the 1.5 s open pair (written into C2).
 
 ### NEXT SESSION (left 2026-10-29)
 1. B3: Javier reads the storyboard in `tasks/wind_page.md` and accepts it or not; B4 does not
