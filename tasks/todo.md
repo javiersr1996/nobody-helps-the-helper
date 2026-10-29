@@ -348,7 +348,8 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 **ANSWERED 2026-10-28.** Executors: mixed, by the tags above. D1: **"Nobody helps the helper"**
 (against the recommendation; the page slug, the memoria and the README follow it). D2: this repo
 is the entry. D3: figure 2 is "who covers the man he left". D4, D6, D7: the defaults, accepted as
-technical. D5 (`range.bin`) still open, it deletes a file. The memoria went to v0.2 the same day
+technical. D5 (`range.bin`): deleted 2026-10-29 on Javier's word (100 bytes, the head of a
+JSON tracking frame, untracked, no reference). The memoria went to v0.2 the same day
 with the single-entry decision, the council, the probe (numbers from this record) and this plan,
 so the memoria tasks below are each one version later than written (A6 v0.3, B6 v0.4, C4 v0.5,
 D4 v0.6) and each new section goes in before "Plan y calendario", not at a fixed number.

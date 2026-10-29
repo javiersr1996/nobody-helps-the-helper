@@ -535,7 +535,7 @@ const s12 = [
 
 const s13 = [
   h1("13. Pendientes y decisiones abiertas"),
-  numbered("Un fichero suelto, range.bin (100 bytes de JSON con otro esquema), en la raíz del repo sin referencia alguna; Javier decide si se borra antes del 29 de noviembre."),
+  numbered("Cerrado el 29 de octubre: range.bin, un fichero suelto de 100 bytes (el principio de un frame de tracking en JSON) en la raíz del repo y sin referencia alguna, se borró por decisión de Javier."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
 ];
