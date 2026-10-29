@@ -277,31 +277,49 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       helper movement at 1.0 s equals `help_table.csv` within 0.01 ft and refuses a scene that
       disagrees.
 - [ ] B3 Storyboard before the engine [fable], in `tasks/wind_page.md`: the three-second hook
-      (what moves on the court in the first frame the reader sees, with no click); the sequence
-      (the league wind; one drive, the helper stepping out from the middle and coming back,
-      the three others' trails flat beside their placebo, the corner man never moving; the man
-      left and who covers him, with the live clearance and the base rate; the limits); the
-      claim of each section and the CSV column that sits next to it; what the reader can touch
-      (scrub, next drive, 390 px). Fable because the retry is the whole phase: an earlier page
-      was rejected for technique over a closed analysis, and this one has to show the finding.
-      Accept: Javier accepts it before B4 starts; every claim in it names its CSV column.
+      per D8 (the rule's drive in 3D from a broadcast-like camera, moving with no click: the
+      helper stepping toward the ball, the man he leaves drifting free; then the camera rises to
+      the top-down view, where every measure is shown); the camera path and when it rises; the
+      sequence after it, all top-down (the three others' trails beside their placebo, with the
+      bars of figure 1; the man left and who covers him, with the live clearance and the base
+      rate; the league wind as context; the limits); the claim of each section and the CSV
+      column that sits next to it; what the reader can touch (scrub, next drive, orbit the 3D
+      view or not, 390 px). Also decides the ball: drawn at its measured height, with the
+      vertical-axis limit stated (the sibling audit fits gravity at 28.1 against 32.17 ft/s²,
+      so bounces fall slow), or flat on the floor. Fable because the retry is the whole phase:
+      an earlier page was rejected for technique over a closed analysis, and this one has to
+      show the finding; a 3D viewer of this bundle already exists (the LinkedIn one), so the 3D
+      earns Communication only if it shows the helper and the man left, never Originality.
+      Accept: Javier accepts it before B4 starts; every claim in it names its CSV column; no
+      measure is shown in the perspective view.
 - [ ] B4 `scripts/wind_template.html` + `scripts/wind_html.py` [opus] ->
       `reports/nobody_helps_from_the_corner.html` (slug follows D1): self-contained, no CDN,
       no network; payload injected at `/*PAYLOAD*/` from `help_*.csv`, `second_help_*.csv`,
-      `help_field.csv` and `wind_scenes.json` (lesson 1, nothing typed); canvas court in
-      shot-chart orientation; particles advected by the field; the drive replay with the
-      helper's streak, the man left's, and the three flat ones; `prefers-reduced-motion`
-      honoured; the state machine exposed as `window.wind = {play, pause, seek(t), next,
-      state}` with `state()` returning `{scene, t, phase: idle|playing|ended, positions}`.
+      `help_field.csv` and `wind_scenes.json` (lesson 1, nothing typed); per D8 a WebGL court
+      with three.js vendored in the repo at a pinned release with its MIT licence and inlined
+      by the build (no CDN, no network); players as tokens on their tracked (x, y), never
+      bodies (the bundle has no pose); the drive replay with the helper's streak, the man
+      left's and the three others'; the camera from the broadcast view to an orthographic
+      top-down view, in which the court is in shot-chart orientation and the trails, bars and
+      particles advected by the field are drawn; `prefers-reduced-motion` honoured (a cut
+      instead of the camera flight, no autoplay); the state machine exposed as `window.wind =
+      {play, pause, seek(t), next, view(name), state}` with `state()` returning `{scene, t,
+      phase: idle|playing|ended, view: broadcast|rising|plan, positions}`.
       Accept: builds from the CSVs; `rg '[0-9]+\.[0-9]+ ?(%|ft)'` on the template finds nothing
       outside the court geometry; renders with DevTools offline.
 - [ ] B5 `scripts/drive_wind_page.py` [sonnet] (Playwright headless, under a new `page` extra,
       never core): drives the built page from the console: `seek(1.0)` puts the helper within
       0.1 ft of the JSON; `play()` and wait reads `ended` with the last frame drawn; pause then
-      play resumes at the same `t`; `next()` changes scene and numbers; every injected number
-      in the DOM equals the CSV value it names; at 390 and 1440 px no horizontal scroll, body
-      >= 16 px, canvas inside the viewport. Lesson 4: run once against a template with one
-      typed number and one broken `seek`; it must fail both (recorded here), then reverted.
+      play resumes at the same `t`; `next()` changes scene and numbers; the page opens in
+      `broadcast` and reaches `plan` with no click; in `plan`, every player's screen position
+      mapped back through the camera is within 0.1 ft of the JSON at `seek(1.0)` (the top-down
+      is true, not a perspective that looks flat); no measure (bar, number, strip) is visible
+      while the view is not `plan`; with reduced motion the flight is a cut; every injected
+      number in the DOM equals the CSV value it names; at 390 and 1440 px no horizontal
+      scroll, body >= 16 px, canvas inside the viewport. WebGL must be live in the browser it
+      drives (checked first, failing loudly if not). Lesson 4: run once against a template
+      with one typed number, one broken `seek` and a perspective camera left on in `plan`; it
+      must fail all three (recorded here), then reverted.
       Accept: exit 0 on the built page, exit 1 on each mutation.
 - [ ] B6 Memoria v0.4 [sonnet]: section 14 "La página" (what the storyboard decided, what the
       console check asserts, the mutations it fails on), index and version row; rebuild, PDF,
@@ -338,10 +356,11 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
 - [ ] D2 `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: 1920x1080 slides
-      (title; the wind map; three stills of the chosen drive at 0 / 1.0 / 1.5 s drawn with
-      matplotlib from `wind_scenes.json`, the same file the page reads; figure 2; the record),
-      and the silent MP4 timed to D1 with ffmpeg. Accept: `ffprobe` reads 60 +- 1 s off the
-      built file; every number on a slide greps to a CSV.
+      (title; figure 1; figure 2; the record) and, per D8, the drive captured from the page
+      itself, driven by `seek(t)` frame by frame at 1920x1080 (the 3D hook and the camera
+      rising to the top-down view), so video and page show the same pixels from the same
+      `wind_scenes.json`; the silent MP4 timed to D1 with ffmpeg. Accept: `ffprobe` reads
+      60 +- 1 s off the built file; every number on a slide greps to a CSV.
 - [ ] D3 Voice [haiku]: Javier records one pass over the silent cut; mux with ffmpeg; `ffprobe`
       duration read back and written here. Accept: 58-62 s, voice audible on a phone speaker.
 - [ ] D4 Memoria v0.6 [sonnet]: section 16 "El vídeo", index and version row; rebuild, PDF,
@@ -403,6 +422,16 @@ D4 v0.6) and each new section goes in before "Plan y calendario", not at a fixed
   one, the rule guards against cherry-picking, more is cost without a claim.
 - D7 The pass in the README (by 30 Nov): one sentence with its n in the limits (default) versus
   only in memoria and page. Recommendation: one sentence; it answers "did the ball find him".
+- D8 **ANSWERED 2026-10-29 (Javier: "sí").** The page opens with the rule's drive in 3D, from a
+  broadcast-like camera, and the camera rises to the top-down view for the measure; the video
+  captures it from the page. Not in the README: GitHub shows images and runs no 3D, the rules
+  allow two figures, and perspective distorts the very thing measured (feet on the floor
+  toward a point: a foot near the camera does not look like a foot far from it), so only the
+  top-down view lets a reader judge "toward" by eye. Limits stated with it: players are
+  tokens on (x, y), the bundle has no bodies; the ball's height carries the vertical-axis
+  anomaly; a 3D viewer of this bundle exists, so this scores on Communication or not at all.
+  No hours were measured for WebGL over canvas 2D; it lands in B4 (Opus), whose three weeks
+  had no slack already.
 
 ### Council and the second-help probe (2026-10-28, after W2)
 Javier decided this is the ONLY basketball entry (the rebound and the vertical-axis audit are not
@@ -639,7 +668,7 @@ values). 309 tests pass, ruff clean.
    9.1). If it still does not read, the next lever is drawing on the court the line each
    "toward" is measured along (left out to keep the court lean).
 2. B1 (kernel field into `scbasket.wind`) as planned; the wind map, now `wind_map_league.png`,
-   is the page's hook (B3), not a README figure.
+   is a top-down section of the page, not a README figure; since D8 the hook is the drive in 3D.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
    next to the 45.3 %; nothing says where help comes from.
 4. Memoria v0.4 is built and committed (30 pages) and not yet shared; each step updates it.
