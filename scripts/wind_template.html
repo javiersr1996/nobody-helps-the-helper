@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nobody helps the helper</title>
+<meta name="description" content="On a drive, one defender steps toward the ball, and nobody moves toward the man he leaves. One drive of SkillCorner's open ACB tracking from the broadcast camera, then measured from above; every number is read from a reports/*.csv in the repository.">
+<style>
+:root{
+  --bg:#fbfaf7; --paper:#ffffff; --ink:#2b2b2b; --court:#555555; --dim:#4a4a4a; --faint:#6b6b6b;
+  --line:#e2ded5; --line-2:#cdc8bc;
+  --orange:#f0a33c; --grey:#9a9a9a; --pale:#cfcfcf; --blue:#0072b2; --purple:#cc79a7;
+  --orange-ink:#b4640a; --purple-ink:#a24c7c; --ball:#a8461d;
+  --floor:#f1e4cb; --sky:#ddd6c9;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;
+     line-height:1.55;overflow-x:hidden}
+a{color:var(--ink);text-decoration-color:var(--line-2);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--ink)}
+.wrap{max-width:1260px;margin:0 auto;padding:0 16px}
+.narrow{max-width:calc(66ch + 32px)}
+.eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0}
+.q{font-variant-numeric:tabular-nums;white-space:nowrap}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ------------------------------------------------------------------- header */
+header.top{padding:20px 16px 4px}
+h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:800;
+   letter-spacing:-.02em}
+.sub{font-size:clamp(18px,1.8vw,21px);color:var(--dim);margin:8px 0 0;max-width:60ch;min-height:1.6em}
+@media (max-width:899px){.sub{min-height:3.2em}}
+
+/* -------------------------------------------------------------------- stage */
+.stage-grid{display:grid;grid-template-columns:minmax(0,760px) minmax(300px,1fr);gap:36px;
+            align-items:start;padding:12px 0 40px}
+.stage-col{position:sticky;top:8px;min-width:0}
+.stage{position:relative;width:100%;aspect-ratio:4/3;background:var(--sky);overflow:hidden;
+       border:1px solid var(--line)}
+.stage canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;left:0;top:0;will-change:transform;white-space:nowrap;font-size:13px;
+     font-weight:700;line-height:1.2;padding:1px 4px;border-radius:3px;
+     background:rgba(255,255,255,.86);color:var(--ink)}
+.tag.helper{color:var(--orange-ink)}
+.tag.other{color:var(--purple-ink);font-size:14px}
+.no-gl{position:absolute;inset:0;margin:0;padding:24px;display:flex;align-items:center;
+       font-size:17px;background:var(--paper)}
+.controls{margin-top:12px}
+.controls .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.controls .row + .row{margin-top:10px}
+.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:15px;font-weight:600;
+     padding:8px 16px;border-radius:3px;cursor:pointer;min-width:84px;min-height:40px}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn[disabled],.seg button[disabled]{opacity:.4;cursor:default}
+.scrubwrap{flex:1;min-width:150px;position:relative;padding-bottom:40px}
+#scrub{width:100%;margin:0;accent-color:var(--ink);height:24px}
+.ticks{position:absolute;left:0;right:0;top:26px;height:38px;font-size:13px;color:var(--faint)}
+.tick{position:absolute;top:0;width:1px;height:7px;background:var(--faint)}
+.tick-label{position:absolute;white-space:nowrap;transform:translateX(-100%)}
+.seg{display:flex;border:1px solid var(--ink);border-radius:3px;overflow:hidden}
+.seg button{background:transparent;border:0;color:var(--ink);font-size:15px;padding:8px 14px;
+            cursor:pointer;min-height:40px}
+.seg button + button{border-left:1px solid var(--ink)}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff;font-weight:600}
+.caption{margin:0;font-size:16px;color:var(--dim);flex:1;min-width:220px}
+.key{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:6px 16px;
+     font-size:16px;color:var(--dim)}
+.key li{display:flex;align-items:center;gap:7px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.side{min-width:0}
+.watch{font-size:18px;color:var(--dim);margin:0;max-width:40ch}
+
+/* ------------------------------------------------------------------ measure */
+#measure{font-size:16px}
+#measure h2{font-size:24px;line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
+#measure h2.second{margin-top:42px;padding-top:26px;border-top:1px solid var(--line)}
+#measure h3{font-size:16px;margin:24px 0 6px}
+#measure p{margin:10px 0 0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:14px;color:var(--dim);margin:14px 0 4px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:10px;display:inline-block}
+.chart{position:relative;margin-top:6px}
+.chart svg{display:block;overflow:visible}
+.chart text{font-family:var(--sans);font-size:13px;fill:var(--ink)}
+.chart .small{font-size:12px;fill:var(--faint)}
+.chart .row-hit{fill:transparent;cursor:pointer}
+.chart .row.on .row-bg{fill:#f2eee6}
+.cap{color:var(--dim)}
+.limit{border-left:3px solid var(--line-2);padding:2px 0 2px 12px;color:var(--dim)}
+.tile{background:var(--paper);border:1px solid var(--line);padding:14px 16px;margin-top:6px}
+.tile .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.tile .quotes{color:var(--faint);margin-top:6px}
+ul.who{list-style:none;padding:0;margin:8px 0 0}
+ul.who li{display:flex;align-items:center;gap:8px;margin:4px 0}
+.tip{position:absolute;pointer-events:none;background:var(--paper);border:1px solid var(--line-2);
+     padding:6px 9px;font-size:13px;white-space:nowrap;z-index:5;display:none}
+details{margin-top:18px}
+summary{cursor:pointer;color:var(--dim);font-weight:600}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:16px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);
+      font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:600;color:var(--dim)}
+
+/* --------------------------------------------------------------------- wind */
+section.block{padding:40px 16px 24px;border-top:1px solid var(--line)}
+section.block h2{font-size:clamp(26px,3vw,34px);line-height:1.15;margin:0;letter-spacing:-.01em}
+section.block p,section.block li{max-width:66ch}
+.windbox{position:relative;margin-top:18px;max-width:760px}
+.windbox canvas{display:block;position:absolute;left:0;top:0}
+.windbox canvas.base{position:relative}
+.bands{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 24px;margin-top:12px;font-size:14px;
+       color:var(--dim)}
+.band-key{display:flex}
+.band-key div{width:34px;text-align:center;font-size:13px}
+.band-key i{display:block;height:12px;margin-bottom:3px}
+ol.limits{padding-left:24px;margin:16px 0 0}
+ol.limits li{margin:0 0 14px;color:var(--dim)}
+ol.limits .src{color:var(--faint);font-size:16px}
+footer{border-top:1px solid var(--line);padding:30px 16px 46px;color:var(--dim);font-size:16px}
+footer h3{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+          margin:22px 0 6px}
+footer pre{background:var(--paper);border:1px solid var(--line);padding:12px 14px;font-family:var(--mono);
+           font-size:14px;overflow-x:auto;margin:0}
+footer code{font-family:var(--mono);font-size:15px}
+
+@media (max-width:899px){
+  .stage-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+  .stage-col{position:static}
+  .stage{aspect-ratio:1/1}
+  .watch{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <p class="eyebrow" id="eyebrow"></p>
+  <h1>Nobody helps the helper</h1>
+  <p class="sub" id="stage-sub">One defender steps toward the ball. Watch the man he leaves.</p>
+</header>
+
+<main>
+<section class="wrap" id="drive" aria-label="the drive">
+  <div class="stage-grid">
+    <div class="stage-col">
+      <div class="stage" id="stage">
+        <canvas id="court" role="img" aria-label="one drive, ten players as tokens on the court"></canvas>
+        <div class="tags" id="tags" aria-hidden="true"></div>
+        <p class="no-gl" id="no-gl" hidden>This browser has no WebGL, so the drive cannot be drawn
+          here. What it shows: on a drive, one defender steps toward the ball, and nobody moves
+          toward the man he leaves. The README's two figures draw the same drive and the result;
+          the measures beside and below this box need no GPU and still work.</p>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <button class="btn" id="play" type="button">Play</button>
+          <div class="scrubwrap">
+            <input type="range" id="scrub" min="0" step="1" value="0" aria-label="time in the drive">
+            <div class="ticks" id="ticks"></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="seg" role="group" aria-label="camera">
+            <button id="view-broadcast" type="button" aria-pressed="true">Broadcast</button>
+            <button id="view-plan" type="button" aria-pressed="false">Top-down</button>
+          </div>
+          <button class="btn ghost" id="next" type="button">Next drive</button>
+          <p class="caption" id="stage-caption" aria-live="polite"></p>
+        </div>
+      </div>
+      <ul class="key" id="key"></ul>
+    </div>
+
+    <div class="side">
+      <p class="watch" id="watch"></p>
+      <div id="measure" hidden>
+        <h2>Does anyone else move toward the man the helper left?</h2>
+        <p id="lead"></p>
+        <div class="legend"><span><i style="background:var(--ink)"></i>toward the man he left</span>
+          <span><i style="background:var(--grey)"></i>toward the other attackers, on average</span></div>
+        <div class="chart" id="bars"></div>
+        <p class="cap">Feet each moves toward a target: his own movement along the line from his
+          start to where the target is then (negative: away). The whole defence sinks with a
+          drive, so the test is the difference against the other attackers off the ball, his own
+          man excepted (the placebo). Hover or tap a defender, on the court or in a row, to draw
+          the lines his "toward" is measured along.</p>
+        <p id="strip-title"></p>
+        <div class="chart" id="strip"></div>
+        <p class="limit" id="limit-chosen"></p>
+
+        <h2 class="second">Nobody else moves toward the man the helper left</h2>
+        <div class="tile" id="tile"></div>
+        <h3 id="all-title"></h3>
+        <ul class="who" id="who"></ul>
+        <p id="who-dist"></p>
+        <p class="limit">That the helper is nearest is near-persistence: he was guarding that man
+          at the start. A nearest defender is a distance, not a decision.</p>
+        <p id="open"></p>
+        <h3>Rotation toward him minus toward the placebo: mean over drives, 95% CI</h3>
+        <div class="legend"><span><i style="background:var(--ink);height:4px"></i>helped drives</span>
+          <span><i style="background:var(--grey);height:4px"></i>drives with no helper</span></div>
+        <div class="chart" id="result"></div>
+        <p id="claim"></p>
+        <p id="robust"></p>
+        <p class="limit" id="limit-ci"></p>
+        <p class="limit">The grey series is negative too: the metric has its own geometric bias
+          (the man left is on the perimeter), so the baseline is the grey series, not 0.</p>
+        <p id="pass"></p>
+        <details>
+          <summary id="details-title"></summary>
+          <div class="scroll" id="details"></div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block wrap narrow" id="league">
+  <p class="eyebrow">Context</p>
+  <h2>Where the defence goes in the first second of a drive</h2>
+  <p id="wind-sub"></p>
+  <div class="windbox" id="windbox">
+    <canvas class="base" id="wind-base" aria-label="the league's defence on drives, from above, hoop at the bottom"></canvas>
+    <canvas id="wind-flow" aria-hidden="true"></canvas>
+    <div class="tip" id="wind-tip"></div>
+  </div>
+  <div class="bands">
+    <div><div id="band-title"></div><div class="band-key" id="band-key"></div></div>
+    <div id="flow-key"></div>
+  </div>
+  <div id="wind-strip"></div>
+  <p class="limit" id="wind-limit"></p>
+</section>
+
+<section class="block wrap narrow" id="limits">
+  <h2>The limits</h2>
+  <ol class="limits" id="limits-list"></ol>
+</section>
+</main>
+
+<footer class="wrap narrow" id="footer"></footer>
+
+<script type="application/json" id="payload">/*PAYLOAD*/</script>
+<script id="three-js">
+window.THREE = (function () {
+  const module = {exports: {}};
+  return (function (module, exports) {
+/*THREE*/
+    return module.exports;
+  })(module, module.exports);
+})();
+</script>
+<script>
+"use strict";
+/* ==========================================================================
+   Data. Everything numeric on the page is read from D, which the build fills
+   from the reports (scripts/wind_html.py); this script types none of it.
+   ========================================================================== */
+const D = JSON.parse(document.getElementById("payload").textContent);
+const W = D.scenes;                        // reports/wind_scenes.json, whole
+const SCENES = W.scenes;
+const FPS = W.fps;
+const F_END = W.headline_frame;            // the measure's frame; the page never draws past it
+const F_NAMED = W.horizon_frames;          // the frame the helper is named at
+const T = F_END / FPS;
+const HOOP_X = W.hoop_x;
+const G = D.court.geometry;                // scbasket.court.FIBA
+const BASELINE = -G.half_length_ft;
+const STILL = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Timing, typed: storyboard 2.6, not data. Clip seconds per wall second, the freeze before the
+   rise, the rise, the measures' fade-in. */
+const RATE = 0.5, HOLD_S = 0.5, FLIGHT_S = 1.5, FADE_S = STILL ? 0 : 0.4;
+
+/* Drawing, typed, in feet: the token and the ball (storyboard 2.2), the floor past the lines,
+   the labels' height, line and trail widths, figure 1's rules for the arrowheads and its crop. */
+const DOT_R = 1.15, DOT_H = 0.3, BALL_R = 0.39, MARGIN = 3, LABEL_Z = 1.5;
+const LINE_W = 0.2, TRAIL_W = 0.35, STAYED = 1.5, ARROW_BACK = 1, CROP_TOP = 27, CROP_PAD = 2;
+/* FIBA measures scbasket.court does not carry (help_figures.py has the same): the free-throw
+   circle, the backboard's distance from the baseline, half its width, its lower and upper
+   edge, the rim's radius and height. Court geometry, drawn only. */
+const FT_CIRCLE = 5.91, BOARD_FROM_BASELINE = 3.94, BOARD_HALF = 2.95;
+const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
+/* The broadcast camera, fitted per canvas (storyboard 2.3) so that every token and the ball
+   stay inside it on every frame of the four drives and the hoop sits low and centred: the eye
+   this far behind the hoop (`back`) and this high (`z`), on the hoop's axis, looking at a point
+   `ahead` up-court of the players' centroid at the measure's frame, `lookZ` high, with a
+   vertical field of view `fov`. The square canvas needs a steeper camera to fill its height.
+   FOV_PLAN: the narrowest field of view the rise reaches before the swap to the orthographic
+   camera. Degrees and feet. */
+const CAMERA = {wide: {back: 40, z: 42, ahead: 16, lookZ: 3, fov: 40},
+                square: {back: 45, z: 80, ahead: 8, lookZ: 3, fov: 32}};
+const FOV_PLAN = 1;
+const DEG = Math.PI / 180;
+
+/* Figure 1's palette (scripts/help_figures.py), the ball, the floor. */
+const C = {ink: "#2b2b2b", court: "#555555", orange: "#f0a33c", grey: "#9a9a9a",
+           pale: "#cfcfcf", blue: "#0072b2", purple: "#cc79a7", ball: "#a8461d",
+           floor: "#f1e4cb", sky: "#ddd6c9", white: "#ffffff"};
+/* The wind map's orange bands (matplotlib's Oranges where help_figures.py samples it). */
+const BANDS = ["#fee7d0", "#fdd2a6", "#fdb170", "#fd9141", "#f36e19", "#dd4d04", "#b03903"];
+const END_TYPE = {pullup: "pull-up", kickout: "kickout", shotNearBasket: "shot near the basket",
+                  interiorPass: "interior pass"};
+const WHO = {helper: "the helper", handler_def: "the ball handler's defender",
+             third: "a third defender"};
+
+/* ------------------------------------------------------------------ helpers */
+const at = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const smooth = p => p * p * (3 - 2 * p);
+const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbHex = c => "#" + c.map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, k) => rgbHex(hexRGB(a).map((v, i) => v + (hexRGB(b)[i] - v) * k));
+/* A trail is its player's colour lifted toward white, so no trail pixel can be read as a token. */
+const trailOf = hex => mix(hex, C.white, 0.4);
+const MINUS = "−", NB = " ";
+function signed(v, d = 1) {
+  const r = Number(v.toFixed(d));
+  return r === 0 ? (0).toFixed(d) : (r > 0 ? "+" : MINUS) + Math.abs(v).toFixed(d);
+}
+const neg = (v, d = 2) => (v < 0 ? MINUS : "") + Math.abs(v).toFixed(d);
+const pct = (v, d = 0) => (100 * v).toFixed(d) + "%";
+const sec = frames => (frames / FPS).toFixed(1) + NB + "s";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+/* An injected number: its text, and where it comes from, for a console check to compare. */
+function q(value, text, src, col, row) {
+  return `<span class="q" data-src="${esc(src)}" data-col="${esc(col)}"`
+    + (row ? ` data-row="${esc(row)}"` : "") + ` data-value="${value}">${text}</span>`;
+}
+const SUMMARY = "second_help_summary.csv";
+const summaryRow = (horizon, helped) =>
+  D.summary.find(r => r.horizon === horizon && r.helped === helped);
+const sq = (horizon, helped, col, text) =>
+  q(summaryRow(horizon, helped)[col], text, SUMMARY, col, `horizon=${horizon};helped=${helped ? "True" : "False"}`);
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(name, attrs = {}, text) {
+  const node = document.createElementNS(SVGNS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function fit(host, height) {
+  const w = Math.max(260, Math.floor(host.clientWidth));
+  const svg = el("svg", {width: w, height, viewBox: `0 0 ${w} ${height}`});
+  host.replaceChildren(svg);
+  return {svg, w};
+}
+function ticks(lo, hi, want = 5) {
+  const raw = (hi - lo) / want, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  const out = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(Number(t.toFixed(6)));
+  return out;
+}
+
+/* ------------------------------------------------------------- the scenes */
+/* Each scene's cast (who is drawn in which colour, figure 1's rule), its crop (figure 1's: the
+   full width, from the baseline to 27 ft above the hoop or 2 ft above the highest player),
+   where its broadcast camera looks, and the fixed span of its bars. */
+for (const s of SCENES) {
+  const r = s.roles;
+  s.colour = Array.from({length: 10}, (_, k) => (k < 5 ? C.grey : C.purple));
+  s.colour[r.handler] = C.ink;
+  s.colour[r.left] = C.ink;
+  s.colour[r.handler_def] = C.pale;
+  s.colour[r.helper] = C.orange;
+  let top = -Infinity, cx = 0;
+  for (let f = 0; f <= F_END; f++) for (const p of s.xy[f]) top = Math.max(top, p[0]);
+  for (const p of s.xy[F_END]) cx += p[0] / 10;
+  s.crop = {lo: BASELINE - MARGIN, hi: Math.max(HOOP_X + CROP_TOP, top + CROP_PAD)};
+  s.centroidX = cx;
+  let span = 0;
+  for (const name of ["to_left", "placebo"]) {
+    for (const row of s[name]) for (let f = 0; f <= F_END; f++) span = Math.max(span, Math.abs(row[f]));
+  }
+  s.span = span * 1.3 + 1;
+  s.selection = W.selection.find(g => g.game === s.game);
+}
+
+/** Positions at clip time t, linearly interpolated between frames, frames 0..F_END only. */
+function posAt(s, t) {
+  const f = clamp(t * FPS, 0, F_END), i = Math.min(Math.floor(f + 1e-9), F_END);
+  const j = Math.min(i + 1, F_END), a = Math.max(0, f - i);
+  const players = s.xy[i].map((p, k) => [p[0] + (s.xy[j][k][0] - p[0]) * a,
+                                         p[1] + (s.xy[j][k][1] - p[1]) * a]);
+  const ball = [0, 1, 2].map(c => s.ball[i][c] + (s.ball[j][c] - s.ball[i][c]) * a);
+  return {players, ball, i, j, a};
+}
+const lerpRow = (row, P) => row[P.i] + (row[P.j] - row[P.i]) * P.a;
+
+/** The nearest of the five defenders to the man left, and how far, at positions P. */
+function nearestOf(s, P) {
+  const r = s.roles, left = P.players[r.left];
+  let best = -1, dist = Infinity;
+  for (let k = 5; k < 10; k++) {
+    const d = Math.hypot(P.players[k][0] - left[0], P.players[k][1] - left[1]);
+    if (d < dist) { dist = d; best = k; }
+  }
+  const who = best === r.helper ? "helper" : best === r.handler_def ? "handler_def" : "third";
+  return {who, dist};
+}
+
+/* ==========================================================================
+   The stage. The drive frame in feet is laid out so that a camera looking
+   straight down with up = -Z draws figure 1's layout (storyboard 2.1):
+   world X = y, world Y = z (up), world Z = -x. Hoop at the bottom, +y right.
+   ========================================================================== */
+const canvas = at("court");
+let GL = false, renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: true});
+  GL = true;
+} catch (e) {
+  GL = false;
+}
+const WORLD = [0, 0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1];  // drive frame -> world, column-major
+const V = (x, y, z = 0) => new THREE.Vector3(y, z, -x);
+const flat = p => [p[1], -p[0]];                                  // drive (x, y) -> world (X, Z)
+
+const st = {scene: 0, t: 0, phase: "idle", view: "broadcast", p: 0};
+const size = {w: 0, h: 0, square: false};
+let scene3, persp, ortho, active, current = null, hover = -1;
+let pucks = [], ball, shadow, plan = [], hoverTris = [];
+let playRaf = 0, playLast = null, holdTimer = 0, flyRaf = 0, flyLast = null, fadeRaf = 0;
+
+/** Triangles on the floor, rebuilt in place: trails, arrowheads, rings, dashed lines. */
+class Tris {
+  constructor(colour, capacity, y, order) {
+    this.pos = new Float32Array(capacity * 9);
+    this.n = 0;
+    this.y = y;
+    this.geom = new THREE.BufferGeometry();
+    this.attr = new THREE.BufferAttribute(this.pos, 3);
+    this.attr.setUsage(THREE.DynamicDrawUsage);
+    this.geom.setAttribute("position", this.attr);
+    this.mat = new THREE.MeshBasicMaterial({color: colour, side: THREE.DoubleSide,
+                                            transparent: true, depthWrite: false});
+    this.mesh = new THREE.Mesh(this.geom, this.mat);
+    this.mesh.renderOrder = order;
+    this.mesh.frustumCulled = false;
+  }
+  clear() { this.n = 0; }
+  tri(a, b, c) {
+    if ((this.n + 1) * 9 > this.pos.length) return;
+    let o = this.n * 9;
+    for (const p of [a, b, c]) { this.pos[o++] = p[0]; this.pos[o++] = this.y; this.pos[o++] = p[1]; }
+    this.n++;
+  }
+  quad(a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); }
+  commit() { this.geom.setDrawRange(0, this.n * 3); this.attr.needsUpdate = true; }
+}
+
+/** A polyline as a ribbon `w` wide (world floor points), mitred at the joints. */
+function strip(tris, pts, w) {
+  const n = pts.length;
+  if (n < 2) return;
+  const off = pts.map((c, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = -(b[1] - a[1]) / L, nz = (b[0] - a[0]) / L;
+    let k = 1;
+    if (i > 0 && i < n - 1) {
+      const p = pts[i - 1], lu = Math.hypot(c[0] - p[0], c[1] - p[1]) || 1;
+      k = 1 / Math.max(0.5, nx * -(c[1] - p[1]) / lu + nz * (c[0] - p[0]) / lu);
+    }
+    return [nx * w / 2 * k, nz * w / 2 * k];
+  });
+  for (let i = 0; i < n - 1; i++) {
+    const p = pts[i], r = pts[i + 1], o = off[i], u = off[i + 1];
+    tris.quad([p[0] + o[0], p[1] + o[1]], [p[0] - o[0], p[1] - o[1]],
+              [r[0] - u[0], r[1] - u[1]], [r[0] + u[0], r[1] + u[1]]);
+  }
+}
+/** Dashes along a straight line, world floor points. */
+function dashed(tris, a, b, w, dash = 0.9, gap = 0.6) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (L < 1e-6) return;
+  const ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L;
+  for (let s = 0; s < L; s += dash + gap) {
+    const e = Math.min(L, s + dash);
+    strip(tris, [[a[0] + ux * s, a[1] + uz * s], [a[0] + ux * e, a[1] + uz * e]], w);
+  }
+}
+/** An arrowhead whose tip is at `tip`, pointing along unit (ux, uz). */
+function head(tris, tip, ux, uz, len, half) {
+  const bx = tip[0] - ux * len, bz = tip[1] - uz * len;
+  tris.tri(tip, [bx - uz * half, bz + ux * half], [bx + uz * half, bz - ux * half]);
+}
+function ring(tris, c, r0, r1, n = 24) {
+  for (let i = 0; i < n; i++) {
+    const a = 2 * Math.PI * i / n, b = 2 * Math.PI * (i + 1) / n;
+    tris.quad([c[0] + r0 * Math.cos(a), c[1] + r0 * Math.sin(a)], [c[0] + r1 * Math.cos(a), c[1] + r1 * Math.sin(a)],
+              [c[0] + r1 * Math.cos(b), c[1] + r1 * Math.sin(b)], [c[0] + r0 * Math.cos(b), c[1] + r0 * Math.sin(b)]);
+  }
+}
+const arc = (cx, cy, r, a0, a1, n = 64) =>
+  Array.from({length: n + 1}, (_, i) => {
+    const a = a0 + (a1 - a0) * i / n;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];  // drive (x, y)
+  });
+
+function buildStage() {
+  scene3 = new THREE.Scene();
+  renderer.setClearColor(C.sky);
+  // A light straight down: a puck's top shows its colour exactly (ambient + direct = pi, the
+  // Lambert normalisation), its side the ambient share only.
+  scene3.add(new THREE.AmbientLight(0xffffff, 0.45 * Math.PI));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI);
+  sun.position.set(0, 1, 0);
+  scene3.add(sun);
+
+  // The whole floor, 3 ft past the lines: the far half is never measured, but a broadcast
+  // camera sees it, and without it the top of the frame would be empty.
+  const hw = G.half_width_ft;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * (hw + MARGIN), -2 * BASELINE + 2 * MARGIN),
+                               new THREE.MeshBasicMaterial({color: C.floor, depthWrite: false}));
+  floor.rotation.x = -Math.PI / 2;
+  floor.renderOrder = -2;
+  scene3.add(floor);
+
+  // The court lines, in the drive frame, as figure 1 draws them; the far half is their mirror.
+  const pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
+  const R = G.three_radius_ft, cy = G.corner_line_y_ft, meet = HOOP_X + Math.sqrt(R * R - cy * cy);
+  const phi = Math.asin(cy / R);
+  const half = [
+    [[BASELINE, -hw], [BASELINE, hw], [0, hw], [0, -hw], [BASELINE, -hw]],
+    [[BASELINE, -pw], [ftx, -pw], [ftx, pw], [BASELINE, pw]],
+    arc(ftx, 0, FT_CIRCLE, -Math.PI / 2, Math.PI / 2),
+    arc(HOOP_X, 0, G.ra_radius_ft, -Math.PI / 2, Math.PI / 2, 40),
+    [[BASELINE, -cy], [meet, -cy], ...arc(HOOP_X, 0, R, -phi, phi, 120), [meet, cy], [BASELINE, cy]],
+    arc(0, 0, FT_CIRCLE, Math.PI / 2, 3 * Math.PI / 2),
+  ];
+  const lines = [...half, ...half.map(line => line.map(([x, y]) => [-x, y]))];
+  const court = new Tris(C.court, 12000, 0.01, -1);
+  court.mat.transparent = false;
+  court.mat.depthTest = false;
+  for (const line of lines) strip(court, line.map(flat), LINE_W);
+  court.commit();
+  scene3.add(court.mesh);
+
+  // The hoop: rim, backboard glass and frame. Drawn, not measured.
+  const steel = new THREE.MeshLambertMaterial({color: C.court});
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), steel);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.copy(V(HOOP_X, 0, RIM_Z));
+  scene3.add(rim);
+  const bx = BASELINE + BOARD_FROM_BASELINE, bh = BOARD_HIGH - BOARD_LOW;
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(2 * BOARD_HALF, bh, 0.08),
+    new THREE.MeshBasicMaterial({color: C.white, transparent: true, opacity: 0.2, depthWrite: false}));
+  glass.position.copy(V(bx, 0, (BOARD_LOW + BOARD_HIGH) / 2));
+  scene3.add(glass);
+  for (const [w, h, x, y, z] of [[2 * BOARD_HALF, 0.14, bx, 0, BOARD_HIGH], [2 * BOARD_HALF, 0.14, bx, 0, BOARD_LOW],
+                                 [0.14, bh, bx, -BOARD_HALF, (BOARD_LOW + BOARD_HIGH) / 2],
+                                 [0.14, bh, bx, BOARD_HALF, (BOARD_LOW + BOARD_HIGH) / 2]]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.14), steel);
+    bar.position.copy(V(x, y, z));
+    scene3.add(bar);
+  }
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, HOOP_X - RIM_R - bx), steel);
+  neck.position.copy(V((bx + HOOP_X - RIM_R) / 2, 0, RIM_Z));
+  scene3.add(neck);
+
+  // Ten tokens, the ball and its shadow.
+  const disc = new THREE.CylinderGeometry(DOT_R, DOT_R, DOT_H, 40);
+  pucks = Array.from({length: 10}, () => {
+    const m = new THREE.Mesh(disc, new THREE.MeshLambertMaterial({color: C.grey}));
+    scene3.add(m);
+    return m;
+  });
+  ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 24, 16),
+                        new THREE.MeshLambertMaterial({color: C.ball}));
+  scene3.add(ball);
+  shadow = new THREE.Mesh(new THREE.CircleGeometry(0.7, 32),
+    new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false}));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.renderOrder = 1;
+  scene3.add(shadow);
+
+  // Plan only: a trail, its start ring and its arrowhead per player; the hover lines.
+  plan = Array.from({length: 10}, () => {
+    const t = new Tris(C.grey, 900, 0.03, 2);
+    scene3.add(t.mesh);
+    return t;
+  });
+  hoverTris = [C.purple, C.ink, C.grey].map((c, i) => {
+    const t = new Tris(c, 1600, 0.05 - 0.005 * i, 3);
+    scene3.add(t.mesh);
+    return t;
+  });
+
+  persp = new THREE.PerspectiveCamera(CAMERA.wide.fov, 4 / 3, 0.5, 400);
+  ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1000);
+  active = persp;
+}
+
+/** The orthographic frame that contains a scene's crop in the canvas's aspect ("contain",
+    never stretched). The crop sits on the canvas's bottom edge, so any spare height shows more
+    of the court up-court rather than an empty band behind the baseline. */
+function planFrame(s) {
+  const aspect = size.w / size.h, w = 2 * (G.half_width_ft + MARGIN), h = s.crop.hi - s.crop.lo;
+  let halfW, halfH;
+  if (w / h > aspect) { halfW = w / 2; halfH = halfW / aspect; }
+  else { halfH = h / 2; halfW = halfH * aspect; }
+  return {halfW, halfH, centre: V(s.crop.lo + halfH, 0, 0)};
+}
+
+/** The camera at progress p of the rise (0 broadcast, 1 plan). Pitch only: eye, target and up
+    stay in the vertical plane through the hoop's axis, so screen-right is +y the whole way.
+    The field of view narrows as the distance grows, holding the crop near its final size, and
+    at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
+    straight down at the same centre: on the floor the two project the same. */
+function placeCamera(p) {
+  const s = SCENES[st.scene], frame = planFrame(s);
+  if (p >= 1) {
+    Object.assign(ortho, {left: -frame.halfW, right: frame.halfW, top: frame.halfH, bottom: -frame.halfH});
+    ortho.position.set(0, 400, frame.centre.z);
+    ortho.up.set(0, 0, -1);
+    ortho.lookAt(frame.centre);
+    ortho.updateProjectionMatrix();
+    ortho.updateMatrixWorld();
+    active = ortho;
+    return;
+  }
+  const e = smooth(clamp(p, 0, 1)), cam = CAMERA[size.square ? "square" : "wide"];
+  const eye = V(HOOP_X - cam.back, 0, cam.z), look = V(s.centroidX + cam.ahead, 0, cam.lookZ);
+  const d0 = eye.clone().sub(look), D0 = d0.length();
+  const th = Math.atan2(d0.y, d0.z) + (Math.PI / 2 - Math.atan2(d0.y, d0.z)) * e;
+  const t0 = Math.tan(cam.fov * DEG / 2), t1 = Math.tan(FOV_PLAN * DEG / 2);
+  const tanE = Math.pow(t0, 1 - e) * Math.pow(t1, e);
+  const hE = Math.pow(2 * D0 * t0, 1 - e) * Math.pow(2 * frame.halfH, e);
+  const dist = hE / (2 * tanE);
+  const target = look.clone().lerp(frame.centre, e);
+  persp.fov = 2 * Math.atan(tanE) / DEG;
+  persp.aspect = size.w / size.h;
+  persp.near = Math.max(0.5, dist - 150);
+  persp.far = dist + 150;
+  persp.position.set(0, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
+  persp.up.set(0, 1 - e, -e).normalize();
+  persp.lookAt(target);
+  persp.updateProjectionMatrix();
+  persp.updateMatrixWorld();
+  active = persp;
+}
+
+/* ------------------------------------------------------------------ labels */
+const tagLayer = at("tags");
+let tags = [];
+function buildTags(s) {
+  const r = s.roles;
+  const list = [[r.handler, "handler", "ball handler"], [r.helper, "helper", "helper"],
+                [r.left, "left", "the man he left"],
+                ...r.others.map((k, i) => [k, "other", String(i + 1)])];
+  tagLayer.replaceChildren();
+  tags = list.map(([slot, kind, text]) => {
+    const node = document.createElement("div");
+    node.className = "tag " + kind;
+    node.textContent = text;
+    tagLayer.appendChild(node);
+    return {slot, kind, node, w: 0, h: 0};
+  });
+}
+function project(x, y, z = 0) {
+  const v = V(x, y, z).project(active);
+  return [(v.x + 1) / 2 * size.w, (1 - v.y) / 2 * size.h];
+}
+/** Each label beside its token's top, on its own side (the helper up-right, the man he left
+    down-left, so the two never cover each other), and always inside the canvas. */
+function placeTags() {
+  if (!current) return;
+  for (const t of tags) {
+    if (!t.w) { t.w = t.node.offsetWidth; t.h = t.node.offsetHeight; }
+    const p = current.players[t.slot], [px, py] = project(p[0], p[1], LABEL_Z);
+    const [dx, dy] = {handler: [-t.w / 2, -t.h - 10], helper: [8, -t.h - 8], left: [-t.w - 8, 8],
+                      other: [10, -t.h / 2]}[t.kind];
+    const x = clamp(px + dx, 2, size.w - t.w - 2), y = clamp(py + dy, 2, size.h - t.h - 2);
+    t.node.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+}
+
+/* --------------------------------------------------------------- drawing */
+function render() {
+  if (!GL) return;
+  renderer.render(scene3, active);
+  placeTags();
+}
+
+function drawPlan(s, P) {
+  for (let k = 0; k < 10; k++) {
+    const t = plan[k];
+    t.clear();
+    const pts = [];
+    for (let f = 0; f <= P.i; f++) pts.push(flat(s.xy[f][k]));
+    if (P.a > 0) pts.push(flat(P.players[k]));
+    strip(t, pts, TRAIL_W);
+    ring(t, pts[0], 0.45, 0.8);
+    const end = pts[pts.length - 1], start = pts[0];
+    if (Math.hypot(end[0] - start[0], end[1] - start[1]) >= STAYED) {
+      // the arrow's direction from the last foot of the trail, not the last frame's jitter
+      let tail = start;
+      for (let i = pts.length - 1; i >= 0; i--) {
+        if (Math.hypot(pts[i][0] - end[0], pts[i][1] - end[1]) >= ARROW_BACK) { tail = pts[i]; break; }
+      }
+      const L = Math.hypot(end[0] - tail[0], end[1] - tail[1]) || 1;
+      const ux = (end[0] - tail[0]) / L, uz = (end[1] - tail[1]) / L;
+      head(t, [end[0] + ux * (DOT_R + 1.1), end[1] + uz * (DOT_R + 1.1)], ux, uz, 1.3, 0.75);
+    }
+    t.commit();
+  }
+  for (const t of hoverTris) t.clear();
+  if (hover >= 0) {
+    const slot = s.roles.others[hover], p0 = flat(s.xy[0][slot]), p1 = flat(P.players[slot]);
+    const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    if (L > DOT_R + 1.2) {             // the displacement, its head at the puck's edge
+      const ux = (p1[0] - p0[0]) / L, uz = (p1[1] - p0[1]) / L;
+      const tip = [p1[0] - ux * DOT_R, p1[1] - uz * DOT_R];
+      strip(hoverTris[0], [p0, [tip[0] - ux * 0.8, tip[1] - uz * 0.8]], 0.3);
+      head(hoverTris[0], tip, ux, uz, 1.0, 0.6);
+    }
+    dashed(hoverTris[1], p0, flat(P.players[s.roles.left]), 0.22);
+    for (const a of s.roles.placebo_targets[hover]) dashed(hoverTris[2], p0, flat(P.players[a]), 0.22);
+  }
+  for (const t of hoverTris) t.commit();
+}
+
+/** Draw the scene at clip time t: tokens, ball, and (in plan) the trails; then the panels. */
+function drawAt(t) {
+  const s = SCENES[st.scene];
+  current = posAt(s, t);
+  const P = current;
+  if (GL) {
+    for (let k = 0; k < 10; k++) pucks[k].position.copy(V(P.players[k][0], P.players[k][1], DOT_H / 2));
+    // In plan the ball is a dot on the floor (seen from straight above, height draws nothing);
+    // on the way up it sinks to it, and its shadow fades.
+    const e = st.view === "plan" ? 1 : st.view === "rising" ? smooth(st.p) : 0;
+    const z = Math.max(P.ball[2], BALL_R), zDraw = z + (DOT_H + BALL_R - z) * e;
+    ball.position.copy(V(P.ball[0], P.ball[1], zDraw));
+    shadow.position.copy(V(P.ball[0], P.ball[1], 0.015));
+    shadow.scale.setScalar(Math.max(0.4, 1 - z / 30));
+    shadow.material.opacity = 0.22 * (1 - e);
+    shadow.visible = e < 1;
+    const inPlan = st.view === "plan";
+    for (const m of [...plan, ...hoverTris]) m.mesh.visible = inPlan;
+    if (inPlan) drawPlan(s, P);
+    render();
+  }
+  if (!measure.hidden) updateMeasure(P);
+  scrub.value = String(Math.round(t * FPS));
+  scrub.setAttribute("aria-valuetext", `t = ${t.toFixed(2)} s`);
+}
+
+/** A scene's colours and labels onto the stage. */
+function loadScene() {
+  const s = SCENES[st.scene];
+  hover = -1;
+  if (GL) {
+    pucks.forEach((m, k) => m.material.color.set(s.colour[k]));
+    plan.forEach((t, k) => t.mat.color.set(trailOf(s.colour[k])));
+    buildTags(s);
+  }
+}
+
+/* ==========================================================================
+   The state machine (storyboard 5.1 to 5.3), exposed as window.wind.
+   ========================================================================== */
+const measure = at("measure"), scrub = at("scrub"), playBtn = at("play"), nextBtn = at("next");
+const viewB = at("view-broadcast"), viewP = at("view-plan");
+
+const cancelHold = () => { clearTimeout(holdTimer); holdTimer = 0; };
+const stopPlay = () => { cancelAnimationFrame(playRaf); playRaf = 0; playLast = null; };
+const stopFlight = () => { cancelAnimationFrame(flyRaf); flyRaf = 0; flyLast = null; };
+const stopFade = () => { cancelAnimationFrame(fadeRaf); fadeRaf = 0; };
+
+function startPlay() {
+  st.phase = "playing";
+  playLast = null;
+  playRaf = requestAnimationFrame(tick);
+  syncUI();
+}
+function tick(now) {
+  playRaf = 0;
+  if (st.phase !== "playing") return;
+  if (playLast !== null) st.t = Math.min(T, st.t + Math.min(now - playLast, 100) / 1000 * RATE);
+  playLast = now;
+  drawAt(st.t);
+  if (st.t >= T) {
+    playLast = null;
+    st.phase = "ended";
+    syncUI();
+    // Every broadcast run that reaches T rises: the measure is always taken from above.
+    if (st.view === "broadcast") holdTimer = setTimeout(() => { holdTimer = 0; rise(); }, HOLD_S * 1000);
+    return;
+  }
+  playRaf = requestAnimationFrame(tick);
+}
+
+function rise() {
+  cancelHold();
+  if (STILL || !GL) { land(false); return; }
+  st.view = "rising";
+  st.p = 0;
+  syncUI();
+  flyLast = null;
+  flyRaf = requestAnimationFrame(fly);
+}
+function fly(now) {
+  flyRaf = 0;
+  if (flyLast !== null) st.p = Math.min(1, st.p + Math.min(now - flyLast, 100) / 1000 / FLIGHT_S);
+  flyLast = now;
+  if (st.p >= 1) { land(true); return; }
+  placeCamera(st.p);
+  drawAt(st.t);
+  flyRaf = requestAnimationFrame(fly);
+}
+function land(fade) {
+  flyLast = null;
+  st.view = "plan";
+  st.p = 1;
+  if (GL) placeCamera(1);
+  showMeasure(fade && FADE_S > 0);
+  drawAt(st.t);
+  syncUI();
+}
+
+function showMeasure(fade) {
+  stopFade();
+  measure.hidden = false;
+  renderMeasure();
+  if (!fade) { setFade(1); return; }
+  setFade(0);
+  let start = null;
+  const step = now => {
+    if (start === null) start = now;
+    const k = Math.min(1, (now - start) / 1000 / FADE_S);
+    setFade(k);
+    render();
+    fadeRaf = k < 1 ? requestAnimationFrame(step) : 0;
+  };
+  fadeRaf = requestAnimationFrame(step);
+}
+function setFade(k) {
+  measure.style.opacity = String(k);
+  for (const t of plan) t.mat.opacity = k;
+  for (const t of hoverTris) t.mat.opacity = k;
+}
+function hideMeasure() {
+  stopFade();
+  measure.hidden = true;
+  setFade(1);
+  hover = -1;
+}
+
+function syncUI() {
+  const s = SCENES[st.scene], rising = st.view === "rising", atEnd = st.t >= T - 1e-9;
+  playBtn.textContent = st.phase === "playing" ? "Pause"
+    : (st.phase === "ended" || atEnd) ? "Replay" : "Play";
+  playBtn.disabled = nextBtn.disabled = scrub.disabled = rising;
+  viewB.disabled = viewP.disabled = rising || !GL;
+  viewB.setAttribute("aria-pressed", String(st.view === "broadcast"));
+  viewP.setAttribute("aria-pressed", String(st.view === "plan"));
+  const where = st.view === "broadcast"
+    ? `the broadcast camera, ${RATE === 0.5 ? "half speed" : RATE + "× speed"}`
+    : "from above: the measure";
+  at("stage-caption").textContent = rising ? "rising to the top-down view"
+    : `Drive ${st.scene + 1} of ${SCENES.length} · game ${s.game} · `
+      + `${END_TYPE[s.end_type] || s.end_type} · ${where}`;
+  at("stage-sub").textContent = st.view === "plan"
+    ? "From above, the measure: how far each of the other three moves toward him."
+    : "One defender steps toward the ball. Watch the man he leaves.";
+  at("watch").hidden = st.view === "plan";
+}
+
+const api = {
+  T, RATE, HOLD_S, FLIGHT_S, FADE_S,
+  play() {
+    if (st.view === "rising" || st.phase === "playing") return false;
+    cancelHold();
+    if (st.t >= T - 1e-9) st.t = 0;
+    drawAt(st.t);
+    startPlay();
+    return true;
+  },
+  pause() {
+    if (st.view === "rising") return false;
+    cancelHold();
+    if (st.phase === "playing") { stopPlay(); st.phase = "idle"; }
+    syncUI();
+    return true;
+  },
+  seek(t) {
+    if (st.view === "rising") return false;
+    t = Number(t);
+    if (!Number.isFinite(t)) return false;
+    cancelHold();
+    stopPlay();
+    st.t = clamp(t, 0, T);
+    st.phase = "idle";
+    drawAt(st.t);
+    syncUI();
+    return true;
+  },
+  next() {
+    if (st.view === "rising") return false;
+    cancelHold();
+    stopPlay();
+    st.scene = (st.scene + 1) % SCENES.length;
+    loadScene();
+    if (st.view === "broadcast") {
+      st.t = 0;
+      st.phase = "idle";
+      if (GL) placeCamera(0);
+      drawAt(0);
+      if (!STILL) startPlay();
+    } else {
+      st.t = T;
+      st.phase = "idle";
+      if (GL) placeCamera(1);
+      showMeasure(false);
+      drawAt(T);
+    }
+    syncUI();
+    return true;
+  },
+  view(name) {
+    if (st.view === "rising") return false;
+    if (name === st.view) return true;
+    if (name === "plan") {
+      cancelHold();
+      if (st.phase === "playing") { stopPlay(); st.phase = "idle"; }
+      rise();
+      return true;
+    }
+    if (name === "broadcast" && GL) {
+      cancelHold();
+      hideMeasure();                     // before the frame is drawn
+      if (st.phase === "playing") { stopPlay(); st.phase = "idle"; }
+      st.view = "broadcast";
+      st.p = 0;
+      placeCamera(0);
+      drawAt(st.t);
+      syncUI();
+      return true;
+    }
+    return false;
+  },
+  state() {
+    const P = posAt(SCENES[st.scene], st.t);
+    return {scene: st.scene, t: st.t, phase: st.phase, view: st.view,
+            positions: {players: P.players, ball: P.ball}};
+  },
+  flight(p) {
+    p = Number(p);
+    if (!GL || !Number.isFinite(p)) return false;
+    p = clamp(p, 0, 1);
+    stopFlight();
+    cancelHold();
+    if (st.phase === "playing") { stopPlay(); st.phase = "idle"; }
+    st.p = p;
+    if (p >= 1) { st.view = "plan"; placeCamera(1); showMeasure(false); }
+    else { hideMeasure(); st.view = p > 0 ? "rising" : "broadcast"; placeCamera(p); }
+    drawAt(st.t);
+    syncUI();
+    return true;
+  },
+  camera() {
+    if (!GL) return null;
+    active.updateMatrixWorld();
+    return {type: active.isOrthographicCamera ? "orthographic" : "perspective",
+            projection: Array.from(active.projectionMatrix.elements),
+            view: Array.from(active.matrixWorldInverse.elements),
+            world: WORLD.slice(), width: size.w, height: size.h};
+  },
+  /** Drive-frame feet to canvas CSS pixels through the current camera. */
+  project(x, y, z = 0) { return GL ? project(x, y, z) : null; },
+  unproject(px, py) {
+    if (!GL) return null;
+    const ndc = new THREE.Vector2(px / size.w * 2 - 1, 1 - py / size.h * 2);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, active);
+    const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    return hit ? [-hit.z, hit.x] : null;
+  },
+  /** The exact colours: token tops in plan are these; trails are lifted toward white. */
+  colours: {tokens: {handler: C.ink, left: C.ink, helper: C.orange, others: C.purple,
+                     attackers: C.grey, handler_def: C.pale, ball: C.ball},
+            trails: {handler: trailOf(C.ink), left: trailOf(C.ink), helper: trailOf(C.orange),
+                     others: trailOf(C.purple), attackers: trailOf(C.grey),
+                     handler_def: trailOf(C.pale)}},
+  field: null,
+};
+window.wind = api;
+
+/* ------------------------------------------------------------------ inputs */
+playBtn.addEventListener("click", () => {
+  if (st.phase === "playing") api.pause();
+  else if (st.view === "plan" && (st.phase === "ended" || st.t >= T - 1e-9) && GL) {
+    api.view("broadcast");               // "Replay" in plan is the hook again
+    api.play();
+  } else api.play();
+});
+nextBtn.addEventListener("click", () => api.next());
+viewB.addEventListener("click", () => api.view("broadcast"));
+viewP.addEventListener("click", () => api.view("plan"));
+scrub.addEventListener("input", () => api.seek(Number(scrub.value) / FPS));
+document.addEventListener("visibilitychange", () => { playLast = null; flyLast = null; });
+
+function setHover(i) {
+  if (i === hover) return;
+  hover = i;
+  if (GL && st.view === "plan") { drawPlan(SCENES[st.scene], current); render(); }
+  at("bars").querySelectorAll(".row").forEach(g => g.classList.toggle("on", Number(g.dataset.i) === hover));
+}
+function hitOther(px, py) {
+  const xy = api.unproject(px, py);
+  if (!xy || !current) return -1;
+  const s = SCENES[st.scene];
+  let best = -1, dist = Infinity;
+  s.roles.others.forEach((slot, i) => {
+    const p = current.players[slot];
+    const d = Math.hypot(p[0] - xy[0], p[1] - xy[1]);
+    if (d < DOT_R + 1 && d < dist) { dist = d; best = i; }
+    for (let f = 0; f <= current.i; f++) {
+      const q2 = s.xy[f][slot], e = Math.hypot(q2[0] - xy[0], q2[1] - xy[1]);
+      if (e < 1 && e + 1 < dist) { dist = e + 1; best = i; }
+    }
+  });
+  return best;
+}
+canvas.addEventListener("pointermove", ev => {
+  if (st.view !== "plan" || ev.pointerType === "touch") return;
+  const box = canvas.getBoundingClientRect();
+  setHover(hitOther(ev.clientX - box.left, ev.clientY - box.top));
+});
+canvas.addEventListener("pointerleave", ev => { if (ev.pointerType !== "touch") setHover(-1); });
+canvas.addEventListener("pointerdown", ev => {
+  if (st.view !== "plan" || ev.pointerType !== "touch") return;
+  const box = canvas.getBoundingClientRect(), i = hitOther(ev.clientX - box.left, ev.clientY - box.top);
+  setHover(i === hover ? -1 : i);
+});
+
+/* ==========================================================================
+   The measure (storyboard 4.1, 4.2). Only ever visible in plan.
+   ========================================================================== */
+function renderMeasure() {
+  if (measure.hidden) return;
+  const s = SCENES[st.scene], among = s.paired_mean_1_5s_among_helped, si = st.scene;
+  const J = "wind_scenes.json";
+  at("lead").innerHTML = `One drive, chosen by rule. The helper moves `
+    + q(s.helper_help_move, s.helper_help_move.toFixed(1) + NB + "ft", J, `scenes.${si}.helper_help_move`)
+    + ` toward where the ball is at ${sec(F_NAMED)}; at ${sec(F_END)} the man he was guarding is `
+    + q(s.clearance_ft["1.5s"], s.clearance_ft["1.5s"].toFixed(1) + NB + "ft", J, `scenes.${si}.clearance_ft.1.5s`)
+    + ` from the nearest defender. For each of the three other defenders: how far he moves toward`
+    + ` that man, against how far toward the other attackers off the ball.`;
+  at("strip-title").innerHTML = `That mean of black minus grey, for each of the `
+    + q(among.n_helped, among.n_helped, J, `scenes.${si}.paired_mean_1_5s_among_helped.n_helped`)
+    + ` drives with a helper, at ${sec(F_END)} (the bars follow the scrubber; this does not).`
+    + ` Left of 0, the three moved less toward the man he left than toward the other attackers.`;
+  at("limit-chosen").innerHTML = `Chosen by rule, not by look: the first drive with a helper, in`
+    + ` each of ${SCENES.length} games, with all ten players detected for its whole window (in this`
+    + ` game ${q(s.selection.all, s.selection.all, J, "selection.all", `game=${s.game}`)} of `
+    + `${q(s.selection.drives, s.selection.drives, J, "selection.drives", `game=${s.game}`)} drives pass`
+    + ` every condition). This drive sits at percentile `
+    + q(among.percentile, among.percentile.toFixed(0), J, `scenes.${si}.paired_mean_1_5s_among_helped.percentile`)
+    + ` of ${among.n_helped} drives with a helper: `
+    + (among.percentile < 50 ? "clearer than most, not typical." : "less clear than most, not typical.")
+    + ` Below, the result over all of them.`;
+
+  // Who covers him, over all helped drives at the headline horizon (figure 2's key).
+  const h = F_END, head = summaryRow(h, true), base = summaryRow(h, false), early = summaryRow(F_NAMED, true);
+  at("all-title").innerHTML = `Over all drives with a helper, at ${sec(F_END)}: who is nearest to him`;
+  const marker = {helper: `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="${C.orange}"/></svg>`,
+                  handler_def: `<svg width="14" height="14"><rect x="1" y="1" width="12" height="12" fill="${C.blue}"/></svg>`,
+                  third: `<svg width="14" height="14"><path d="M7 1 L13 13 L1 13 Z" fill="${C.purple}"/></svg>`};
+  at("who").innerHTML = [
+    `<li>${marker.helper}<span>the helper ${sq(h, true, "nearest_helper", pct(head.nearest_helper))}`
+      + ` (with no helper, his own defender: ${sq(h, false, "nearest_helper", pct(base.nearest_helper))})</span></li>`,
+    `<li>${marker.handler_def}<span>the ball handler's defender ${sq(h, true, "nearest_handler_def", pct(head.nearest_handler_def))}`
+      + ` (${sq(h, false, "nearest_handler_def", pct(base.nearest_handler_def))})</span></li>`,
+    `<li>${marker.third}<span>a third defender ${sq(h, true, "nearest_third", pct(head.nearest_third))}`
+      + ` (${sq(h, false, "nearest_third", pct(base.nearest_third))})</span></li>`].join("");
+  at("who-dist").innerHTML = `Median distance to the nearest defender `
+    + sq(h, true, "nearest_dist_median", head.nearest_dist_median.toFixed(1) + NB + "ft")
+    + ` (with no helper ${sq(h, false, "nearest_dist_median", base.nearest_dist_median.toFixed(1) + NB + "ft")});`
+    + ` ${sq(h, true, "n_drives", head.n_drives)} of ${sq(F_NAMED, true, "n_drives", early.n_drives)}`
+    + ` helped drives; the rest end sooner.`;
+  at("open").innerHTML = `Nobody within ${q(D.open_ft, D.open_ft.toFixed(0) + NB + "ft", "scbasket.wind", "OPEN_FT")}: `
+    + `${sq(h, true, "left_open_share", pct(head.left_open_share))} of the men left at ${sec(F_END)}, against `
+    + `${sq(h, false, "left_open_share", pct(base.left_open_share))} of the comparable man in drives with no`
+    + ` helper; at 0${NB}s ${sq(h, true, "left_open0_share", pct(head.left_open0_share))} against `
+    + `${sq(h, false, "left_open0_share", pct(base.left_open0_share))}. The help gives room to a man who`
+    + ` started more closely guarded; it does not make an open man where there was none.`;
+
+  const CON = "second_help_contrast.csv", cs = D.contrast;
+  const cq = (r, col, d = 2) => q(r[col], signed(r[col], d), CON, col, `horizon=${r.horizon}`);
+  at("claim").innerHTML = `Helped minus no helper, mean (95% CI): `
+    + cs.map(r => `${sec(r.horizon)} ${cq(r, "contrast_mean")} (${cq(r, "contrast_ci_low")} to ${cq(r, "contrast_ci_high")})`).join("; ")
+    + `. Every interval contains 0: with a helper the three others move toward him no more than`
+    + ` when there is no helper.`;
+  const sw = D.sweep, SW = "second_help_contrast_sensitivity.csv";
+  const below = sw.below.map(r => `${r.help_ft.toFixed(0)}${NB}ft at ${r.horizon_s.toFixed(1)}${NB}s`);
+  at("robust").innerHTML = `Helper threshold ${sw.help_ft.map(v => v.toFixed(0)).join(", ")}${NB}ft by`
+    + ` three horizons: ${q(sw.contain, sw.contain, SW, "intervals containing 0")} of ${q(sw.n, sw.n, SW, "rows")}`
+    + ` intervals contain 0, ${sw.above ? q(sw.above, sw.above, SW, "intervals above 0") : "none"} lie above it`
+    + (below.length ? `; below it: ${below.join(", ")}` : "") + `. Per game: `
+    + `${q(D.by_game.negative_by_drive, D.by_game.negative_by_drive, "second_help_by_game.csv", "games with median_diff < 0", "horizon=38;helped=True")}`
+    + ` of ${q(D.by_game.n, D.by_game.n, "second_help_by_game.csv", "games", "horizon=38;helped=True")} games negative by drive median,`
+    + ` ${q(D.by_game.negative_by_pairs, D.by_game.negative_by_pairs, "second_help_by_game.csv", "games with median_diff_pairs < 0", "horizon=38;helped=True")} by pair median.`;
+  at("limit-ci").innerHTML = `The CI tops (${cs.map(r => cq(r, "contrast_ci_high")).join(", ")}${NB}ft at`
+    + ` ${cs.map(r => sec(r.horizon)).join(", ")}) are the most extra rotation the data cannot rule`
+    + ` out: an absence with that bound, not a proven zero.`;
+  const ps = D.pass, PS = "second_help_pass.csv", pq = (col, text) => q(ps[col], text, PS, col, "helped=True");
+  const k = SCENES[0].roles.off_ball.length;
+  at("pass").innerHTML = `The pass: a first pass follows in ${pq("n_first_pass", ps.n_first_pass)} of`
+    + ` ${pq("n_drives", ps.n_drives)} helped drives and goes to him in ${pq("n_to_left", ps.n_to_left)}`
+    + ` (${pq("share_to_left", pct(ps.share_to_left))}; one in ${k} is ${pct(1 / k)}). When it reached him he`
+    + ` had ${pq("left_clear_when_got_it", ps.left_clear_when_got_it.toFixed(1) + NB + "ft")} of room`
+    + ` (n${NB}=${NB}${pq("n_left_got_it", ps.n_left_got_it)}), when it did not,`
+    + ` ${pq("left_clear_when_not", ps.left_clear_when_not.toFixed(1) + NB + "ft")}`
+    + ` (n${NB}=${NB}${pq("n_left_missed", ps.n_left_missed)}).`;
+
+  // The same at the other two horizons, for the sensitivity.
+  const others = cs.map(r => r.horizon).filter(x => x !== F_END);
+  at("details-title").textContent = `The same at ${others.map(sec).join(" and ")}`;
+  const cell = (x, helped, col, f) => sq(x, helped, col, f(summaryRow(x, helped)[col]));
+  const ci = (x, helped) => `${cell(x, helped, "mean_diff", v => signed(v, 2))} (${cell(x, helped, "ci_low", v => signed(v, 2))} to ${cell(x, helped, "ci_high", v => signed(v, 2))})`;
+  const con = x => { const r = cs.find(c => c.horizon === x); return `${cq(r, "contrast_mean")} (${cq(r, "contrast_ci_low")} to ${cq(r, "contrast_ci_high")})`; };
+  const rowsD = [
+    ["helped drives", x => cell(x, true, "n_drives", v => v)],
+    ["toward him minus placebo, helped (95% CI)", x => ci(x, true)],
+    ["the same, no helper (95% CI)", x => ci(x, false)],
+    ["helped minus no helper (95% CI)", con],
+    ["median pair, helped", x => cell(x, true, "median_diff", v => signed(v, 2))],
+    ["pairs above 0, helped", x => cell(x, true, "share_diff_positive", v => pct(v))],
+    ["nearest is the helper (no helper: his own defender)", x => `${cell(x, true, "nearest_helper", v => pct(v))} (${cell(x, false, "nearest_helper", v => pct(v))})`],
+    [`nobody within ${D.open_ft.toFixed(0)}${NB}ft (no helper)`, x => `${cell(x, true, "left_open_share", v => pct(v))} (${cell(x, false, "left_open_share", v => pct(v))})`],
+  ];
+  at("details").innerHTML = `<table><thead><tr><th></th>${others.map(x => `<th>${sec(x)}</th>`).join("")}</tr></thead><tbody>`
+    + rowsD.map(([name, f]) => `<tr><td>${name}</td>${others.map(x => `<td>${f(x)}</td>`).join("")}</tr>`).join("")
+    + `</tbody></table>`;
+
+  renderStrip();
+  renderResult();
+  updateMeasure(current || posAt(s, st.t));
+}
+
+/** The parts of the measure that follow t: the bars and the live tile. */
+function updateMeasure(P) {
+  if (measure.hidden) return;
+  renderBars(P);
+  const s = SCENES[st.scene], near = nearestOf(s, P), si = st.scene, J = "wind_scenes.json";
+  const cl = s.clearance_ft;
+  at("tile").innerHTML = `<div><span class="big" id="tile-dist" data-value="${near.dist}">${near.dist.toFixed(1)}${NB}ft</span></div>`
+    + `<div>to the nearest defender, who is <b id="tile-who" data-who="${near.who}">${WHO[near.who]}</b>,`
+    + ` at t${NB}=${NB}<span class="q">${st.t.toFixed(2)}${NB}s</span></div>`
+    + `<div class="quotes">This drive: 0${NB}s ${q(cl["0.0s"], cl["0.0s"].toFixed(1), J, `scenes.${si}.clearance_ft.0.0s`)} · `
+    + `${sec(F_NAMED)} ${q(cl["1.0s"], cl["1.0s"].toFixed(1), J, `scenes.${si}.clearance_ft.1.0s`)} · `
+    + `${sec(F_END)} ${q(cl["1.5s"], cl["1.5s"].toFixed(1), J, `scenes.${si}.clearance_ft.1.5s`)}${NB}ft</div>`;
+}
+
+/** Figure 1's bars at t: per other defender, toward the man left (black) and the placebo (grey). */
+function renderBars(P) {
+  const s = SCENES[st.scene], host = at("bars"), rowH = 50, top = 26, H = top + 3 * rowH + 34;
+  const {svg, w} = fit(host, H);
+  const left = 26, right = w - 100, span = s.span;
+  const x = v => left + (v + span) / (2 * span) * (right - left);
+  svg.appendChild(el("text", {x: w - 4, y: 14, "text-anchor": "end", class: "small"}, "black " + MINUS + " grey"));
+  const diffs = [];
+  for (let i = 0; i < 3; i++) {
+    const a = lerpRow(s.to_left[i], P), b = lerpRow(s.placebo[i], P), y = top + i * rowH;
+    diffs.push(a - b);
+    const g = el("g", {class: "row" + (hover === i ? " on" : ""), "data-i": i});
+    g.appendChild(el("rect", {class: "row-bg", x: 0, y, width: w, height: rowH, fill: "transparent"}));
+    g.appendChild(el("text", {x: 6, y: y + rowH / 2 + 5, fill: C.purple, "font-weight": 700, style: `fill:${C.purple}`}, String(i + 1)));
+    for (const [v, dy, colour, role] of [[a, 9, C.ink, "toward"], [b, 25, C.grey, "placebo"]]) {
+      const x0 = x(0), x1 = x(v);
+      g.appendChild(el("rect", {x: Math.min(x0, x1), y: y + dy - 6, width: Math.abs(x1 - x0), height: 13, fill: colour}));
+      g.appendChild(el("text", {id: `bar-${role}-${i + 1}`, "data-value": v, x: v >= 0 ? x1 + 4 : x1 - 4,
+                                y: y + dy + 5, "text-anchor": v >= 0 ? "start" : "end"}, signed(v, 1)));
+    }
+    g.appendChild(el("text", {id: `bar-diff-${i + 1}`, "data-value": a - b, x: w - 4, y: y + rowH / 2 + 5,
+                              "text-anchor": "end"}, signed(a - b, 1)));
+    g.appendChild(el("rect", {class: "row-hit", x: 0, y, width: w, height: rowH}));
+    g.addEventListener("mouseenter", () => setHover(i));
+    g.addEventListener("mouseleave", () => setHover(-1));
+    g.addEventListener("click", () => setHover(hover === i ? -1 : i));
+    svg.appendChild(g);
+  }
+  const mean = diffs.reduce((u, v) => u + v, 0) / 3;
+  svg.appendChild(el("text", {id: "bar-mean", "data-value": mean, x: w - 4, y: top + 3 * rowH + 18,
+                              "text-anchor": "end", "font-weight": 700, style: `fill:${C.purple}`}, "mean " + signed(mean, 2)));
+  svg.appendChild(el("line", {x1: x(0), x2: x(0), y1: top - 4, y2: top + 3 * rowH, stroke: C.court}));
+  const axisY = top + 3 * rowH + 4;
+  svg.appendChild(el("line", {x1: left, x2: right, y1: axisY, y2: axisY, stroke: C.court}));
+  for (const t of ticks(-span, span, 4)) {
+    svg.appendChild(el("line", {x1: x(t), x2: x(t), y1: axisY, y2: axisY + 4, stroke: C.court}));
+    svg.appendChild(el("text", {x: x(t), y: axisY + 18, "text-anchor": "middle", class: "small"}, t === 0 ? "0" : signed(t, 0)));
+  }
+  svg.appendChild(el("text", {x: (left + right) / 2, y: axisY + 30, "text-anchor": "middle", class: "small"}, "feet"));
+}
+
+/** Figure 1's strip: every helped drive's mean at the headline frame, this drive marked. */
+function renderStrip() {
+  const s = SCENES[st.scene], among = s.paired_mean_1_5s_among_helped, means = D.strip.means;
+  const host = at("strip"), H = 176, top = 46, bottom = H - 36, left = 34;
+  const {svg, w} = fit(host, H);
+  const right = w - 10, BIN = 0.5;
+  const lo = Math.floor(Math.min(...means)), hi = Math.ceil(Math.max(...means));
+  const edges = [];
+  for (let e = lo; e <= hi + 1e-9; e += BIN) edges.push(e);
+  const counts = edges.slice(0, -1).map((e, i) => means.filter(v => v >= e && (v < edges[i + 1] || (i === edges.length - 2 && v <= edges[i + 1]))).length);
+  const cmax = Math.max(...counts);
+  const x = v => left + (v - lo) / (hi - lo) * (right - left), y = c => bottom - c / cmax * (bottom - top);
+  counts.forEach((c, i) => {
+    if (c) svg.appendChild(el("rect", {x: x(edges[i]) + 0.5, y: y(c), width: Math.max(1, x(edges[i + 1]) - x(edges[i]) - 1), height: bottom - y(c), fill: C.grey}));
+  });
+  svg.appendChild(el("line", {x1: left, x2: right, y1: bottom, y2: bottom, stroke: C.court}));
+  svg.appendChild(el("line", {x1: left, x2: left, y1: top, y2: bottom, stroke: C.court}));
+  for (const t of ticks(lo, hi, 5)) {
+    svg.appendChild(el("text", {x: x(t), y: bottom + 16, "text-anchor": "middle", class: "small"}, t === 0 ? "0" : neg(t, 0)));
+  }
+  svg.appendChild(el("text", {x: (left + right) / 2, y: bottom + 30, "text-anchor": "middle", class: "small"}, "feet"));
+  for (const t of ticks(0, cmax, 3)) {
+    svg.appendChild(el("text", {x: left - 5, y: y(t) + 4, "text-anchor": "end", class: "small"}, String(t)));
+  }
+  svg.appendChild(el("text", {x: 4, y: top - 8, class: "small"}, "drives"));
+  svg.appendChild(el("line", {x1: x(0), x2: x(0), y1: top, y2: bottom, stroke: C.court}));
+  const med = among.median, mine = s.paired_mean_1_5s;
+  svg.appendChild(el("line", {x1: x(med), x2: x(med), y1: top - 4, y2: bottom, stroke: C.ink, "stroke-width": 1.6, "stroke-dasharray": "5 3"}));
+  svg.appendChild(el("line", {x1: x(mine), x2: x(mine), y1: top - 4, y2: bottom, stroke: C.purple, "stroke-width": 2.6}));
+  const J = "wind_scenes.json", side = mine < med;
+  const a1 = side ? "end" : "start", a2 = side ? "start" : "end", g1 = side ? -5 : 5;
+  const t1 = el("text", {id: "strip-mine", "data-value": mine, x: x(mine) + g1, y: top - 22, "text-anchor": a1, "font-weight": 700, style: `fill:${C.purple}`}, "this drive " + signed(mine, 2));
+  const t2 = el("text", {id: "strip-percentile", "data-value": among.percentile, "data-src": J, x: x(mine) + g1, y: top - 7, "text-anchor": a1, "font-weight": 700, style: `fill:${C.purple}`}, "percentile " + among.percentile.toFixed(0));
+  const t3 = el("text", {id: "strip-median", "data-value": med, "data-src": J, x: x(med) - g1, y: top - 7, "text-anchor": a2}, "median " + signed(med, 2));
+  const t4 = el("text", {id: "strip-n", "data-value": means.length, x: right, y: bottom - 6, "text-anchor": "end", class: "small"}, `n = ${means.length}`);
+  svg.append(t1, t2, t3, t4);
+}
+
+/** Figure 2's lower panel: toward him minus placebo, mean over drives with its 95% CI. */
+function renderResult() {
+  const host = at("result"), hs = D.contrast.map(r => r.horizon), rowH = 46, top = 30;
+  const H = top + hs.length * rowH + 40;
+  const {svg, w} = fit(host, H);
+  const left = 46, colW = Math.min(64, Math.floor((w - 200) / 3)), right = w - 3 * colW - 14;
+  const all = hs.flatMap(h => [true, false].flatMap(b => [summaryRow(h, b).ci_low, summaryRow(h, b).ci_high]));
+  const lo = Math.min(...all) - 0.1, hi = Math.max(0, ...all) + 0.1;
+  const x = v => left + (v - lo) / (hi - lo) * (right - left);
+  ["mean", "median", "pairs > 0"].forEach((name, i) =>
+    svg.appendChild(el("text", {x: right + 14 + i * colW, y: 14, class: "small"}, name)));
+  const tip = document.createElement("div");
+  tip.className = "tip";
+  host.appendChild(tip);
+  hs.forEach((h, i) => {
+    const y = top + i * rowH, g = el("g", {class: "row"});
+    g.appendChild(el("rect", {class: "row-bg", x: 0, y, width: w, height: rowH, fill: "transparent"}));
+    g.appendChild(el("text", {x: 4, y: y + rowH / 2 + 5}, sec(h)));
+    for (const [helped, colour, dy] of [[true, C.ink, 15], [false, C.grey, 31]]) {
+      const r = summaryRow(h, helped);
+      g.appendChild(el("line", {x1: x(r.ci_low), x2: x(r.ci_high), y1: y + dy, y2: y + dy, stroke: colour, "stroke-width": 2}));
+      for (const v of [r.ci_low, r.ci_high]) g.appendChild(el("line", {x1: x(v), x2: x(v), y1: y + dy - 4, y2: y + dy + 4, stroke: colour, "stroke-width": 2}));
+      g.appendChild(el("circle", {cx: x(r.mean_diff), cy: y + dy, r: 5, fill: colour}));
+    }
+    const r = summaryRow(h, true);
+    [signed(r.mean_diff, 2), signed(r.median_diff, 2), pct(r.share_diff_positive)].forEach((v, k) =>
+      g.appendChild(el("text", {x: right + 14 + k * colW, y: y + rowH / 2 + 5}, v)));
+    const hit = el("rect", {class: "row-hit", x: 0, y, width: w, height: rowH});
+    g.appendChild(hit);
+    g.addEventListener("mouseenter", () => {
+      const b = summaryRow(h, false);
+      tip.innerHTML = `<b>${sec(h)}</b><br>helped: ${signed(r.mean_diff, 2)} (${signed(r.ci_low, 2)} to ${signed(r.ci_high, 2)}), n${NB}=${NB}${r.n_drives}`
+        + `<br>no helper: ${signed(b.mean_diff, 2)} (${signed(b.ci_low, 2)} to ${signed(b.ci_high, 2)}), n${NB}=${NB}${b.n_drives}`;
+      tip.style.display = "block";
+      tip.style.left = Math.max(0, Math.min(w - 260, left)) + "px";
+      tip.style.top = (y + rowH + 2) + "px";
+      g.classList.add("on");
+    });
+    g.addEventListener("mouseleave", () => { tip.style.display = "none"; g.classList.remove("on"); });
+    svg.appendChild(g);
+  });
+  const axisY = top + hs.length * rowH + 4;
+  svg.appendChild(el("line", {x1: x(0), x2: x(0), y1: top - 4, y2: axisY, stroke: C.court}));
+  svg.appendChild(el("line", {x1: left, x2: right, y1: axisY, y2: axisY, stroke: C.court}));
+  for (const t of ticks(lo, hi, 3)) {
+    svg.appendChild(el("text", {x: x(t), y: axisY + 16, "text-anchor": "middle", class: "small"}, t === 0 ? "0" : signed(t, 1)));
+  }
+  svg.appendChild(el("text", {x: (left + right) / 2, y: axisY + 30, "text-anchor": "middle", class: "small"}, "feet"));
+}
+
+/* ==========================================================================
+   The league wind (storyboard 4.3): a 2D canvas in the same plan layout.
+   ========================================================================== */
+const F = D.field;
+const xs = [...new Set(F.x)].sort((a, b) => a - b), ys = [...new Set(F.y)].sort((a, b) => a - b);
+const GRID = xs[1] - xs[0];
+const cell = xs.map(() => ys.map(() => -1));
+F.x.forEach((x, r) => { cell[Math.round((x - xs[0]) / GRID)][Math.round((F.y[r] - ys[0]) / GRID)] = r; });
+const valueAt = (ix, iy, col) => {
+  if (ix < 0 || iy < 0 || ix >= xs.length || iy >= ys.length) return null;
+  const r = cell[ix][iy];
+  return r < 0 ? null : F[col][r];
+};
+/** Bilinear in the field's grid; null where any of the four corners is masked. */
+function bilinear(x, y, col) {
+  const fx = (x - xs[0]) / GRID, fy = (y - ys[0]) / GRID, ix = Math.floor(fx), iy = Math.floor(fy);
+  const a = fx - ix, b = fy - iy;
+  const v00 = valueAt(ix, iy, col), v10 = valueAt(ix + 1, iy, col), v01 = valueAt(ix, iy + 1, col), v11 = valueAt(ix + 1, iy + 1, col);
+  if (v00 === null || v10 === null || v01 === null || v11 === null) return null;
+  return v00 * (1 - a) * (1 - b) + v10 * a * (1 - b) + v01 * (1 - a) * b + v11 * a * b;
+}
+function sample(x, y) {
+  const dx = bilinear(x, y, "mean_dx"), dy = bilinear(x, y, "mean_dy");
+  return dx === null || dy === null ? null : [dx, dy];
+}
+const breeze = {w: 0, h: 0, s: 1, yLo: -(G.half_width_ft + MARGIN), xHi: xs[xs.length - 1] + GRID / 2 + MARGIN,
+              xLo: BASELINE - MARGIN, raf: 0, last: null, parts: [], seen: false};
+const wpx = y => (y - breeze.yLo) * breeze.s, wpy = x => (breeze.xHi - x) * breeze.s;
+const defined = F.mean_dx.map((v, r) => (v === null ? -1 : r)).filter(r => r >= 0);
+
+function sizeWind() {
+  const box = at("windbox"), base = at("wind-base"), flow = at("wind-flow");
+  const w = Math.floor(box.clientWidth), s = w / (2 * (G.half_width_ft + MARGIN));
+  const h = Math.round((breeze.xHi - breeze.xLo) * s), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (w === breeze.w && h === breeze.h) return;
+  Object.assign(breeze, {w, h, s});
+  for (const c of [base, flow]) {
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+    c.style.width = w + "px";
+    c.style.height = h + "px";
+    c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  drawWindBase(dpr);
+  breeze.parts = [];
+  const ctx = flow.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  if (STILL) drawStreamlines();
+}
+function drawWindBase(dpr) {
+  const base = at("wind-base"), ctx = base.getContext("2d"), {w, h} = breeze;
+  ctx.fillStyle = C.white;
+  ctx.fillRect(0, 0, w, h);
+  // the helper rate, banded as the map bands it, at device resolution
+  const img = ctx.createImageData(base.width, base.height), levels = D.rate_levels;
+  const rgb = BANDS.map(hexRGB), alpha = 0.75;
+  for (let py = 0; py < base.height; py++) {
+    const x = breeze.xHi - py / dpr / breeze.s;
+    for (let px = 0; px < base.width; px++) {
+      const y = breeze.yLo + px / dpr / breeze.s, rate = bilinear(x, y, "helper_rate"), o = (py * base.width + px) * 4;
+      let band = -1;
+      if (rate !== null) for (let b = 0; b < BANDS.length; b++) if (rate >= levels[b] && rate < levels[b + 1]) band = b;
+      if (band < 0) { img.data.set([255, 255, 255, 255], o); continue; }
+      img.data.set([255 + (rgb[band][0] - 255) * alpha, 255 + (rgb[band][1] - 255) * alpha, 255 + (rgb[band][2] - 255) * alpha, 255], o);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  // the court over the fill
+  const hw = G.half_width_ft, pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
+  const R = G.three_radius_ft, cy = G.corner_line_y_ft, meet = HOOP_X + Math.sqrt(R * R - cy * cy), phi = Math.asin(cy / R);
+  const path = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(wpx(y), wpy(x)) : ctx.moveTo(wpx(y), wpy(x)))); ctx.stroke(); };
+  ctx.strokeStyle = C.court;
+  ctx.lineWidth = 1.2;
+  path([[BASELINE, -hw], [BASELINE, hw], [0, hw], [0, -hw], [BASELINE, -hw]]);
+  path([[BASELINE, -pw], [ftx, -pw], [ftx, pw], [BASELINE, pw]]);
+  path(arc(ftx, 0, FT_CIRCLE, -Math.PI / 2, Math.PI / 2));
+  path(arc(HOOP_X, 0, G.ra_radius_ft, -Math.PI / 2, Math.PI / 2, 40));
+  path([[BASELINE, -cy], [meet, -cy], ...arc(HOOP_X, 0, R, -phi, phi, 120), [meet, cy], [BASELINE, cy]]);
+  path(arc(HOOP_X, 0, RIM_R, 0, 2 * Math.PI, 30));
+  ctx.lineWidth = 2.4;
+  path([[BASELINE + BOARD_FROM_BASELINE, -BOARD_HALF], [BASELINE + BOARD_FROM_BASELINE, BOARD_HALF]]);
+}
+function seed(p) {
+  const r = defined[Math.floor(Math.random() * defined.length)];
+  p.x = F.x[r] + (Math.random() - 0.5) * GRID;
+  p.y = F.y[r] + (Math.random() - 0.5) * GRID;
+  p.age = 0;
+  p.life = 2 + Math.random();
+  return p;
+}
+function windStep(now) {
+  breeze.raf = 0;
+  const ctx = at("wind-flow").getContext("2d"), {w, h} = breeze;
+  const dt = breeze.last === null ? 0 : Math.min(now - breeze.last, 100) / 1000;
+  breeze.last = now;
+  if (!breeze.parts.length) breeze.parts = Array.from({length: 500}, () => seed({}));
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = "rgba(0,0,0,0.07)";
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.strokeStyle = "rgba(43,43,43,0.8)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (const p of breeze.parts) {
+    const v = sample(p.x, p.y);
+    p.age += dt;
+    if (!v || p.age > p.life) { seed(p); continue; }
+    const x1 = p.x + v[0] * dt, y1 = p.y + v[1] * dt;
+    ctx.moveTo(wpx(p.y), wpy(p.x));
+    ctx.lineTo(wpx(y1), wpy(x1));
+    p.x = x1;
+    p.y = y1;
+  }
+  ctx.stroke();
+  breeze.raf = requestAnimationFrame(windStep);
+}
+function drawStreamlines() {
+  const ctx = at("wind-flow").getContext("2d");
+  ctx.clearRect(0, 0, breeze.w, breeze.h);
+  ctx.strokeStyle = C.ink;
+  ctx.fillStyle = C.ink;
+  ctx.lineWidth = 1.2;
+  for (let ix = 1; ix < xs.length; ix += 3) {
+    for (let iy = 1; iy < ys.length; iy += 3) {
+      if (valueAt(ix, iy, "mean_dx") === null) continue;
+      let x = xs[ix], y = ys[iy];
+      const pts = [[x, y]];
+      for (let k = 0; k < 20; k++) {          // RK2, 0.1 s steps, up to 2 s
+        const v1 = sample(x, y);
+        if (!v1) break;
+        const v2 = sample(x + v1[0] * 0.05, y + v1[1] * 0.05);
+        if (!v2) break;
+        x += v2[0] * 0.1;
+        y += v2[1] * 0.1;
+        pts.push([x, y]);
+      }
+      if (pts.length < 3) continue;
+      ctx.beginPath();
+      pts.forEach(([a, b], i) => (i ? ctx.lineTo(wpx(b), wpy(a)) : ctx.moveTo(wpx(b), wpy(a))));
+      ctx.stroke();
+      const [ax, ay] = pts[pts.length - 1], [bx, by] = pts[pts.length - 2];
+      const ex = wpx(ay), ey = wpy(ax), L = Math.hypot(ex - wpx(by), ey - wpy(bx)) || 1;
+      const ux = (ex - wpx(by)) / L, uy = (ey - wpy(bx)) / L;
+      ctx.beginPath();
+      ctx.moveTo(ex + ux * 4, ey + uy * 4);
+      ctx.lineTo(ex - uy * 3, ey + ux * 3);
+      ctx.lineTo(ex + uy * 3, ey - ux * 3);
+      ctx.fill();
+    }
+  }
+}
+api.field = {
+  running: () => breeze.raf !== 0,
+  start() {
+    if (STILL || breeze.raf) return false;
+    breeze.last = null;
+    breeze.raf = requestAnimationFrame(windStep);
+    return true;
+  },
+  stop() { cancelAnimationFrame(breeze.raf); breeze.raf = 0; return true; },
+  sample: (x, y) => sample(Number(x), Number(y)),
+};
+at("wind-base").addEventListener("pointermove", ev => {
+  const box = ev.currentTarget.getBoundingClientRect(), tip = at("wind-tip");
+  const px = ev.clientX - box.left, py = ev.clientY - box.top;
+  const x = breeze.xHi - py / breeze.s, y = breeze.yLo + px / breeze.s;
+  const ix = Math.round((x - xs[0]) / GRID), iy = Math.round((y - ys[0]) / GRID);
+  const r = ix >= 0 && iy >= 0 && ix < xs.length && iy < ys.length ? cell[ix][iy] : -1;
+  if (r < 0) { tip.style.display = "none"; return; }
+  const f2 = v => (v === null ? "too few" : signed(v, 1) + NB + "ft");
+  tip.innerHTML = `along ${f2(F.mean_dx[r])}, across ${f2(F.mean_dy[r])} in the first second`
+    + `<br>weight ${F.weight[r].toFixed(0)} · helper rate ${F.helper_rate[r] === null ? "too few for a rate" : pct(F.helper_rate[r])}`;
+  tip.style.display = "block";
+  tip.style.left = Math.min(px + 12, breeze.w - 250) + "px";
+  tip.style.top = (py + 14) + "px";
+});
+at("wind-base").addEventListener("pointerleave", () => { at("wind-tip").style.display = "none"; });
+
+/* ==========================================================================
+   The static text: the wind's strip, the limits, the footer, the key.
+   ========================================================================== */
+function renderStatic() {
+  const L = D.league, LS = "help_sensitivity.csv", lrow = `horizon_s=${L.horizon_s};help_ft=${L.help_ft}`;
+  const lq = (col, text) => q(L[col], text, LS, col, lrow);
+  const BR = "help_base_rate.csv", B = D.base_rate, tb = D.table, HT = "help_table.csv";
+  const bq = (r, col, text, row) => q(r[col], text, BR, col, row);
+  const cornerRow = `grouping=y_band;standardised_by=none;group=${B.corner.group}`;
+  const middleRow = `grouping=y_band;standardised_by=none;group=${B.middle.group}`;
+  const towardRow = `grouping=bearing_band;group=${B.toward.group}`, awayRow = `grouping=bearing_band;group=${B.away.group}`;
+  const HS = L.horizon_s.toFixed(0) + NB + "s";
+  at("eyebrow").textContent = `SkillCorner open ACB tracking · ${tb.n_games} games · the second help`;
+  at("watch").innerHTML = `The broadcast camera behind the basket, at ${RATE === 0.5 ? "half speed" : RATE + "× speed"}.`
+    + ` Watch the helper (orange) step toward the ball, and the man he left (black) drift free.`
+    + ` When the clip ends the camera rises: the measure is taken from above, where feet on the`
+    + ` floor are not distorted. Every number waits for that view.`;
+  at("key").innerHTML = [[C.ink, "ball handler and the man he left"], [C.orange, "helper"],
+    [C.purple, "1, 2, 3: the three other defenders"], [C.grey, "the other attackers"],
+    [C.pale, "the ball handler's defender"], [C.ball, "the ball"]]
+    .map(([c, t]) => `<li><i class="dot" style="background:${c}"></i>${t}</li>`).join("");
+  const ticksHost = at("ticks");
+  scrub.max = String(F_END);
+  ticksHost.innerHTML = [[F_NAMED, "the helper is named here", 18], [F_END, "the measure", 0]]
+    .map(([f, label, dy]) => `<i class="tick" style="left:calc(${f / F_END} * (100% - 16px) + 8px)"></i>`
+      + `<span class="tick-label" style="left:calc(${f / F_END} * (100% - 16px) + 12px);top:${8 + dy}px">${sec(f)} · ${label}</span>`).join("");
+
+  at("wind-sub").innerHTML = `Context, over all ${lq("n_resolved", L.n_resolved)} drives. The whole`
+    + ` defence sinks with a drive; the help is a step on top of that.`;
+  at("band-title").textContent = "orange: % of the defenders starting there who are the helper";
+  at("band-key").innerHTML = BANDS.map((c, i) => `<div><i style="background:${c};opacity:.75"></i>${(100 * D.rate_levels[i]).toFixed(0)}</div>`).join("")
+    + `<div style="width:auto;padding-left:8px;text-align:left">white: too few for a rate</div>`;
+  at("flow-key").textContent = STILL ? "lines: where the four defenders off the ball move, in feet per second"
+    : "moving: where the four defenders off the ball move, at their measured speed";
+  at("wind-strip").innerHTML = `<p>${lq("n_resolved", L.n_resolved)} of ${lq("n_drives", L.n_drives)} drives,`
+    + ` ${q(tb.n_games, tb.n_games, HT, "games")} ACB games, the first ${HS} of each. Helper: the defender who moves most`
+    + ` toward where the ball will be, ${lq("help_ft", L.help_ft.toFixed(0) + NB + "ft")} or more`
+    + ` (${lq("share_with_helper", pct(L.share_with_helper))} of drives; of the`
+    + ` ${q(D.vectors.n, D.vectors.n.toLocaleString("en"), "help_vectors.csv", "rows")} defenders off the ball,`
+    + ` ${lq("helper_rate", pct(L.helper_rate, 1))} are one).</p>`
+    + `<p>Of the helpers, ${lq("helper_above_ball", pct(L.helper_above_ball))} start farther from the hoop line than`
+    + ` where the ball goes, where a plain sink counts as movement toward it; a defender is the helper`
+    + ` ${bq(B.toward, "rate", pct(B.toward.rate), towardRow)} of the time (${bq(B.toward, "rate_low", pct(B.toward.rate_low), towardRow)}`
+    + ` to ${bq(B.toward, "rate_high", pct(B.toward.rate_high), towardRow)}) when that spot lies mostly toward the hoop`
+    + ` from him and ${bq(B.away, "rate", pct(B.away.rate), awayRow)} (${bq(B.away, "rate_low", pct(B.away.rate_low), awayRow)}`
+    + ` to ${bq(B.away, "rate_high", pct(B.away.rate_high), awayRow)}) when it lies mostly away.</p>`
+    + `<p>The corner: ${bq(B.corner, "n_defenders", B.corner.n_defenders, cornerRow)} defenders`
+    + ` (${bq(B.corner, "defender_share", pct(B.corner.defender_share, 1), cornerRow)}) start more than`
+    + ` ${B.corner_ft.toFixed(0)}${NB}ft from the middle and ${bq(B.corner, "n_helpers", B.corner.n_helpers, cornerRow)} helpers come from`
+    + ` there; each is the helper ${bq(B.corner, "rate", pct(B.corner.rate), cornerRow)} of the time`
+    + ` (${bq(B.corner, "rate_low", pct(B.corner.rate_low), cornerRow)} to ${bq(B.corner, "rate_high", pct(B.corner.rate_high), cornerRow)}),`
+    + ` against ${bq(B.middle, "rate", pct(B.middle.rate), middleRow)} in the middle: the corner is empty,`
+    + ` and too few stand there to say whether it helps less.</p>`;
+  at("wind-limit").innerHTML = `This says where defenders stand and where they go; it does not say`
+    + ` where help comes from. Part of the ${lq("share_with_helper", pct(L.share_with_helper))} is the defence's`
+    + ` common retreat seen from above the ball; the helper keeps its definition and the qualifier`
+    + ` travels with the number.`;
+
+  const st38 = summaryRow(F_END, true), co = D.closeouts, CO = "second_help_closeouts.csv";
+  const dir = tb.direction;
+  const items = [
+    `${q(tb.n_games, tb.n_games, HT, "games")} games; ${q(tb.n_drives, tb.n_drives, HT, "rows")} drives,`
+      + ` ${q(tb.status.ok, tb.status.ok, HT, "status=ok")} resolved; ${q(tb.status.no_frame || 0, tb.status.no_frame || 0, HT, "status=no_frame")}`
+      + ` start outside the frame cache and ${q(tb.status.no_horizon || 0, tb.status.no_horizon || 0, HT, "status=no_horizon")}`
+      + ` have no ${HS} horizon. <span class="src">(help_table.csv, status)</span>`,
+    `The drive frame mirrors each drive so the handler's lateral motion goes to +y; on near-straight`
+      + ` drives that mirror is close to arbitrary. The provider's direction agrees with it on`
+      + ` ${q(dir.left.agree, dir.left.agree, HT, "provider_direction=left and flip=1", "status=ok")} of`
+      + ` ${q(dir.left.n, dir.left.n, HT, "provider_direction=left", "status=ok")} left-labelled and`
+      + ` ${q(dir.right.agree, dir.right.agree, HT, "provider_direction=right and flip=-1", "status=ok")} of`
+      + ` ${q(dir.right.n, dir.right.n, HT, "provider_direction=right", "status=ok")} right-labelled drives: no`
+      + ` validation. Nothing on this page depends on which side is which. <span class="src">(help_table.csv,`
+      + ` provider_direction and flip)</span>`,
+    `Players are tokens on their tracked (x, y). The bundle has no bodies, no pose, no facing. The`
+      + ` ${SCENES.length} drives shown have all ten players detected on every frame of their window (the rule);`
+      + ` the tables behind the numbers include extrapolated positions: ${q(D.vectors.detected_both, pct(D.vectors.detected_both, 1), "help_vectors.csv", "detected0 and detected1")}`
+      + ` of the defenders off the ball are detected at both ends of the first second. <span class="src">(help_vectors.csv,`
+      + ` detected0, detected1)</span>`,
+    `The ball is drawn at the height the provider gives. That height is a smoothed curve: a sibling`
+      + ` audit of this bundle found its bounces fall slower than gravity allows. Nothing on this page`
+      + ` is measured from it; every measure is on the floor.`,
+    `The absence is measured against a placebo and against drives with no helper, not as a`
+      + ` rotation away from him: the typical pair sits on the placebo (median`
+      + ` ${sq(F_END, true, "median_diff", signed(st38.median_diff, 2) + NB + "ft")} at ${sec(F_END)}), the mean is pulled by the`
+      + ` tails, and the contrast's CI tops bound what the data cannot rule out. <span class="src">(second_help_summary.csv,`
+      + ` second_help_contrast.csv)</span>`,
+    `${lq("share_with_helper", pct(L.share_with_helper))} of drives have a helper, and`
+      + ` ${lq("helper_above_ball", pct(L.helper_above_ball))} of helpers start above the ball, where sinking`
+      + ` counts as help. <span class="src">(help_sensitivity.csv)</span>`,
+    `The corner is empty (${bq(B.corner, "defender_share", pct(B.corner.defender_share, 1), cornerRow)} of defenders),`
+      + ` not measurably stingy (${bq(B.corner, "rate", pct(B.corner.rate), cornerRow)} with a 95% interval of`
+      + ` ${bq(B.corner, "rate_low", pct(B.corner.rate_low), cornerRow)} to ${bq(B.corner, "rate_high", pct(B.corner.rate_high), cornerRow)}`
+      + ` on ${bq(B.corner, "n_defenders", B.corner.n_defenders, cornerRow)} defenders). The page claims nothing about`
+      + ` where help comes from. <span class="src">(help_base_rate.csv)</span>`,
+    `What follows the pass (the X-out) cannot be judged here: ${q(co.n, co.n, CO, "n", "helped=True;receiver_is_left=True")}`
+      + ` provider closeouts land on the man left in helped drives; the closer is the helper`
+      + ` ${q(co.closer_own_share, pct(co.closer_own_share), CO, "closer_own_share", "helped=True;receiver_is_left=True")} of the time.`
+      + ` One closeout moves the share by ${(100 / co.n).toFixed(1)} points. <span class="src">(second_help_closeouts.csv)</span>`,
+    `Intent is never claimed: "helper", "the man he left", "covers" and "nearest" name measured`
+      + ` vectors and distances.`,
+    `A 3D viewer of this bundle already exists. The 3D here is the hook; the finding is in the`
+      + ` top-down view, where "toward" can be judged by eye.`,
+  ];
+  at("limits-list").innerHTML = items.map(t => `<li>${t}</li>`).join("");
+
+  const rec = D.record[0];
+  at("footer").innerHTML = `<h3>What ships</h3><p><code>scbasket.wind</code>, <code>scbasket.rotation</code>,`
+    + ` <code>scripts/help_wind.py</code>, <code>scripts/second_help.py</code>, <code>scripts/wind_scenes.py</code>,`
+    + ` <code>scripts/wind_html.py</code> (this page), <code>scripts/drive_wind_page.py</code> (its console check),`
+    + ` the <code>reports/*.csv</code> and <code>reports/wind_scenes.json</code> it reads.</p>`
+    + `<h3>Run it</h3><pre>uv sync --extra dev\nuv run pytest\nuv run --extra figures python scripts/help_figures.py\nuv run python scripts/wind_html.py</pre>`
+    + `<h3>Licence</h3><p>MIT. three.js r${esc(THREE.REVISION)} is MIT too, vendored in <code>vendor/three</code> with its`
+    + ` licence and inlined in this file: the page makes no request.</p>`
+    + `<h3>Built</h3><p>${esc(D.built)}` + (rec ? `, on top of <code>${esc(rec.sha)}</code> ${esc(rec.subject)}` : "") + `.</p>`
+    + `<h3>Data</h3><p>Tracking: SkillCorner's open ACB basketball data,`
+    + ` <a href="https://github.com/SkillCorner/opendata-basketball">github.com/SkillCorner/opendata-basketball</a>.</p>`;
+}
+
+/* ------------------------------------------------------------------ sizing */
+function sizeStage() {
+  if (!GL) return;
+  const box = at("stage"), w = Math.floor(box.clientWidth), h = Math.floor(box.clientHeight);
+  const square = window.matchMedia("(max-width: 899px)").matches;
+  if (w === size.w && h === size.h && square === size.square) return false;
+  Object.assign(size, {w, h, square});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h, false);
+  return true;
+}
+function relayout() {
+  if (sizeStage() && GL) { placeCamera(st.p); drawAt(st.t); }
+  if (!measure.hidden) renderMeasure();
+  sizeWind();
+}
+
+/* -------------------------------------------------------------------- start */
+renderStatic();
+if (GL) buildStage();
+sizeStage();
+sizeWind();
+loadScene();
+if (!GL) {
+  at("no-gl").hidden = false;
+  canvas.hidden = true;
+  st.view = "plan";
+  st.t = T;
+  st.p = 1;
+  showMeasure(false);
+  drawAt(T);
+} else if (STILL) {
+  st.view = "plan";
+  st.t = T;
+  st.p = 1;
+  placeCamera(1);
+  showMeasure(false);
+  drawAt(T);
+} else {
+  st.view = "broadcast";
+  st.t = 0;
+  placeCamera(0);
+  drawAt(0);
+  startPlay();
+}
+syncUI();
+new ResizeObserver(relayout).observe(document.body);
+const watcher = new IntersectionObserver(entries => {
+  for (const e of entries) { if (e.isIntersecting) api.field.start(); else api.field.stop(); }
+});
+watcher.observe(at("windbox"));
+</script>
+</body>
+</html>

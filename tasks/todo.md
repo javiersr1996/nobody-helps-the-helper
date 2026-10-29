@@ -292,7 +292,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       earns Communication only if it shows the helper and the man left, never Originality.
       Accept: Javier accepts it before B4 starts; every claim in it names its CSV column; no
       measure is shown in the perspective view.
-- [ ] B4 `scripts/wind_template.html` + `scripts/wind_html.py` [opus] ->
+- [x] B4 (DONE 2026-10-29; see the record) `scripts/wind_template.html` + `scripts/wind_html.py` [opus] ->
       `reports/nobody_helps_the_helper.html` (slug per D1 and B3; the storyboard
       `tasks/wind_page.md` is the spec and wins where this text is shorter): self-contained, no CDN,
       no network; payload injected at `/*PAYLOAD*/` from `help_*.csv`, `second_help_*.csv`,
@@ -707,10 +707,28 @@ of 292 on resolved drives, scene 1's helper and man left moving to screen-left (
 -9.20 ft at 1.0 s), ball z 10.06 ft at frame 38; one error fixed (scene 3's crop top is -12.8,
 not -13.8). Open points settled here, technical: gravity in words only; the mirrored world
 kept (the plan view equals figure 1); C2 moves to the 1.5 s open pair (written into C2).
+**B4 DONE 2026-10-29** (Opus agent; screenshots looked at here). `scripts/wind_html.py` +
+`scripts/wind_template.html` -> `reports/nobody_helps_the_helper.html` (2.38 MB: three.js
+2.04 MB unminified, payload 119 KB); `vendor/three/` holds three@0.185.1 `three.cjs` (MIT,
+sha256 checked by the build after LF normalisation; 0.186 dropped the single-file build).
+The build refuses on the storyboard's guards (252 means, n, median, percentiles vs the JSON;
+bars at frame 38 vs `second_help_pairs.csv`; nearest vs `second_help_drives.csv`; a contrast
+CI excluding 0; the corner CI not containing the middle's rate; field masks vs thresholds;
+non-finite numbers; three.js hash, exports, and loading under node). `tests/test_wind_html.py`
+16 tests, one break per guard. Typed-number `rg` empty (a planted "5.5 ft" was caught, then
+reverted). Agent's console drive: 148 checks, 0 failed, at 1440, 390, reduced motion and no
+WebGL (hook ends at T 3.06 s, plan 1.57 s after the rise starts; true top-down within 0.03 ft;
+bars, tile and strip within 0.01 ft of the CSVs). Deviations it reported, accepted: broadcast
+camera refitted onto the hoop's axis (the storyboard's y = -8 and fov put tokens outside the
+canvas and would roll the image on the rise); the rise narrows to 1°, not 2° (sub-pixel swap);
+full-court floor with the far half's lines only; plan crop on the canvas's bottom edge; trails
+40 % lighter than tokens (B5's pixel checks); `#league` not `#wind` (a `wind` id shadows
+`window.wind`). The stage column is sticky, so the measure column scrolls beside it.
+Not verified: the hidden-tab clock (headless cannot hide a tab). 328 tests pass, ruff clean.
 
 ### NEXT SESSION (left 2026-10-29)
-1. B4 (the page, Opus agent, launched 2026-10-29 after Javier accepted B3), then B5 (the
-   console driver, Sonnet, written from the storyboard, not from B4's code).
+1. B5 (the console driver, Sonnet, written from the storyboard, not from B4's code), then B7:
+   Javier opens `reports/nobody_helps_the_helper.html` on his own machine and judges the hook.
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.

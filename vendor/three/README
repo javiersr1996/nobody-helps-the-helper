@@ -1,0 +1,1 @@
+three.js r185 (npm three@0.185.1, 2026-07-01), build/three.cjs only, sha256 a681da9aba775c1de422367863efda9e5638847e6e1fccc51ba57e8a8124fc07 (with LF line endings), MIT (LICENSE, from the same package). Inlined by scripts/wind_html.py, which checks this hash; 0.186 dropped this single-file build, so 0.185.1 is the newest release that has it.
