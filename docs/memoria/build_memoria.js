@@ -22,8 +22,8 @@ const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
 const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.2";
-const DATE = "28 de octubre de 2026";
+const VERSION = "0.3";
+const DATE = "29 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
 const OPEN_FT = 6.0;
@@ -57,6 +57,12 @@ const table = readCsv(path.join(REPORTS, "help_table.csv"));
 const byGame = readCsv(path.join(REPORTS, "help_by_game.csv"));
 const sensitivity = readCsv(path.join(REPORTS, "help_sensitivity.csv"));
 const flow = readCsv(path.join(REPORTS, "help_flow.csv"));
+const vectors = readCsv(path.join(REPORTS, "help_vectors.csv"));
+const sh = readCsv(path.join(REPORTS, "second_help_summary.csv"));
+const shGame = readCsv(path.join(REPORTS, "second_help_by_game.csv"));
+const shSens = readCsv(path.join(REPORTS, "second_help_sensitivity.csv"));
+const shPass = readCsv(path.join(REPORTS, "second_help_pass.csv"));
+const shClose = readCsv(path.join(REPORTS, "second_help_closeouts.csv"));
 
 const ok = table.filter((r) => r.status === "ok");
 const helped = ok.filter((r) => bool(r.has_helper));
@@ -113,6 +119,31 @@ const commits = execSync('git log --format="%h|%ad|%s" --date=short -n 8', { cwd
 const es = (x, d = 1) => x.toFixed(d).replace(".", ",");
 const pct = (x, d = 0) => `${es(100 * x, d)} %`;
 const ft = (x, d = 1) => `${es(x, d)} ft`;
+const thousands = (n) => String(n).replace(/\B(?=(\d{3})+$)/g, ".");
+const sg = (x, d = 2) => es(x, d).replace("-", "−"); // con el signo menos tipográfico
+const sft = (x, d = 2) => `${sg(x, d)} ft`;
+
+// Segunda ayuda: filas de second_help_summary.csv por horizonte (fotogramas) y ayuda.
+const HORIZONS = [25, 38, 50];
+const SH = (h, helped) => sh.find((r) => num(r.horizon) === h && bool(r.helped) === helped);
+const HEADLINE = 38; // 1,5 s, el horizonte que fija la decisión D4 de tasks/todo.md
+const hsec = (h) => es(num(SH(h, true).horizon_s), 1);
+const meanCi = (r) => `${sg(num(r.mean_diff))} (${sg(num(r.ci_low))} a ${sg(num(r.ci_high))})`;
+// Signos por partido a 1,5 s con ayudante: mediana por pareja (median_diff_pairs) y por
+// penetración (median_diff). Se cuentan aquí, no se teclean.
+const gameRows = shGame.filter((r) => num(r.horizon) === HEADLINE && bool(r.helped));
+const gameSigns = {
+  games: gameRows.length,
+  pairNeg: gameRows.filter((r) => num(r.median_diff_pairs) < 0).length,
+  driveNeg: gameRows.filter((r) => num(r.median_diff) < 0).length,
+  pairClosest: Math.max(...gameRows.map((r) => num(r.median_diff_pairs)).filter((x) => x < 0)),
+  driveClosest: Math.max(...gameRows.map((r) => num(r.median_diff)).filter((x) => x < 0)),
+};
+// Tasa base de "hombre libre" en la rejilla de sensibilidad de la ayuda (4 ft, 1,0 s).
+const base = sensitivity.find((s) => num(s.horizon_s) === 1 && num(s.help_ft) === 4);
+const cornerSide = sensitivity.map((s) => num(s.helper_from_corner_side));
+const sharesHelper = byGame.map((g) => num(g.share_with_helper));
+const halfSecThree = sensitivity.find((s) => num(s.horizon_s) === 0.5 && num(s.help_ft) === 3);
 
 const BODY = 22; // 11 pt
 const p = (text, opts = {}) => new Paragraph({
@@ -169,10 +200,10 @@ function grid(headers, rows, widths, { align = [] } = {}) {
 }
 const spacer = () => new Paragraph({ spacing: { after: 120 }, children: [] });
 
-function figure(file, caption) {
+function figure(file, caption, ratio = 8.9 / 7.2) { // ratio alto/ancho; la figura 2 es 7,2 x 10,8 pulgadas
   const data = fs.readFileSync(path.join(FIGURES, file));
   const width = 460; // píxeles a 96 ppp: 4,8 pulgadas; las figuras son 7,2 x 8,9 pulgadas
-  const height = Math.round(width * 8.9 / 7.2);
+  const height = Math.round(width * ratio);
   return [
     new Paragraph({
       alignment: AlignmentType.CENTER, spacing: { before: 120, after: 60 },
@@ -217,8 +248,8 @@ const SECTIONS = [
   "6. Definiciones y reglas de esta entrada", "7. Implementación (semana 1)",
   "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)",
   "10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)",
-  "11. Plan y calendario", "12. Pendientes y decisiones abiertas",
-  "13. Registro de versiones de este documento",
+  "11. La segunda ayuda: una ausencia medida", "12. Plan y calendario", "13. Pendientes y decisiones abiertas",
+  "14. Registro de versiones de este documento",
 ];
 const toc = [
   h1("Índice"),
@@ -340,7 +371,7 @@ const s8 = [
     ["Campo de flujo: celdas con 15 vectores o más", `${N.flowCells}, consistencia mediana ${es(N.flowConsistencyMedian, 2)}, máxima ${es(N.flowConsistencyMax, 2)}`],
   ], [5826, 3200]),
   source("reports/help_table.csv y reports/help_flow.csv, calculados al generar este documento."),
-  p(`Tasa base, añadida el 28 de octubre (sección 10.3): el ${pct(N.leftOpen, 1)} de hombres dejados sin nadie a ${es(OPEN_FT, 0)} pies no significa que la ayuda cree un hombre libre. El hombre comparable en las penetraciones sin ayudante (el del defensor que más se movió sin llegar a ${es(HELP_FT, 0)} pies) está libre el 72,6 % al segundo, y el hombre dejado empezaba más vigilado: 41,5 % libre al arrancar, contra 62,3 %. La ayuda le da espacio a quien estaba más cerca de su defensor. Las tres cifras de comparación salen de la sonda del 28 de octubre, registrada en tasks/todo.md, hasta que la fase A las lleve a los CSV.`),
+  p(`Tasa base, añadida el 28 de octubre (secciones 10.3 y 11.6): el ${pct(N.leftOpen, 1)} de hombres dejados sin nadie a ${es(OPEN_FT, 0)} pies no significa que la ayuda cree un hombre libre. El hombre comparable en las penetraciones sin ayudante (el del defensor que más se movió sin llegar a ${es(HELP_FT, 0)} pies) está libre el ${pct(num(base.left_open_share_no_helper), 1)} al segundo, y el hombre dejado empezaba más vigilado: ${pct(num(base.left_open0_share), 1)} libre al arrancar, contra ${pct(num(base.left_open0_share_no_helper), 1)}. La ayuda le da espacio a quien estaba más cerca de su defensor. Las cuatro cifras (la del hombre dejado al segundo es ${pct(num(base.left_open_share), 1)}) salen de la fila de 4 pies y 1,0 s de reports/help_sensitivity.csv, donde están también las otras once celdas.`),
   p("Nota sobre la última fila: la primera versión de esa comprobación, tanto en el script como en esta memoria, comparaba el signo del movimiento lateral del jugador con balón ya reflejado al marco de la penetración, que es positivo por construcción, e imprimía un acuerdo del 100 % que no significaba nada. Se rehízo con la bandera de reflejo, que guarda el lado real en el marco de ataque, y el número de la tabla es el de esa versión."),
   h2("8.1 De dónde sale el ayudante"),
   grid(["Distancia a la línea del aro", "Ayudantes", "Cuota", "Por el centro", "Del lado de la esquina"],
@@ -353,13 +384,13 @@ const s8 = [
     [4826, 2100, 2100], { align: ["l", "r", "r"] }),
   source("reports/help_table.csv."),
   h2("8.3 Por partido"),
-  p("El corte por partido se publica y no se usa para decidir. La cuota de penetraciones con ayudante va del 33 % al 67 %: hay defensas distintas en la muestra, con uno o dos partidos cada una, lo que basta para ilustrar y no para comparar."),
+  p(`El corte por partido se publica y no se usa para decidir. La cuota de penetraciones con ayudante va del ${pct(Math.min(...sharesHelper))} al ${pct(Math.max(...sharesHelper))}: hay defensas distintas en la muestra, con uno o dos partidos cada una, lo que basta para ilustrar y no para comparar.`),
   grid(["Partido", "Resueltas", "Con ayudante", "Hombre libre abierto", "Más allá del arco"],
     byGame.map((g) => [g.game, es(num(g.n_resolved), 0), pct(num(g.share_with_helper)), pct(num(g.left_open_share)), pct(num(g.left_beyond_arc))]),
     [1826, 1800, 1800, 1800, 1800], { align: ["l", "r", "r", "r", "r"] }),
   source("reports/help_by_game.csv."),
   h2("8.4 Sensibilidad"),
-  p("La misma tabla con el umbral y el horizonte barridos. La lectura que importa: \"desde el lado de la esquina\" se queda entre el 0 % y el 4 % en las doce celdas, así que el título aguanta bajo cualquier definición razonable; y a medio segundo solo una de cada siete penetraciones tiene a alguien movido tres pies: la ayuda tarda más de medio segundo en verse."),
+  p(`La misma tabla con el umbral y el horizonte barridos. La lectura que importa: "desde el lado de la esquina" se queda entre el ${pct(Math.min(...cornerSide))} y el ${pct(Math.max(...cornerSide))} en las ${sensitivity.length} celdas, así que el título aguanta bajo cualquier definición razonable; y a medio segundo solo una de cada ${es(1 / num(halfSecThree.share_with_helper), 0)} penetraciones tiene a alguien movido tres pies: la ayuda tarda más de medio segundo en verse.`),
   grid(["Horizonte (s)", "Umbral (ft)", "Con ayudante", "Por el centro", "Lado de la esquina", "Abierto", "Más allá del arco"],
     sensitivity.map((s) => [es(num(s.horizon_s)), es(num(s.help_ft), 0), pct(num(s.share_with_helper)), pct(num(s.helper_from_middle)), pct(num(s.helper_from_corner_side), 1), pct(num(s.left_open_share)), pct(num(s.left_beyond_arc))]),
     [1226, 1200, 1300, 1300, 1400, 1200, 1400], { align: ["r", "r", "r", "r", "r", "r", "r"] }),
@@ -371,13 +402,13 @@ const s9 = [
   p("El concurso permite dos figuras y el argumento tiene dos mitades, así que no hay elección: de dónde viene la ayuda, y a quién deja. Las dos se dibujan en el marco de la penetración y en orientación de carta de tiro: el aro abajo, la línea de fondo debajo, y el movimiento lateral del jugador con balón hacia la derecha, de modo que \"el lado de la esquina\" es siempre la esquina inferior derecha. Dentro de la pista solo están la pista, el dato y el recorrido mediano del balón; números, claves y leyendas viven en una franja debajo, donde ninguna línea de corriente puede cruzarlos."),
   h2("9.1 Figura 1: el mapa de viento"),
   ...figure("wind_figure_1_wind_map.png", "Figura 1. El mapa de viento de las defensas de la ACB en el primer segundo de una penetración, y dónde arranca el ayudante."),
-  p("Un campo suavizado por kernel gaussiano (ancho de banda 4 pies, rejilla de 1,5 pies) del desplazamiento de los cuatro defensores sin balón durante el primer segundo, sobre los 2.472 vectores, dibujado como líneas de corriente cuyo grosor crece con el desplazamiento medio (clave en pies en la franja). Debajo, en naranja, la densidad de los puntos de origen del ayudante. El campo lleva a la defensa entera hundiéndose con la penetración además de la ayuda; la tabla separa las dos cosas (el movimiento de ayuda es la proyección hacia la posición futura del balón), la imagen no, y el pie lo dice. El viento solo se dibuja donde hubo defensores: las celdas con menos de diez vectores de masa kernel quedan en blanco, lo que eliminó un remolino espurio junto a la línea de fondo que tenía la primera versión."),
-  h2("9.2 Figura 2: el hombre que deja"),
-  ...figure("wind_figure_2_open_man.png", "Figura 2. El precio de la ayuda: el hombre que deja, un segundo después, y a qué distancia tiene al defensor más cercano."),
-  p(`Dónde está, un segundo después del inicio de la penetración, el atacante al que marcaba el ayudante: naranja si no hay ningún defensor a ${es(OPEN_FT, 0)} pies, gris si lo hay, con el histograma de esa distancia en la franja inferior. La mayoría está más allá del arco y sin nadie cerca; en cambio se reparte casi a partes iguales entre el lado de la penetración y el contrario (${pct(N.leftFarSide)} en el contrario), de modo que la idea de \"el lado débil\" no tiene apoyo en el dato y el título de la figura no la menciona.`),
-  p(`Sin tasa base, esa mayoría engaña: el hombre comparable en las penetraciones sin ayudante está libre todavía más a menudo (72,6 % contra ${pct(N.leftOpen, 1)}; sección 8). Por eso la fase A sustituye esta figura por quién cubre al hombre dejado (sección 10.4).`),
+  p("Un campo suavizado por kernel gaussiano (ancho de banda 4 pies, rejilla de 1,5 pies) del desplazamiento de los cuatro defensores sin balón durante el primer segundo, sobre los " + thousands(vectors.length) + " vectores, dibujado como líneas de corriente cuyo grosor crece con el desplazamiento medio (clave en pies en la franja). Debajo, en naranja, la densidad de los puntos de origen del ayudante. El campo lleva a la defensa entera hundiéndose con la penetración además de la ayuda; la tabla separa las dos cosas (el movimiento de ayuda es la proyección hacia la posición futura del balón), la imagen no, y el pie lo dice. El viento solo se dibuja donde hubo defensores: las celdas con menos de diez vectores de masa kernel quedan en blanco, lo que eliminó un remolino espurio junto a la línea de fondo que tenía la primera versión."),
+  h2("9.2 Figura 2: quién cubre al hombre que deja"),
+  ...figure("wind_figure_2_who_covers.png", `Figura 2. El hombre que deja el ayudante, ${hsec(HEADLINE)} s después de arrancar la penetración: el defensor más cercano a él es, con más frecuencia, el propio ayudante.`, 2160 / 1440),
+  p(`Un punto por penetración con ayudante (${SH(HEADLINE, true).n_drives}), allí donde está el atacante al que marcaba el ayudante ${hsec(HEADLINE)} s después del inicio. El color y la forma dicen quién es el defensor más cercano a él: el propio ayudante (${pct(num(SH(HEADLINE, true).nearest_helper))} de los puntos), el emparejado del jugador con balón (${pct(num(SH(HEADLINE, true).nearest_handler_def))}) o un tercer defensor (${pct(num(SH(HEADLINE, true).nearest_third))}). Es una medida de distancia, no de intención: nada en la figura dice quién decidió cubrirle.`),
+  p(`Debajo de la pista, a la izquierda, la rotación de los otros tres defensores hacia el hombre dejado menos hacia el placebo, con la media por penetración y su intervalo del 95 % para ${HORIZONS.map((h) => hsec(h)).join(" / ")} s, con ayudante y sin él; a la derecha, junto a esa media, la mediana y la cuota de parejas por encima de cero, porque el par típico queda cerca del placebo y la media la arrastran las colas (sección 11). Al pie, la tasa base en la misma frase: el hombre dejado está libre (nadie a ${es(OPEN_FT, 0)} pies) el ${pct(num(SH(HEADLINE, true).left_open_share))} de las veces a ${hsec(HEADLINE)} s, desde el ${pct(num(SH(HEADLINE, true).left_open0_share))} al arrancar, y el hombre comparable en las penetraciones sin ayudante lo está el ${pct(num(SH(HEADLINE, false).left_open_share))}, desde el ${pct(num(SH(HEADLINE, false).left_open0_share))}. La figura sustituye a la primera versión de la semana 2, los puntos del hombre dejado coloreados por estar libre o no, que sin tasa base inducía a error (sección 8).`),
   h2("9.3 Lo que se corrigió tras mirar la primera versión"),
-  p("Las figuras se miraron antes de darlas por buenas, y la primera versión tenía defectos que solo se ven mirándolas: en la figura 1, el bloque de texto y la etiqueta del balón quedaban tapados por las líneas de corriente y había un remolino espurio junto a la línea de fondo; en la figura 2, el histograma inserto y el texto pisaban puntos de la pista, la leyenda tapaba puntos arriba a la derecha, y las líneas grises desde el origen del ayudante ensuciaban sin aportar nada que no estuviera ya en la figura 1. Se movió todo lo que no es dato a la franja inferior, se endureció la máscara del campo, se quitaron las líneas, y en el título de la figura 2 se retiró \"lejos del balón\", que el 55 % no sostiene. Una tercera pasada arregló el solape entre el texto de la franja y la clave de grosor."),
+  p("Las figuras se miraron antes de darlas por buenas, y la primera versión tenía defectos que solo se ven mirándolas: en la figura 1, el bloque de texto y la etiqueta del balón quedaban tapados por las líneas de corriente y había un remolino espurio junto a la línea de fondo; en la figura 2 de entonces (los puntos del hombre libre, ya sustituida), el histograma inserto y el texto pisaban puntos de la pista, la leyenda tapaba puntos arriba a la derecha, y las líneas grises desde el origen del ayudante ensuciaban sin aportar nada que no estuviera ya en la figura 1. Se movió todo lo que no es dato a la franja inferior, se endureció la máscara del campo, se quitaron las líneas, y en el título de la figura 2 se retiró \"lejos del balón\", que el 55 % no sostiene. Una tercera pasada arregló el solape entre el texto de la franja y la clave de grosor."),
 ];
 
 const s10 = [
@@ -396,17 +427,8 @@ const s10 = [
   p("Media 42; el peer review restó 5 por un punto ciego grave y 5 por un rojo que nadie rebatió, y sumó 5 por una fortaleza unánime (el hueco: nadie mide la ayuda en este bundle). Total 37, muy arriesgado con esa pregunta. El punto ciego se comprobó con el dato: los puntos por oportunidad son 0,911 con ayudante y 0,905 sin él (280 y 338 penetraciones), y el intervalo de confianza del 95 % de la diferencia va de −0,17 a +0,18. No es un nulo: con diez partidos no se puede ver ningún efecto que no sea enorme. Los cinco coincidieron en lo que sí se sostiene: medir la cadena de rotación como geometría, no como efecto sobre el marcador."),
   source("council de la sesión del 28 de octubre de 2026 y recuento de puntos por oportunidad (second_help_recon.py, script de sesión), registrados en tasks/todo.md."),
   h2("10.3 La sonda de la segunda ayuda"),
-  p("Antes de planificar se sondeó la segunda ayuda sobre las 587 penetraciones resueltas que tienen un hombre dejado (258 con ayudante), con un diseño que lleva su propio control. Para cada uno de los tres defensores que no son ni el emparejado del balón ni el ayudante, su desplazamiento propio se proyecta hacia el hombre dejado y, como placebo, hacia los demás atacantes sin balón que no son su propio hombre. Si hubiera rotación, la proyección hacia el hombre dejado superaría a la del placebo. La sonda es un script de sesión que todavía no está en el paquete: sus cifras están registradas en tasks/todo.md, y la fase A las lleva a scbasket.rotation y a reports/second_help_*.csv, desde donde esta sección las leerá."),
-  grid(["Horizonte", "Con ayudante: hacia él menos placebo", "IC del 95 %", "Sin ayudante"], [
-    ["1,0 s", "−0,52 ft", "−0,79 a −0,25", "−0,39 ft"],
-    ["1,5 s", "−0,68 ft", "−1,09 a −0,28", "−0,52 ft"],
-    ["2,0 s", "−0,74 ft", "−1,25 a −0,24", "−0,63 ft"],
-  ], [1500, 3326, 2200, 2000], { align: ["l", "r", "r", "r"] }),
-  source("sonda second_help_probe.py del 28 de octubre de 2026; media por penetración de la diferencia emparejada, intervalo por bootstrap sobre penetraciones; registrada en tasks/todo.md."),
-  p("Los otros tres se mueven hacia el hombre dejado menos que hacia cualquier otro atacante, con la mediana por partido negativa en siete de los diez (ocho si la mediana se toma por penetración en vez de por pareja; uno de ellos en −0,06), y casi igual que cuando nadie ayuda: no hay respuesta a la ayuda. Un movimiento de 4 pies o más hacia él aparece en el 44 % de las penetraciones a 1,5 s, contra el 42 % hacia el placebo. Lo que le cubre es el propio ayudante: el defensor más cercano al hombre dejado es el ayudante en el 62, 60 y 60 % de las penetraciones (a 1,0, 1,5 y 2,0 s), el emparejado del balón en el 21, 21 y 20 %, y un tercero en el 17, 19 y 20 %; sin ayudante, un tercero es el más cercano en el 10, 13 y 15 %. Dicho como medida y no como intención: la ayuda es un paso hacia el balón de alguien que sigue siendo el defensor más cercano a su hombre."),
-  p("La sonda encontró además una deuda de la semana 1: el porcentaje de hombres dejados libres no tenía tasa base (sección 8). El hombre comparable en las penetraciones sin ayudante está libre el 72,6 % al segundo, y el 62,3 % ya al arrancar, contra el 41,5 % del hombre dejado. La ayuda da espacio a quien empezaba más vigilado; no crea un hombre libre donde no lo había."),
-  p("Por qué el balón casi no le llega: hay un primer pase en 110 de las 258 penetraciones con ayudante y va al hombre dejado en 31 (28 %, cerca del 25 % que daría elegir uno de cuatro). En el fotograma del pase (mediana 1,92 s) es el compañero más libre solo en el 20,9 %, y el receptor fue el más libre en el 31,8 %. Lo que no se puede juzgar es la rotación después del pase (el X-out): solo 18 closeouts del proveedor caen sobre el hombre dejado; en ellos cierra el ayudante en el 56 % y otro defensor en el 44 %, frente al 43 % de cierres de otro defensor cuando nadie ayudó (56 casos). Viaja como límite."),
-  source("sondas second_help_probe.py y second_help_closeouts.py del 28 de octubre de 2026, registradas en tasks/todo.md."),
+  p("Antes de planificar se sondeó la segunda ayuda con un diseño que lleva su propio control: para cada uno de los tres defensores que no son ni el emparejado del balón ni el ayudante, su desplazamiento propio se proyecta hacia el hombre dejado y, como placebo, hacia los demás atacantes sin balón que no son su propio hombre. Si hubiera rotación, la proyección hacia el hombre dejado superaría a la del placebo. La sonda empezó como script de sesión; su diseño y sus cifras viven ahora en el paquete (scbasket.rotation, scripts/second_help.py) y en reports/second_help_*.csv, y esta memoria las lee de ahí en la sección 11. Lo que decidió: la segunda ayuda entendida como rotación de un tercer defensor no aparece contra el placebo, y el porcentaje de hombres dejados libres de la semana 1 no tenía tasa base (sección 8)."),
+  source("sonda del 28 de octubre de 2026, reproducida en reports/second_help_*.csv el 28 y el 29 de octubre (fase A de tasks/todo.md); los intervalos de 1,5 y 2,0 s difieren en pocas centésimas de los de la sonda porque el paquete siembra cada celda del bootstrap por separado."),
   h2("10.4 Lo decidido"),
   bullet([bold("Título: \"Nobody helps the helper\". "), run("Lo eligió Javier frente a la recomendación del planificador, que proponía mantener el anterior con este como subtítulo: la segunda ayuda que no llega pasa al frente. Tesis en una línea: la ayuda sopla desde el centro y nunca desde la esquina, y nadie ayuda al que ayuda; al hombre que deja le cubre el propio ayudante o nadie, medido contra un placebo.")]),
   bullet([bold("Repositorio público: este. "), run("Se etiqueta el estado actual como bounce-final y el README del rebote pasa a docs/bounce/; el paquete, la caché y los tests compartidos se quedan donde ya funcionan al clonar.")]),
@@ -414,18 +436,95 @@ const s10 = [
   bullet([bold("Cómo se trabaja. "), run("El plan por fases lo escribió Fable 5.1 como planificador, y cada tarea se ejecuta con el modelo de su etiqueta (Sonnet la mayoría, Haiku lo mecánico, Opus el motor de la página y la verificación final, Fable el guion visual de la página). A petición de Javier, una sola revisión adversarial, al cierre, y ninguna puerta que bloquee.")]),
 ];
 
-const s11 = [
-  h1("11. Plan y calendario"),
+// Datos de la sección 11, leídos de reports/second_help_*.csv.
+const SHH = SH(HEADLINE, true);
+const SHN = SH(HEADLINE, false);
+const nLeft = num(SH(25, true).n_drives) + num(SH(25, false).n_drives); // penetraciones con hombre dejado
+const hs = HORIZONS.map(hsec).join(" / ");
+// Los intervalos con y sin ayudante se solapan en los tres horizontes (se comprueba, no se supone).
+const ciOverlap = HORIZONS.every((h) => {
+  const a = SH(h, true); const b = SH(h, false);
+  return num(a.ci_low) <= num(b.ci_high) && num(b.ci_low) <= num(a.ci_high);
+});
+if (!ciOverlap) throw new Error("los IC con y sin ayudante ya no se solapan: revisar el texto de la sección 11");
+if (!HORIZONS.every((h) => [true, false].every((hp) => num(SH(h, hp).ci_high) < 0))) throw new Error("algún IC de la sección 11.2 incluye 0: revisar el texto");
+const gameN = gameRows.map((r) => num(r.n_drives));
+const gridCells = shSens.map((r) => ({ ...r, ft: num(r.help_ft), h: num(r.horizon), hp: bool(r.helped) }));
+const negCells = gridCells.filter((r) => num(r.mean_diff) < 0).length;
+const zeroCells = gridCells.filter((r) => num(r.ci_high) >= 0)
+  .map((r) => `${r.hp ? "con" : "sin"} ayudante, ${es(r.ft, 0)} ft, ${es(num(r.horizon_s), 1)} s`);
+const PH = shPass.find((r) => bool(r.helped));
+const PN = shPass.find((r) => !bool(r.helped));
+const seP = Math.sqrt(num(PH.share_to_left) * (1 - num(PH.share_to_left)) / num(PH.n_first_pass));
+const CL = shClose.find((r) => bool(r.helped) && bool(r.receiver_is_left));
+const CN = shClose.find((r) => !bool(r.helped) && !bool(r.receiver_is_left));
+
+const sSecond = [
+  h1("11. La segunda ayuda: una ausencia medida", { pageBreakBefore: true }),
+  p(`La pregunta es qué pasa con el atacante que deja el ayudante: si alguien se mueve hacia él, y quién es el defensor más cercano. Se mide como geometría y no como efecto sobre el marcador, porque la sección 10.2 muestra que con diez partidos los puntos por oportunidad no tienen potencia. Todo lo de esta sección sale de reports/second_help_*.csv, escritos por scripts/second_help.py con el módulo scbasket.rotation. El resultado con su calificador: contra el placebo, los otros tres defensores se mueven hacia el hombre dejado menos que hacia los demás atacantes (media por penetración ${sft(num(SHH.mean_diff))} a ${hsec(HEADLINE)} s), pero el par típico queda cerca del placebo (mediana ${sft(num(SHH.median_diff))}) y la media la arrastran las colas; y el defensor más cercano al hombre dejado es, con más frecuencia, el propio ayudante (${pct(num(SHH.nearest_helper))}).`),
+  h2("11.1 El diseño del placebo"),
+  p(`Hay ${nLeft} penetraciones resueltas con un hombre dejado, ${SH(25, true).n_drives} con ayudante (movimiento de ayuda de ${es(HELP_FT, 0)} pies o más en 1,0 s, como en la sección 6) y ${SH(25, false).n_drives} sin él. En cada una, los tres defensores que no son ni el emparejado del jugador con balón ni el ayudante dan ${SH(25, true).n_pairs / SH(25, true).n_drives} parejas (penetración, defensor). De cada defensor se toma su desplazamiento propio durante el horizonte y se proyecta sobre dos direcciones: hacia el hombre dejado, y hacia el placebo, que son los demás atacantes sin balón que no son su propio hombre. La diferencia, hacia él menos placebo, es negativa si el defensor se movió más hacia otros atacantes que hacia el hombre dejado. Se mide a ${hs} s (25, 38 y 50 fotogramas; el segundo es 1,52 s). En las penetraciones sin ayudante, el hombre comparable es el del defensor no emparejado que más se movió sin llegar al umbral, la misma convención de la sección 8.`),
+  h2("11.2 La diferencia emparejada"),
+  grid(["Horizonte", "Ayudante", "Penetraciones", "Parejas", "Media por penetración, ft (IC 95 %)", "Mediana (parejas)", "Parejas > 0"],
+    HORIZONS.flatMap((h) => [true, false].map((hp) => {
+      const r = SH(h, hp);
+      return [`${hsec(h)} s`, hp ? "con" : "sin", r.n_drives, r.n_pairs, meanCi(r), sft(num(r.median_diff)), pct(num(r.share_diff_positive))];
+    })),
+    [1150, 1100, 1500, 1000, 2176, 1150, 950], { align: ["l", "l", "r", "r", "r", "r", "r"] }),
+  source("reports/second_help_summary.csv (mean_diff, ci_low, ci_high, median_diff, share_diff_positive). El intervalo es el de la media por penetración, por bootstrap sobre penetraciones; la mediana y la cuota son sobre parejas (una pareja es una penetración y uno de los tres defensores)."),
+  p(`La media por penetración de la diferencia es negativa en los tres horizontes, con ayudante (${HORIZONS.map((h) => sg(num(SH(h, true).mean_diff))).join(" / ")} ft a ${hs} s) y sin él (${HORIZONS.map((h) => sg(num(SH(h, false).mean_diff))).join(" / ")} ft), y su intervalo del 95 % queda por debajo de cero en los seis casos. Pero la mediana sobre parejas con ayudante es ${HORIZONS.map((h) => sg(num(SH(h, true).median_diff))).join(" / ")} ft y solo el ${HORIZONS.map((h) => pct(num(SH(h, true).share_diff_positive))).join(" / ")} de las parejas está por encima de cero: el par típico queda cerca del placebo y la media la arrastran las colas, no una respuesta general de la defensa. Con ayudante y sin él los intervalos se solapan en los tres horizontes, de modo que la ayuda no deja una rotación distinguible de la que ya había. Un movimiento de ${es(HELP_FT, 0)} pies o más hacia el hombre dejado aparece en el ${pct(num(SHH.share_mover_left))} de las penetraciones con ayudante a ${hsec(HEADLINE)} s, contra el ${pct(num(SHH.share_mover_placebo))} hacia el placebo.`),
+  h2("11.3 Por partido"),
+  p(`A ${hsec(HEADLINE)} s con ayudante, la mediana por partido es negativa en ${gameSigns.pairNeg} de los ${gameSigns.games} partidos tomada sobre parejas y en ${gameSigns.driveNeg} de los ${gameSigns.games} tomada sobre penetraciones; el valor negativo más cercano a cero es ${sg(gameSigns.pairClosest)} ft sobre parejas y ${sg(gameSigns.driveClosest)} ft sobre penetraciones. Cada partido aporta entre ${Math.min(...gameN)} y ${Math.max(...gameN)} penetraciones con ayudante: el corte se publica y no se usa para decidir.`),
+  source("reports/second_help_by_game.csv (median_diff por penetración, median_diff_pairs por pareja), contados al generar este documento."),
+  h2("11.4 Sensibilidad"),
+  grid(["Umbral", "Horizonte", "Penetraciones con ayudante", "Media con ayudante (IC 95 %)", "Media sin ayudante (IC 95 %)"],
+    [3, 4, 5].flatMap((f) => HORIZONS.map((h) => {
+      const a = gridCells.find((r) => r.ft === f && r.h === h && r.hp);
+      const b = gridCells.find((r) => r.ft === f && r.h === h && !r.hp);
+      return [`${es(f, 0)} ft`, `${es(num(a.horizon_s), 1)} s`, a.n_drives, `${meanCi(a)}`, `${meanCi(b)}`];
+    })),
+    [1000, 1100, 1900, 2513, 2513], { align: ["l", "l", "r", "r", "r"] }),
+  source("reports/second_help_sensitivity.csv: umbral de ayudante de 3, 4 y 5 pies por los tres horizontes, en pies."),
+  p(`La media es negativa en ${negCells} de las ${gridCells.length} celdas, y el intervalo del 95 % deja fuera el cero en ${gridCells.length - zeroCells.length}. ${zeroCells.length ? `Lo incluyen: ${zeroCells.join("; ")}.` : ""} Con ayudante, la mediana de las parejas es negativa en ${gridCells.filter((r) => r.hp && num(r.median_diff) < 0).length} de las ${gridCells.filter((r) => r.hp).length} celdas.`),
+  h2("11.5 Quién está más cerca del hombre dejado"),
+  grid(["Horizonte", "Ayudante", "Su defensor (el ayudante, si lo hay)", "Emparejado del balón", "Un tercero", "Distancia mediana"],
+    HORIZONS.flatMap((h) => [true, false].map((hp) => {
+      const r = SH(h, hp);
+      return [`${hsec(h)} s`, hp ? "con" : "sin", pct(num(r.nearest_helper)), pct(num(r.nearest_handler_def)), pct(num(r.nearest_third)), ft(num(r.nearest_dist_median))];
+    })),
+    [1150, 1100, 2200, 1700, 1500, 1376], { align: ["l", "l", "r", "r", "r", "r"] }),
+  source("reports/second_help_summary.csv (nearest_helper, nearest_handler_def, nearest_third, nearest_dist_median). En las penetraciones sin ayudante, la primera columna es el defensor propio del hombre comparable."),
+  p(`Con ayudante, el más cercano al hombre dejado es el ayudante en el ${HORIZONS.map((h) => pct(num(SH(h, true).nearest_helper))).join(", ")} de las penetraciones (${hs} s), el emparejado del balón en el ${HORIZONS.map((h) => pct(num(SH(h, true).nearest_handler_def))).join(", ")} y un tercero en el ${HORIZONS.map((h) => pct(num(SH(h, true).nearest_third))).join(", ")}; sin ayudante, un tercero es el más cercano en el ${HORIZONS.map((h) => pct(num(SH(h, false).nearest_third))).join(", ")}. Dicho como medida y no como intención: la ayuda es un paso hacia el balón de alguien que sigue siendo, con más frecuencia que ningún otro, el defensor más cercano a su hombre.`),
+  h2("11.6 Cuánto de libre está, con su tasa base"),
+  grid(["Horizonte", "Con ayudante: libre al arrancar", "Con ayudante: libre al horizonte", "Sin ayudante: libre al arrancar", "Sin ayudante: libre al horizonte"],
+    HORIZONS.map((h) => [`${hsec(h)} s`, pct(num(SH(h, true).left_open0_share), 1), pct(num(SH(h, true).left_open_share), 1), pct(num(SH(h, false).left_open0_share), 1), pct(num(SH(h, false).left_open_share), 1)]),
+    [1200, 1950, 1950, 1963, 1963], { align: ["l", "r", "r", "r", "r"] }),
+  source(`reports/second_help_summary.csv (left_open0_share, left_open_share); libre es que ningún defensor esté a ${es(OPEN_FT, 0)} pies. La cuota al arrancar usa todas las penetraciones del grupo (${SH(25, true).n_clear0} con ayudante y ${SH(25, false).n_clear0} sin él); la del horizonte, las que tienen medida en ese fotograma (a ${hsec(HEADLINE)} s, ${SHH.n_clear} y ${SHN.n_clear}).`),
+  p(`El hombre dejado está libre el ${pct(num(SH(25, true).left_open_share), 1)} de las veces a 1,0 s, y eso no significa que la ayuda cree un hombre libre: el hombre comparable en las penetraciones sin ayudante lo está el ${pct(num(SH(25, false).left_open_share), 1)}, y el dejado empezaba más vigilado (${pct(num(SH(25, true).left_open0_share), 1)} libre al arrancar, contra ${pct(num(SH(25, false).left_open0_share), 1)}). La ayuda da espacio a quien empezaba más cerca de su defensor.`),
+  h2("11.7 El pase"),
+  grid(["Ayudante", "Penetraciones", "Con primer pase", "Al hombre dejado", "Libre cuando le llegó", "Libre cuando no"],
+    [[PH, "con"], [PN, "sin"]].map(([r, w]) => [w, r.n_drives, r.n_first_pass, `${r.n_to_left} (${pct(num(r.share_to_left))})`, `${sft(num(r.left_clear_when_got_it))} (n = ${r.n_left_got_it})`, `${sft(num(r.left_clear_when_not))} (n = ${r.n_left_missed})`]),
+    [1200, 1500, 1300, 1600, 1713, 1713], { align: ["l", "r", "r", "r", "r", "r"] }),
+  source("reports/second_help_pass.csv; libre es la distancia al defensor más cercano en el fotograma del pase."),
+  p(`Con ayudante hay un primer pase en ${PH.n_first_pass} de las ${PH.n_drives} penetraciones y va al hombre dejado en ${PH.n_to_left} (${pct(num(PH.share_to_left))}, con un intervalo normal del 95 % de ${pct(num(PH.share_to_left) - 1.96 * seP)} a ${pct(num(PH.share_to_left) + 1.96 * seP)}); si el receptor fuera uno de los cuatro compañeros al azar sería el ${pct(1 / 4)}, de modo que con este tamaño no se distingue de eso. En el fotograma del pase (mediana ${es(num(PH.median_delay_s), 2)} s) el hombre dejado es el compañero más libre solo en el ${pct(num(PH.left_most_open_share), 1)} de los casos y el receptor lo fue en el ${pct(num(PH.receiver_most_open_share), 1)}. Cuando le llegó el balón tenía ${sft(num(PH.left_clear_when_got_it))} de margen, y cuando no le llegó, ${sft(num(PH.left_clear_when_not))}; son distancias medidas en el fotograma del pase y no dicen por qué se pasó a otro.`),
+  h2("11.8 El X-out: un límite"),
+  p(`Lo que sigue al pase, la rotación del defensor que cierra sobre el receptor (el X-out), no se puede juzgar con estos datos. Los closeouts del proveedor que caen sobre el hombre dejado con ayudante son ${CL.n}: cierra su propio defensor, que es el ayudante, en el ${pct(num(CL.closer_own_share))} y otro defensor en el ${pct(num(CL.closer_other_share))}, frente al ${pct(num(CN.closer_other_share))} de cierres de otro defensor cuando nadie ayudó (${CN.n} casos). Con ${CL.n} casos un solo closeout mueve ${es(100 / num(CL.n), 1)} puntos de la cuota: no se dice nada y viaja como límite.`),
+  source("reports/second_help_closeouts.csv (n, closer_own_share, closer_other_share)."),
+];
+
+
+const s12 = [
+  h1("12. Plan y calendario", { pageBreakBefore: true }),
   grid(["Fase", "Fechas", "Trabajo", "Estado"], [
     ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
-    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Pendiente"],
+    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "A1 a A4 hechas el 28 de octubre; A5 hecha el 29 de octubre; A6 (esta memoria) y A7 (cierre de fase) pendientes"],
     ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en canvas sin CDN conducida desde la consola; memoria v0.4", "Pendiente"],
     ["C", "30 de noviembre a 6 de diciembre", "El repositorio público y el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.5", "Pendiente"],
     ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.6", "Pendiente"],
     ["E", "14 a 18 de diciembre", "Dispositivos reales, memoria v1.0, la verificación final con la única revisión adversarial, y el envío antes del 17", "Pendiente"],
-  ], [1300, 2000, 4426, 1300]),
+  ], [1100, 1700, 3626, 2600]),
   p("Cada fase cierra con ruff y pytest en verde y una revisión con Javier. El detalle de cada tarea, con su criterio de aceptación y su modelo, está en tasks/todo.md."),
-  h2("11.1 Riesgos asumidos"),
+  h2("12.1 Riesgos asumidos"),
   bullet("La fase B tiene tres semanas a tiempo parcial para el canvas, la reproducción de las penetraciones y la conducción desde la consola, sin holgura dentro; la voz necesita a Javier en una ventana de siete días."),
   bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, lo que separa las dos cosas en la tabla pero no en la imagen."),
   bullet("Todo depende de la tabla matchups del proveedor para saber quién es el emparejado del balón y a quién marcaba el ayudante. Donde falta, se usa el defensor más cercano para el primero y se deja vacío el segundo."),
@@ -434,18 +533,19 @@ const s11 = [
   bullet("Las posiciones extrapoladas (jugadores fuera de plano) tienen un error de 4 a 5 pies. La tabla guarda la bandera de detección del ayudante en los dos extremos para poder contar cuántas ayudas descansan en una posición extrapolada."),
 ];
 
-const s12 = [
-  h1("12. Pendientes y decisiones abiertas"),
+const s13 = [
+  h1("13. Pendientes y decisiones abiertas"),
   numbered("Un fichero suelto, range.bin (100 bytes de JSON con otro esquema), en la raíz del repo sin referencia alguna; Javier decide si se borra antes del 29 de noviembre."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
 ];
 
-const s13 = [
-  h1("13. Registro de versiones de este documento"),
+const s14 = [
+  h1("14. Registro de versiones de este documento"),
   grid(["Versión", "Fecha", "Cambios"], [
     ["0.1", "28 de octubre de 2026", "Creación. Competición, dato, antecedentes, ideación con las tres sondas, definiciones, implementación y resultados de la semana 1, las dos figuras de la semana 2, plan y pendientes."],
     ["0.2", "28 de octubre de 2026", "Título nuevo, \"Nobody helps the helper\". Sección 10 nueva: una sola entrada de baloncesto, el council (37 sobre 100) y la sonda de la segunda ayuda. Tasa base junto al porcentaje de hombres libres en las secciones 8 y 9. Plan por fases A a E en la sección 11. Pendientes depurados por la decisión de entrada única."],
+    ["0.3", "29 de octubre de 2026", "Sección 11 nueva, \"La segunda ayuda: una ausencia medida\", leída de reports/second_help_*.csv: el diseño del placebo, la diferencia emparejada con su media, su intervalo, la mediana y la cuota de parejas, los signos por partido, la sensibilidad, quién está más cerca del hombre dejado, su cuota de libre con la tasa base, el pase y el X-out como límite. Figura 2 nueva (quién cubre al hombre que deja) en 9.2. Sección 10.3 reducida: sus cifras pasan a la 11 y vienen de los CSV. Tasa base y rangos de las secciones 8.3 y 8.4 leídos de help_by_game.csv y help_sensitivity.csv, no tecleados. Plan: A1 a A5 hechas. Secciones 11 a 13 anteriores renumeradas a 12 a 14."],
   ], [1200, 2200, 5626]),
 ];
 
@@ -487,7 +587,7 @@ const doc = new Document({
       new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "777777" }),
     ] })] }) },
     children: [...cover, ...toc, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...s8, ...s9,
-               ...s10, ...s11, ...s12, ...s13],
+               ...s10, ...sSecond, ...s12, ...s13, ...s14],
   }],
 });
 
