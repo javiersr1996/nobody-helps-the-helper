@@ -1080,6 +1080,10 @@ def check_reduced_motion(D: Data, browser, target: str) -> None:
         """() => { const c = document.getElementById('wind-flow'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
                    let n = 0, h = 0; for (let i = 3; i < d.length; i += 4) { if (d[i] > 0) { n++; h = (h * 31 + d[i-3] + d[i-2] * 7 + i) | 0; } } return [n, h]; }"""
     )
+    # a GPU 2D canvas's first readback unpremultiplies on the GPU and every later one on the
+    # CPU, so the first read differs by one colour level on the anti-aliased edges with nothing
+    # drawn (storyboard 5.4); read once to settle the path, then compare byte for byte
+    ink()
     a = ink()
     pg.wait_for_timeout(700)
     b = ink()
