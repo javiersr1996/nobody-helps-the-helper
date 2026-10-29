@@ -51,6 +51,7 @@ h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:80
 .tag.other{color:var(--purple-ink);font-size:14px}
 .no-gl{position:absolute;inset:0;margin:0;padding:24px;display:flex;align-items:center;
        font-size:17px;background:var(--paper)}
+.drawn{margin:8px 0 0;font-size:16px;color:var(--faint)}
 .controls{margin-top:12px}
 .controls .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .controls .row + .row{margin-top:10px}
@@ -152,13 +153,15 @@ footer code{font-family:var(--mono);font-size:15px}
   <div class="stage-grid">
     <div class="stage-col">
       <div class="stage" id="stage">
-        <canvas id="court" role="img" aria-label="one drive, ten players as tokens on the court"></canvas>
+        <canvas id="court" role="img" aria-label="one drive, ten players on the court"></canvas>
         <div class="tags" id="tags" aria-hidden="true"></div>
         <p class="no-gl" id="no-gl" hidden>This browser has no WebGL, so the drive cannot be drawn
           here. What it shows: on a drive, one defender steps toward the ball, and nobody moves
           toward the man he leaves. The README's two figures draw the same drive and the result;
           the measures beside and below this box need no GPU and still work.</p>
       </div>
+      <p class="drawn" id="drawn">Only where each player stands is tracked; bodies, facing and
+        stride are drawn; the ball's height is the provider's.</p>
       <div class="controls">
         <div class="row">
           <button class="btn" id="play" type="button">Play</button>
@@ -249,6 +252,7 @@ footer code{font-family:var(--mono);font-size:15px}
 <footer class="wrap narrow" id="footer"></footer>
 
 <script type="application/json" id="payload">/*PAYLOAD*/</script>
+<script type="application/octet-stream" id="players-glb">/*PLAYERS*/</script>
 <script id="three-js">
 window.THREE = (function () {
   const module = {exports: {}};
@@ -279,6 +283,9 @@ const STILL = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 /* Timing, typed: storyboard 2.6, not data. Clip seconds per wall second, the freeze before the
    rise, the rise, the measures' fade-in. */
 const RATE = 0.5, HOLD_S = 0.5, FLIGHT_S = 1.5, FADE_S = STILL ? 0 : 0.4;
+/* The longest wall step a frame may advance the clock, in milliseconds (B4b: up from 100, so a
+   slow renderer still plays the hook in about its wall time; a hidden tab resets the clock). */
+const STEP_MAX = 250;
 
 /* Drawing, typed, in feet: the token and the ball (storyboard 2.2), the floor past the lines,
    the labels' height, line and trail widths, figure 1's rules for the arrowheads and its crop. */
@@ -289,17 +296,58 @@ const LINE_W = 0.2, TRAIL_W = 0.35, STAYED = 1.5, ARROW_BACK = 1, CROP_TOP = 27,
    edge, the rim's radius and height. Court geometry, drawn only. */
 const FT_CIRCLE = 5.91, BOARD_FROM_BASELINE = 3.94, BOARD_HALF = 2.95;
 const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
-/* The broadcast camera, fitted per canvas (storyboard 2.3) so that every token and the ball
-   stay inside it on every frame of the four drives and the hoop sits low and centred: the eye
-   this far behind the hoop (`back`) and this high (`z`), on the hoop's axis, looking at a point
-   `ahead` up-court of the players' centroid at the measure's frame, `lookZ` high, with a
-   vertical field of view `fov`. The square canvas needs a steeper camera to fill its height.
-   FOV_PLAN: the narrowest field of view the rise reaches before the swap to the orthographic
-   camera. Degrees and feet. */
-const CAMERA = {wide: {back: 40, z: 42, ahead: 16, lookZ: 3, fov: 40},
-                square: {back: 45, z: 80, ahead: 8, lookZ: 3, fov: 32}};
+/* The broadcast camera (storyboard 2.3, as B4b amends it): on the hoop's axis, behind and
+   above it, looking down at `pitch` degrees with a vertical field of view `fov`; the square
+   canvas looks down more steeply. For each frame of a scene the page fits the tightest such
+   camera that keeps every player (feet and head), the ball and a margin (a fraction of the
+   canvas, FRAME_MARGIN) inside the canvas, the hoop on the axis and below HOOP_LOW in normalised
+   device height (the bottom part of the canvas). Over the clip the fit only ever closes in,
+   smoothed over PUSH_SMOOTH frames, and the camera starts PUSH further back than the fit and
+   closes to it by the end: the push-in. FOV_PLAN: the narrowest field of view the rise reaches
+   before the swap to the orthographic camera. Degrees and feet. */
+const CAMERA = {wide: {pitch: 52, fov: 34}, square: {pitch: 58, fov: 40}};
+const FRAME_MARGIN = 0.05, HOOP_LOW = -0.25, PUSH_SMOOTH = 8, PUSH = 0.3, LOOK_Z = 3;
 const FOV_PLAN = 1;
 const DEG = Math.PI / 180;
+/* Slow motion around the help step, on the wall clock only (seek(t) never sees it): playback
+   slows to SLOW clip seconds per wall second over a window SLOW_W clip seconds either side of
+   the moment the helper has covered half his path to the frame he is named at, and runs a
+   little faster elsewhere, so the clip still takes T / RATE wall seconds and RATE stays the
+   mean. Broadcast only; in plan the clip plays at RATE. */
+const SLOW = 0.3, SLOW_W = 0.26;
+
+/* The players, drawn (B4b): only (x, y) is tracked. A body BODY_H feet tall, a ring on the
+   floor under each (inner and outer radius, feet), the labels at TAG_Z feet over a body. A
+   defender faces the ball handler; past HIPS_LO feet per second his hips turn toward his line
+   of motion (fully at HIPS_HI), and his torso twists back toward the ball handler by up to
+   TWIST_MAX degrees; a head turns toward the ball by up to HEAD_MAX more. A defender near an
+   attacker (NEAR_LO to NEAR_HI feet) and not running (STANCE_LO to STANCE_HI feet per second)
+   sinks into his stance, up to CROUCH of the crouch clip. Velocities are smoothed over
+   SMOOTH_F frames (a Gaussian's sigma); an attacker turns to his motion from TURN_LO to
+   TURN_HI feet per second. A hand reaches for the ball while it is within the arm's length
+   plus REACH_SLACK feet, and the dribbling hand waits no lower than HAND_LOW feet. */
+const BODY_H = 6.5, RING_IN = 1.05, RING_OUT = 1.45, TAG_Z = 7.6;
+const HIPS_LO = 3, HIPS_HI = 8, TWIST_MAX = 70, HEAD_MAX = 60;
+const NEAR_LO = 4, NEAR_HI = 9, STANCE_LO = 5, STANCE_HI = 11, CROUCH = 0.4;
+const SMOOTH_F = 2, TURN_LO = 1, TURN_HI = 4, REACH_SLACK = 1.5, HAND_LOW = 2.4;
+/* The kits: no team's, no league's; attack in white, defence in navy. Jersey numbers are
+   decoration, and none is 1, 2 or 3, which label the three other defenders. Skin tones are
+   spread across both teams. */
+const KITS = [{top: "#f2efe8", ink: "#1d2f5e", edge: "#f2efe8", shorts: "#f2efe8", stripe: "#1d2f5e",
+               shoe: "#f4f2ee", numbers: [7, 10, 14, 22, 31]},
+              {top: "#1d2f5e", ink: "#f2efe8", edge: "#c9a227", shorts: "#1d2f5e", stripe: "#f2efe8",
+               shoe: "#22252b", numbers: [5, 9, 12, 21, 34]}];
+const SKINS = ["#8d5a3b", "#c68e64", "#5e3a26", "#e0b48f", "#a86f4a"];
+const SOCK = "#f2efe8", SOLE = "#2a2a2a";
+/* The arena, drawn: the dark beyond the court, the hardwood, the painted key, the lines, the
+   apron of wood past them (feet), the stands' slope, the rim and the net. */
+const ARENA = {dark: "#15110e", wood: "#c4874f", paint: "#6e2330", line: "#f4ecdc", rim: "#e0622a",
+               net: "#f2efe8", stands: "#2a221d", pad: "#1d2f5e", steel: "#3b2f29"};
+const APRON = 7, STANDS_H = 30, STANDS_RUN = 40;
+/* Its light: a fill everywhere, a spot this high and this far up-court of the hoop with this
+   cone (degrees) and soft edge, and a cool light from the camera's side; intensities as three.js
+   takes them (B4's plan light sums to pi). */
+const ARENA_LIGHT = {hemi: 0.75, key: 2.9, fill: 0.5, cone: 30, penumbra: 0.75, ahead: 13, high: 90};
 
 /* Figure 1's palette (scripts/help_figures.py), the ball, the floor. */
 const C = {ink: "#2b2b2b", court: "#555555", orange: "#f0a33c", grey: "#9a9a9a",
@@ -409,6 +457,429 @@ function nearestOf(s, P) {
 }
 
 /* ==========================================================================
+   The players' bodies (B4b): the Quaternius mannequin (CC0, vendor/players),
+   read from its GLB here with no loader addon, dressed in a kit made from its
+   own mesh, and posed as a pure function of the clip time. Only (x, y) is
+   tracked; bodies, facing and stride are drawn, and nothing is measured from
+   them.
+   ========================================================================== */
+const GLB_JSON = 0x4E4F534A, GLB_BIN = 0x004E4942;
+function readGLB(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let off = 12, json = null, bin = null;
+  while (off < bytes.byteLength) {
+    const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+    const body = bytes.subarray(off + 8, off + 8 + len);
+    if (type === GLB_JSON) json = JSON.parse(new TextDecoder().decode(body));
+    else if (type === GLB_BIN) bin = body;
+    off += 8 + len;
+  }
+  return {json, bin};
+}
+const GL_COMP = {5126: [Float32Array, 4, "getFloat32"], 5123: [Uint16Array, 2, "getUint16"],
+                 5125: [Uint32Array, 4, "getUint32"], 5121: [Uint8Array, 1, "getUint8"]};
+const GL_WIDTH = {SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16};
+/** One glTF accessor as a typed array (interleaved views read element by element). */
+function accessor(g, i) {
+  const a = g.json.accessors[i], v = g.json.bufferViews[a.bufferView];
+  const [Type, size, get] = GL_COMP[a.componentType], n = GL_WIDTH[a.type];
+  const stride = v.byteStride || size * n, base = (v.byteOffset || 0) + (a.byteOffset || 0);
+  const dv = new DataView(g.bin.buffer, g.bin.byteOffset + base);
+  const out = new Type(a.count * n);
+  for (let k = 0; k < a.count; k++) for (let c = 0; c < n; c++) out[k * n + c] = dv[get](k * stride + c * size, true);
+  return out;
+}
+
+/* The kit, in the mannequin's bind pose (metres, y up, +z front, a T-pose). The baggy shorts
+   are a shell cut from its surface, pushed out along the normals (more toward the hem) and
+   skinned to the same bones; the tank top, its numbers, the socks and the shoes are painted
+   by the fragment shader from where each point sits in that pose, so their edges are crisp
+   whatever the triangles. */
+const KIT = {shortsLo: 0.585, shortsHi: 1, shortsX: 0.27, shortsOff: 0.02, flare: 0.07, flareTop: 0.8};
+const inShorts = (x, y) => y >= KIT.shortsLo && y <= KIT.shortsHi && Math.abs(x) <= KIT.shortsX;
+const KIT_GLSL = `
+uniform vec3 kitSkin, kitTop, kitInk, kitEdge, kitShorts, kitSock, kitShoe, kitSole;
+uniform sampler2D kitNumber;
+varying vec3 vRest, vRestN;
+vec3 kitColour() {
+  float y = vRest.y, ax = abs(vRest.x);
+  if (y < 0.03) return kitSole;
+  if (y < 0.125) return kitShoe;
+  if (y < 0.215) return kitSock;
+  float side = mix(0.205, 0.135, smoothstep(1.24, 1.37, y));
+  bool front = vRestN.z > 0.0;
+  vec2 nk = vec2(ax / (front ? 0.095 : 0.085), (y - 1.52) / (front ? 0.13 : 0.06));
+  if (y > 0.95 && y < 1.53 && ax < side && dot(nk, nk) > 1.0) {
+    vec3 c = kitTop;
+    float h = front ? 0.15 : 0.24;
+    vec2 uv = vec2((front ? 1.0 : -1.0) * vRest.x / (2.0 * h) + 0.5, (y - (front ? 1.23 : 1.25)) / h + 0.5);
+    if (abs(vRestN.z) > 0.25 && uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) {
+      vec4 n = texture2D(kitNumber, uv);
+      c = mix(mix(c, kitEdge, n.g), kitInk, n.r);
+    }
+    return c;
+  }
+  if (y > 0.6 && y < 1.0 && ax < 0.3) return kitShorts;
+  return kitSkin;
+}
+`;
+function kitMaterial(look) {
+  const m = new THREE.MeshStandardMaterial({roughness: 0.66, metalness: 0});
+  const u = {kitSkin: look.skin, kitTop: look.top, kitInk: look.ink, kitEdge: look.edge,
+             kitShorts: look.shorts, kitSock: SOCK, kitShoe: look.shoe, kitSole: SOLE};
+  m.onBeforeCompile = shader => {
+    for (const k in u) shader.uniforms[k] = {value: new THREE.Color(u[k])};
+    shader.uniforms.kitNumber = {value: look.number};
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vRest, vRestN;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvRest = position; vRestN = normal;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\n" + KIT_GLSL)
+      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb = kitColour();");
+  };
+  m.customProgramCacheKey = () => "kit";
+  return m;
+}
+/** A jersey number as a mask (canvas, no image file): fill in red, outline in green. */
+function numberTexture(number) {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 128;
+  const x = c.getContext("2d");
+  x.fillStyle = "#000";
+  x.fillRect(0, 0, 256, 128);
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.lineJoin = "round";
+  x.font = `800 112px ${getComputedStyle(document.body).fontFamily}`;
+  x.lineWidth = 16;
+  x.strokeStyle = "#0f0";
+  x.strokeText(String(number), 128, 70);
+  x.fillStyle = "#f00";
+  x.fillText(String(number), 128, 70);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+function shortsTexture(base, stripe) {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 64;
+  const x = c.getContext("2d");
+  x.fillStyle = base;
+  x.fillRect(0, 0, 64, 64);
+  x.fillStyle = stripe;
+  x.fillRect(46, 0, 7, 64);                    // the outer side of each leg
+  x.fillRect(0, 56, 64, 5);                    // the hem
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** The mannequin's geometry (one body, one shorts shell), skeleton and clips. */
+function buildRig(bytes) {
+  const g = readGLB(bytes), J = g.json;
+  const prims = J.meshes[0].primitives.map(p => ({
+    pos: accessor(g, p.attributes.POSITION), nor: accessor(g, p.attributes.NORMAL),
+    joi: accessor(g, p.attributes.JOINTS_0), wei: accessor(g, p.attributes.WEIGHTS_0), idx: accessor(g, p.indices)}));
+  let nv = 0, ni = 0;
+  for (const p of prims) { nv += p.pos.length / 3; ni += p.idx.length; }
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), joi = new Uint16Array(nv * 4);
+  const wei = new Float32Array(nv * 4), idx = new Uint32Array(ni);
+  let ov = 0, oi = 0;
+  for (const p of prims) {
+    pos.set(p.pos, ov * 3); nor.set(p.nor, ov * 3); joi.set(p.joi, ov * 4); wei.set(p.wei, ov * 4);
+    for (let k = 0; k < p.idx.length; k++) idx[oi + k] = p.idx[k] + ov;
+    ov += p.pos.length / 3;
+    oi += p.idx.length;
+  }
+  const geometry = (P, N, I, Wt, index, uv) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(N, 3));
+    geo.setAttribute("skinIndex", new THREE.BufferAttribute(I, 4));
+    geo.setAttribute("skinWeight", new THREE.BufferAttribute(Wt, 4));
+    if (index) geo.setIndex(new THREE.BufferAttribute(index, 1));
+    if (uv) geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    return geo;
+  };
+  const body = geometry(pos, nor, joi, wei, idx);
+  const tris = [];
+  for (let k = 0; k < ni; k += 3) {
+    const t3 = [idx[k], idx[k + 1], idx[k + 2]];
+    if (t3.every(v => inShorts(pos[v * 3], pos[v * 3 + 1]))) tris.push(...t3);
+  }
+  const n = tris.length, P = new Float32Array(n * 3), N = new Float32Array(n * 3);
+  const I = new Uint16Array(n * 4), Wt = new Float32Array(n * 4), UV = new Float32Array(n * 2);
+  tris.forEach((v, o) => {
+    const x = pos[v * 3], y = pos[v * 3 + 1];
+    const d = KIT.shortsOff + KIT.flare * Math.max(0, (KIT.flareTop - y) / (KIT.flareTop - KIT.shortsLo));
+    for (let e = 0; e < 3; e++) { P[o * 3 + e] = pos[v * 3 + e] + nor[v * 3 + e] * d; N[o * 3 + e] = nor[v * 3 + e]; }
+    for (let e = 0; e < 4; e++) { I[o * 4 + e] = joi[v * 4 + e]; Wt[o * 4 + e] = wei[v * 4 + e]; }
+    UV[o * 2] = Math.abs(x) / KIT.shortsX;
+    UV[o * 2 + 1] = (y - KIT.shortsLo) / (KIT.shortsHi - KIT.shortsLo);
+  });
+  const shorts = geometry(P, N, I, Wt, null, UV);
+  const skin = J.skins[0], slot = new Map(skin.joints.map((node, k) => [node, k]));
+  const clips = {};
+  for (const a of J.animations) {
+    const ch = a.channels.map(c => {
+      const s = a.samplers[c.sampler];
+      return {bone: slot.get(c.target.node), rot: c.target.path === "rotation",
+              t: accessor(g, s.input), v: accessor(g, s.output)};
+    });
+    clips[a.name] = {ch, dur: Math.max(...ch.map(c => c.t[c.t.length - 1]))};
+  }
+  body.computeBoundingBox();
+  return {nodes: J.nodes, joints: skin.joints, ibm: accessor(g, skin.inverseBindMatrices), clips, body, shorts,
+          height: body.boundingBox.max.y};
+}
+
+/** A skeleton of the mannequin's bones in their rest pose. */
+function makeBones(rig) {
+  const bones = new Map();
+  for (const node of rig.joints) {
+    const nd = rig.nodes[node], b = new THREE.Bone();
+    b.name = nd.name;
+    if (nd.translation) b.position.fromArray(nd.translation);
+    if (nd.rotation) b.quaternion.fromArray(nd.rotation);
+    if (nd.scale) b.scale.fromArray(nd.scale);
+    bones.set(node, b);
+  }
+  for (const node of rig.joints) for (const c of rig.nodes[node].children || []) bones.get(node).add(bones.get(c));
+  const list = rig.joints.map(node => bones.get(node));
+  return {bones: list, rest: list.map(b => [b.position.clone(), b.quaternion.clone()]),
+          byName: Object.fromEntries(list.map(b => [b.name, b]))};
+}
+/** One player's body: his own skeleton over the shared geometry, in his kit, BODY_H tall. */
+function makeBody(rig, look) {
+  const B = makeBones(rig), group = new THREE.Group(), armature = new THREE.Group();
+  group.add(armature);
+  armature.add(B.bones[0]);
+  armature.scale.setScalar(BODY_H / rig.height);
+  const skeleton = new THREE.Skeleton(B.bones, rig.joints.map((_, k) => new THREE.Matrix4().fromArray(rig.ibm, k * 16)));
+  const mats = [kitMaterial(look), new THREE.MeshStandardMaterial({map: look.shortsMap, roughness: 0.74, metalness: 0})];
+  const meshes = [rig.body, rig.shorts].map((geo, i) => {
+    const m = new THREE.SkinnedMesh(geo, mats[i]);
+    m.castShadow = true;
+    m.frustumCulled = false;
+    armature.add(m);
+    return m;
+  });
+  group.updateMatrixWorld(true);
+  for (const m of meshes) m.bind(skeleton, new THREE.Matrix4());
+  return Object.assign(B, {group, armature, meshes});
+}
+
+const QA = new Float32Array(4 * 80), TA = new Float32Array(3 * 80), WQ = new Float32Array(80), WT = new Float32Array(80);
+/** The body in a blend of clips, `mix` = [[clip, seconds into it, weight], ...]: each bone's
+    rotation is the weighted, sign-aligned sum of the clips' (normalised), its translation the
+    weighted mean; a bone no clip moves keeps its rest pose. A pure function of `mix`. */
+function poseBody(B, mix) {
+  const n = B.bones.length;
+  QA.fill(0, 0, 4 * n); TA.fill(0, 0, 3 * n); WQ.fill(0, 0, n); WT.fill(0, 0, n);
+  for (const [clip, time, w] of mix) {
+    if (!(w > 0)) continue;
+    for (const ch of clip.ch) {
+      const t = ch.t, last = t.length - 1, tau = Math.min(Math.max(time, t[0]), t[last]);
+      let lo = 0, hi = last;
+      while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (t[mid] <= tau) lo = mid; else hi = mid; }
+      const a = hi > lo ? (tau - t[lo]) / (t[hi] - t[lo] || 1) : 0, k = ch.bone, v = ch.v;
+      if (ch.rot) {
+        const o0 = lo * 4, o1 = hi * 4;
+        let x1 = v[o1], y1 = v[o1 + 1], z1 = v[o1 + 2], w1 = v[o1 + 3];
+        if (v[o0] * x1 + v[o0 + 1] * y1 + v[o0 + 2] * z1 + v[o0 + 3] * w1 < 0) { x1 = -x1; y1 = -y1; z1 = -z1; w1 = -w1; }
+        const x = v[o0] + (x1 - v[o0]) * a, y = v[o0 + 1] + (y1 - v[o0 + 1]) * a;
+        const z = v[o0 + 2] + (z1 - v[o0 + 2]) * a, q = v[o0 + 3] + (w1 - v[o0 + 3]) * a;
+        const o = k * 4;
+        let s = w / (Math.hypot(x, y, z, q) || 1);
+        if (QA[o] * x + QA[o + 1] * y + QA[o + 2] * z + QA[o + 3] * q < 0) s = -s;
+        QA[o] += x * s; QA[o + 1] += y * s; QA[o + 2] += z * s; QA[o + 3] += q * s;
+        WQ[k] += w;
+      } else {
+        const o0 = lo * 3, o1 = hi * 3, o = k * 3;
+        for (let e = 0; e < 3; e++) TA[o + e] += w * (v[o0 + e] + (v[o1 + e] - v[o0 + e]) * a);
+        WT[k] += w;
+      }
+    }
+  }
+  for (let k = 0; k < n; k++) {
+    const b = B.bones[k], [p0, q0] = B.rest[k];
+    if (WQ[k] > 0) b.quaternion.set(QA[k * 4], QA[k * 4 + 1], QA[k * 4 + 2], QA[k * 4 + 3]).normalize();
+    else b.quaternion.copy(q0);
+    if (WT[k] > 0) b.position.set(TA[k * 3] / WT[k], TA[k * 3 + 1] / WT[k], TA[k * 3 + 2] / WT[k]);
+    else b.position.copy(p0);
+  }
+}
+
+/** How far a locomotion clip carries the body per loop and where its left foot is forward,
+    measured from the clip itself: the median backward speed of the planted foot (within a
+    hair of its lowest), times the loop's length; in feet at the body's drawn height. */
+function gaitOf(rig, clip) {
+  const B = makeBones(rig), root = new THREE.Group(), N = 120, scale = BODY_H / rig.height;
+  root.add(B.bones[0]);
+  const at = (name, out) => out.setFromMatrixPosition(B.byName[name].matrixWorld);
+  const feet = {l: [], r: []};
+  for (let k = 0; k <= N; k++) {
+    poseBody(B, [[clip, clip.dur * k / N, 1]]);
+    root.updateMatrixWorld(true);
+    feet.l.push(at("ball_l", new THREE.Vector3()));
+    feet.r.push(at("ball_r", new THREE.Vector3()));
+  }
+  const speeds = [];
+  for (const f of [feet.l, feet.r]) {
+    const lo = Math.min(...f.map(p => p.y)), hair = 0.02;
+    for (let k = 1; k <= N; k++) if (f[k].y < lo + hair && f[k - 1].y < lo + hair) speeds.push((f[k - 1].z - f[k].z) / (clip.dur / N));
+  }
+  speeds.sort((a, b) => a - b);
+  let fwd = 0;
+  feet.l.forEach((p, k) => { if (p.z > feet.l[fwd].z) fwd = k; });
+  const speed = speeds.length ? speeds[speeds.length >> 1] * scale : 0;
+  return {clip, speed, stride: speed * clip.dur, offset: fwd / N};
+}
+
+const V3 = Array.from({length: 8}, () => new THREE.Vector3());
+const Q3 = Array.from({length: 3}, () => new THREE.Quaternion());
+/** Turn a bone by q, given in the world frame (its parent's frame does the conversion). */
+function turnWorld(bone, q) {
+  const pw = bone.parent.getWorldQuaternion(Q3[0]);
+  Q3[1].copy(pw).invert().multiply(q).multiply(pw);
+  bone.quaternion.premultiply(Q3[1]).normalize();
+  bone.updateMatrixWorld(true);
+}
+/** Two-bone reach: the arm on `side` puts its wrist at `target` (world) as near as it can,
+    the elbow toward `pole`. */
+function reach(B, side, target, pole) {
+  const up = B.byName["upperarm_" + side], lo = B.byName["lowerarm_" + side], hand = B.byName["hand_" + side];
+  const [S, E, H, a1, a2, n, k] = V3;
+  S.setFromMatrixPosition(up.matrixWorld);
+  E.setFromMatrixPosition(lo.matrixWorld);
+  H.setFromMatrixPosition(hand.matrixWorld);
+  const la = S.distanceTo(E), lb = E.distanceTo(H);
+  const d = clamp(target.distanceTo(S), Math.abs(la - lb) + 1e-3, la + lb - 1e-3);
+  a1.copy(S).sub(E).normalize();
+  a2.copy(H).sub(E).normalize();
+  const now = Math.acos(clamp(a1.dot(a2), -1, 1));
+  const want = Math.acos(clamp((la * la + lb * lb - d * d) / (2 * la * lb), -1, 1));
+  n.crossVectors(a1, a2);
+  if (n.lengthSq() < 1e-10) n.copy(pole).cross(a1);
+  turnWorld(lo, Q3[2].setFromAxisAngle(n.normalize(), want - now));
+  H.setFromMatrixPosition(hand.matrixWorld);
+  a1.copy(H).sub(S).normalize();
+  k.copy(target).sub(S).normalize();
+  turnWorld(up, Q3[2].setFromUnitVectors(a1, k));
+  // the elbow toward the pole, about the shoulder-to-target line
+  E.setFromMatrixPosition(lo.matrixWorld);
+  a1.copy(E).sub(S);
+  a1.addScaledVector(k, -a1.dot(k));
+  a2.copy(pole).addScaledVector(k, -pole.dot(k));
+  if (a1.lengthSq() > 1e-8 && a2.lengthSq() > 1e-8) {
+    a1.normalize();
+    a2.normalize();
+    const ang = Math.atan2(n.crossVectors(a1, a2).dot(k), a1.dot(a2));
+    turnWorld(up, Q3[2].setFromAxisAngle(k, ang));
+  }
+}
+
+/* ------------------------------------------------- the motion, per scene */
+const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+const yawOf = d => Math.atan2(d[1], -d[0]);            // a drive-frame direction as the body's turn
+const smoothstep = (a, b, x) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
+/** A series of points smoothed by a Gaussian of `sigma` frames (truncated at the ends). */
+function smoothPts(pts, sigma) {
+  const R = Math.ceil(3 * sigma);
+  return pts.map((_, f) => {
+    let sx = 0, sy = 0, sw = 0;
+    for (let g = Math.max(0, f - R); g <= Math.min(pts.length - 1, f + R); g++) {
+      const w = Math.exp(-((g - f) ** 2) / (2 * sigma * sigma));
+      sx += pts[g][0] * w; sy += pts[g][1] * w; sw += w;
+    }
+    return [sx / sw, sy / sw];
+  });
+}
+/** The gait at a speed (feet per second) and a stance depth: the clips' weights, and how far
+    one loop of that blend carries the body (so the feet do not slide). */
+function gait(speed, crouch) {
+  const {idle, walk, jog, cIdle, cFwd} = GAIT;
+  const a = clamp(speed / walk.speed, 0, 1), b = clamp((speed - walk.speed) / (jog.speed - walk.speed), 0, 1);
+  const c = clamp(speed / cFwd.speed, 0, 1), s = 1 - crouch;
+  const w = [[idle, s * (1 - a)], [walk, s * a * (1 - b)], [jog, s * b], [cIdle, crouch * (1 - c)], [cFwd, crouch * c]];
+  let num = 0, den = 0;
+  for (const [g, x] of w) if (g.stride > 0) { num += x * g.stride; den += x; }
+  return {w, stride: den > 0 ? num / den : walk.stride};
+}
+let GAIT = null;
+
+/** Each player's drawn motion over frames 0..F_END of a scene: speed, gait phase, stance,
+    where his hips and torso turn. Computed once per scene from the tracked (x, y) alone. */
+function motionOf(s) {
+  const n = F_END + 1, r = s.roles, out = [];
+  const sm = Array.from({length: 10}, (_, k) => smoothPts(s.xy.slice(0, n).map(f => f[k]), SMOOTH_F));
+  const vel = sm.map(pts => pts.map((_, f) => {
+    const f0 = Math.max(0, f - 1), f1 = Math.min(n - 1, f + 1), dt = (f1 - f0) / FPS;
+    return [(pts[f1][0] - pts[f0][0]) / dt, (pts[f1][1] - pts[f0][1]) / dt];
+  }));
+  for (let k = 0; k < 10; k++) {
+    const def = k >= 5, m = {speed: [], phase: [], hips: [], twist: [], crouch: []};
+    let phase = (k * 0.137) % 1, forward = true;
+    for (let f = 0; f < n; f++) {
+      const v = vel[k][f], sp = Math.hypot(v[0], v[1]), me = sm[k][f];
+      let face;
+      if (def) {
+        const h = sm[r.handler][f];
+        face = [h[0] - me[0], h[1] - me[1]];
+      } else {
+        const goal = k === r.handler ? [HOOP_X - me[0], -me[1]] : [s.ball[f][0] - me[0], s.ball[f][1] - me[1]];
+        const w = smoothstep(TURN_LO, TURN_HI, sp), gl = Math.hypot(goal[0], goal[1]) || 1;
+        face = [v[0] / (sp || 1) * w + goal[0] / gl * (1 - w), v[1] / (sp || 1) * w + goal[1] / gl * (1 - w)];
+      }
+      const faceYaw = yawOf(face);
+      let hips = faceYaw, twist = 0;
+      if (def && sp > 0) {
+        // forward or backpedalling, whichever keeps him nearer to facing the ball handler, with
+        // some hysteresis so a sideways run does not flip the hips frame to frame
+        const along = (v[0] * face[0] + v[1] * face[1]) / (sp * (Math.hypot(face[0], face[1]) || 1));
+        if (forward && along < -0.3) forward = false;
+        else if (!forward && along > 0.3) forward = true;
+        const line = yawOf(forward ? v : [-v[0], -v[1]]);
+        hips = faceYaw + wrap(line - faceYaw) * smoothstep(HIPS_LO, HIPS_HI, sp);
+        twist = clamp(wrap(faceYaw - hips), -TWIST_MAX * DEG, TWIST_MAX * DEG);
+      }
+      let crouch = 0;
+      if (def) {
+        let near = Infinity;
+        for (let a = 0; a < 5; a++) near = Math.min(near, Math.hypot(sm[a][f][0] - me[0], sm[a][f][1] - me[1]));
+        crouch = CROUCH * (1 - smoothstep(NEAR_LO, NEAR_HI, near)) * (1 - smoothstep(STANCE_LO, STANCE_HI, sp));
+      }
+      m.speed.push(sp);
+      m.hips.push(hips);
+      m.twist.push(twist);
+      m.crouch.push(crouch);
+      m.phase.push(phase);
+      if (f < n - 1) {
+        const step = Math.hypot(s.xy[f + 1][k][0] - s.xy[f][k][0], s.xy[f + 1][k][1] - s.xy[f][k][1]);
+        phase += (def && !forward ? -1 : 1) * step / gait(sp, crouch).stride;
+      }
+    }
+    // unwrap the turns so a frame-to-frame interpolation never spins the long way round
+    for (let f = 1; f < n; f++) m.hips[f] = m.hips[f - 1] + wrap(m.hips[f] - m.hips[f - 1]);
+    out.push(m);
+  }
+  // the ball handler's hand on the ball: the side it is on, held until it clearly changes
+  let side = "r";
+  out.hand = [];
+  for (let f = 0; f < n; f++) {
+    const h = s.xy[f][r.handler], b = s.ball[f], yaw = out[r.handler].hips[f];
+    // the body's right in the drive frame, from its turn (front = (-cos, sin))
+    const lat = (b[0] - h[0]) * -Math.sin(yaw) + (b[1] - h[1]) * -Math.cos(yaw);
+    if (lat > 0.25) side = "r";
+    else if (lat < -0.25) side = "l";
+    out.hand.push(side);
+  }
+  return out;
+}
+
+/* ==========================================================================
    The stage. The drive frame in feet is laid out so that a camera looking
    straight down with up = -Z draws figure 1's layout (storyboard 2.1):
    world X = y, world Y = z (up), world Z = -x. Hoop at the bottom, +y right.
@@ -425,11 +896,13 @@ const WORLD = [0, 0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1];  // drive frame
 const V = (x, y, z = 0) => new THREE.Vector3(y, z, -x);
 const flat = p => [p[1], -p[0]];                                  // drive (x, y) -> world (X, Z)
 
-const st = {scene: 0, t: 0, phase: "idle", view: "broadcast", p: 0};
+const st = {scene: 0, t: 0, phase: "idle", view: "broadcast", p: 0, wall: 0};
 const size = {w: 0, h: 0, square: false};
 let scene3, persp, ortho, active, current = null, hover = -1;
 let pucks = [], ball, shadow, plan = [], hoverTris = [];
 let playRaf = 0, playLast = null, holdTimer = 0, flyRaf = 0, flyLast = null, fadeRaf = 0;
+/* B4b: the bodies, their rings, the arena and the two looks the rise blends between. */
+let rig = null, bodies = [], rings = [], look = null, lookE = 0;
 
 /** Triangles on the floor, rebuilt in place: trails, arrowheads, rings, dashed lines. */
 class Tris {
@@ -507,12 +980,293 @@ const arc = (cx, cy, r, a0, a1, n = 64) =>
     return [cx + r * Math.cos(a), cy + r * Math.sin(a)];  // drive (x, y)
   });
 
+/* ------------------------------------------------- the arena (B4b), drawn */
+/** A seeded generator, so the drawn wood and crowd are the same on every load. */
+function seeded(seed) {
+  return () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let r = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** The hardwood over the court and its apron, boards along the court, the keys, the centre
+    circle and the apron stained in the paint colour (canvas, no image file). */
+function woodTexture() {
+  const hw = G.half_width_ft, along = -BASELINE + APRON, across = hw + APRON;
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 2048;
+  const x = c.getContext("2d"), rnd = seeded(7), base = hexRGB(ARENA.wood), board = 4;
+  for (let col = 0; col < c.width; col += board) {
+    let y = -Math.floor(rnd() * 120);
+    while (y < c.height) {
+      const len = 40 + Math.floor(rnd() * 110), k = 0.93 + rnd() * 0.1, warm = (rnd() - 0.5) * 8;
+      x.fillStyle = rgbHex([base[0] * k + warm, base[1] * k, base[2] * k - warm].map(v => clamp(v, 0, 255)));
+      x.fillRect(col, y, board, len);
+      x.fillStyle = "rgba(60,30,10,0.18)";
+      x.fillRect(col, y, board, 1);
+      y += len;
+    }
+    x.fillStyle = "rgba(60,30,10,0.12)";
+    x.fillRect(col, 0, 1, c.height);
+  }
+  const sx = c.width / (2 * across), sy = c.height / (2 * along);
+  const px = (X, Y) => [(Y + across) * sx, (along - X) * sy];   // drive (x, y) to canvas
+  x.globalAlpha = 0.82;
+  x.fillStyle = ARENA.paint;
+  // the apron: everything outside the lines
+  x.beginPath();
+  x.rect(0, 0, c.width, c.height);
+  const [ax, ay] = px(-BASELINE, -hw), [bx2, by2] = px(BASELINE, hw);
+  x.rect(ax, ay, bx2 - ax, by2 - ay);
+  x.fill("evenodd");
+  const pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
+  for (const sign of [1, -1]) {
+    const [k0, k1] = px(sign * BASELINE, -pw), [k2, k3] = px(sign * ftx, pw);
+    x.fillRect(Math.min(k0, k2), Math.min(k1, k3), Math.abs(k2 - k0), Math.abs(k3 - k1));
+  }
+  const [cx0, cy0] = px(0, 0);
+  x.beginPath();
+  x.ellipse(cx0, cy0, FT_CIRCLE * sx, FT_CIRCLE * sy, 0, 0, 2 * Math.PI);
+  x.fill();
+  x.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+/** A crowd for the stands: rows of seats and heads, dim (canvas, seeded). */
+function crowdTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 256;
+  const x = c.getContext("2d"), rnd = seeded(11);
+  x.fillStyle = "#1b1512";
+  x.fillRect(0, 0, 512, 256);
+  const tones = ["#6b4a3a", "#8a6a55", "#3d2c25", "#5a5e6e", "#7a3a34", "#2f3b52", "#9a8a70", "#4c5a44"];
+  for (let row = 0; row < 16; row++) {
+    x.fillStyle = "#241c18";
+    x.fillRect(0, row * 16 + 11, 512, 4);
+    for (let i = 0; i < 70; i++) {
+      if (rnd() < 0.15) continue;
+      x.fillStyle = tones[Math.floor(rnd() * tones.length)];
+      x.beginPath();
+      x.ellipse((i + rnd() * 0.6) * 512 / 70, row * 16 + 6 + rnd() * 2, 2.6, 3.2, 0, 0, 2 * Math.PI);
+      x.fill();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+/** The ball's leather and seams (canvas, mapped as the sphere maps it). */
+function ballTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 128;
+  const x = c.getContext("2d"), img = x.createImageData(256, 128), rnd = seeded(3), base = hexRGB(ARENA.rim);
+  const side = Math.cos(55 * DEG), seam = 0.035;
+  for (let j = 0; j < 128; j++) {
+    for (let i = 0; i < 256; i++) {
+      const phi = (i + 0.5) / 256 * 2 * Math.PI, th = (j + 0.5) / 128 * Math.PI;
+      const X = -Math.cos(phi) * Math.sin(th), Y = Math.cos(th), Z = Math.sin(phi) * Math.sin(th);
+      const line = Math.abs(Y) < seam || Math.abs(Z) < seam || Math.abs(Math.abs(X) - side) < seam * 0.8;
+      const k = line ? 0.12 : 0.92 + rnd() * 0.12, o = (j * 256 + i) * 4;
+      img.data[o] = base[0] * k; img.data[o + 1] = base[1] * k * 0.92; img.data[o + 2] = base[2] * k * 0.8;
+      img.data[o + 3] = 255;
+    }
+  }
+  x.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+/** A quad from four drive-frame corners, with its uv. */
+function quad(corners, uvs, material) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(corners.flatMap(([x, y, z]) => V(x, y, z).toArray())), 3));
+  geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvs.flat()), 2));
+  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material);
+}
+
+/** The broadcast look (B4b): the arena, its lights, the bodies and their rings, the textured
+    ball, built once; `setLook(e)` blends it into B4's plan look as the camera rises. */
+function buildArena() {
+  const hw = G.half_width_ft, arena = new THREE.Group();
+  const fade = [];
+  const fading = m => { m.transparent = true; fade.push(m); return m; };
+  const L = {arena, fade};
+  // the arena's light: a soft pool over the attacked half (the far court and the stands fall
+  // off into the dark), a dim fill everywhere, and a light from the camera's side; all warm, so
+  // no surface renders the neutral greys the plan's trails use
+  L.hemi = new THREE.HemisphereLight(0xfff0dc, 0x3a2a20, ARENA_LIGHT.hemi);
+  L.key = new THREE.SpotLight(0xfff2e0, ARENA_LIGHT.key, 0, ARENA_LIGHT.cone * DEG, ARENA_LIGHT.penumbra, 0);
+  L.key.position.copy(V(HOOP_X + ARENA_LIGHT.ahead, -6, ARENA_LIGHT.high));
+  L.key.target.position.copy(V(HOOP_X + ARENA_LIGHT.ahead, 0, 0));
+  L.key.castShadow = true;
+  L.key.shadow.mapSize.set(2048, 2048);
+  L.key.shadow.camera.near = 20;
+  L.key.shadow.camera.far = 200;
+  L.key.shadow.bias = -0.0004;
+  L.key.shadow.normalBias = 0.03;
+  L.key.shadow.radius = 4;                    // soft edges
+  L.fill = new THREE.DirectionalLight(0xfff3e4, ARENA_LIGHT.fill);
+  L.fill.position.copy(V(-110, 0, 45));
+  L.fill.target.position.copy(V(-20, 0, 0));
+  scene3.add(L.hemi, L.key, L.key.target, L.fill, L.fill.target, arena);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({color: ARENA.dark, depthWrite: false}));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.05;
+  ground.renderOrder = -7;
+  L.ground = ground;
+  scene3.add(ground);
+  const wood = new THREE.Mesh(new THREE.PlaneGeometry(2 * (hw + APRON), -2 * BASELINE + 2 * APRON),
+    new THREE.MeshStandardMaterial({map: woodTexture(), roughness: 0.62, metalness: 0, depthWrite: false}));
+  wood.rotation.x = -Math.PI / 2;
+  wood.receiveShadow = true;
+  wood.renderOrder = -6;
+  arena.add(wood);
+  const lines = new Tris(ARENA.line, 12000, 0.012, -5);
+  lines.mat = lines.mesh.material = new THREE.MeshStandardMaterial({color: ARENA.line, roughness: 0.5,
+    depthWrite: false, depthTest: false, side: THREE.DoubleSide});
+  lines.mesh.receiveShadow = true;
+  for (const line of courtLines()) strip(lines, line.map(flat), LINE_W);
+  lines.commit();
+  arena.add(lines.mesh);
+
+  // the stands on four sides, a slope of crowd beyond the apron
+  const crowd = fading(new THREE.MeshStandardMaterial({map: crowdTexture(), color: "#8a7f76", roughness: 1}));
+  const xa = -BASELINE + APRON + 5, ya = hw + APRON + 5, R = STANDS_RUN, H = STANDS_H;
+  for (const [corners, len] of [
+    [[[-xa, ya, 0], [xa, ya, 0], [xa, ya + R, H], [-xa, ya + R, H]], 2 * xa],
+    [[[xa, -ya, 0], [-xa, -ya, 0], [-xa, -ya - R, H], [xa, -ya - R, H]], 2 * xa],
+    [[[xa, ya, 0], [xa, -ya, 0], [xa + R, -ya, H], [xa + R, ya, H]], 2 * ya],
+    [[[-xa, -ya, 0], [-xa, ya, 0], [-xa - R, ya, H], [-xa - R, -ya, H]], 2 * ya]]) {
+    const n = len / 24;
+    arena.add(quad(corners, [[0, 0], [n, 0], [n, 1], [0, 1]], crowd));
+  }
+  // the far basket and both stanchions, the net under each rim
+  const pad = fading(new THREE.MeshStandardMaterial({color: ARENA.pad, roughness: 0.8}));
+  const metal = fading(new THREE.MeshStandardMaterial({color: "#2b2d31", roughness: 0.5, metalness: 0.3}));
+  const net = new THREE.LineBasicMaterial({color: ARENA.net, transparent: true});
+  fade.push(net);
+  for (const sign of [1, -1]) {
+    const hx = sign * HOOP_X, bxb = sign * (BASELINE + BOARD_FROM_BASELINE), back = sign * (BASELINE - 5);
+    if (sign < 0) {   // the far stanchion only: the near one stands between the camera and the drive
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, Math.abs(back - bxb)), metal);
+      arm.position.copy(V((bxb + back) / 2, 0, BOARD_HIGH + 0.6));
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.7, BOARD_HIGH + 0.9, 0.7), metal);
+      post.position.copy(V(back, 0, (BOARD_HIGH + 0.9) / 2));
+      const base = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3, 5), pad);
+      base.position.copy(V(back - sign * 1.2, 0, 1.5));
+      arena.add(arm, post, base);
+      for (const m of [arm, post, base]) m.castShadow = true;
+    }
+    const pts = [];
+    for (let i = 0; i < 16; i++) {
+      const a0 = 2 * Math.PI * i / 16, a1 = a0 + Math.PI / 16, top = RIM_Z - 0.05, low = RIM_Z - 1.5;
+      pts.push(V(hx + RIM_R * Math.cos(a0), RIM_R * Math.sin(a0), top), V(hx + 0.48 * Math.cos(a1), 0.48 * Math.sin(a1), low));
+      pts.push(V(hx + RIM_R * Math.cos(a1 + Math.PI / 16), RIM_R * Math.sin(a1 + Math.PI / 16), top), V(hx + 0.48 * Math.cos(a1), 0.48 * Math.sin(a1), low));
+    }
+    arena.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), net));
+    if (sign < 0) {
+      const glassMat = fading(new THREE.MeshStandardMaterial({color: C.white, opacity: 0.25, depthWrite: false}));
+      glassMat.userData.opacity = 0.25;
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(2 * BOARD_HALF, BOARD_HIGH - BOARD_LOW, 0.08), glassMat);
+      glass.position.copy(V(-bxb, 0, (BOARD_LOW + BOARD_HIGH) / 2));
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), fading(new THREE.MeshStandardMaterial({color: ARENA.rim})));
+      rim.rotation.x = Math.PI / 2;
+      rim.position.copy(V(-HOOP_X, 0, RIM_Z));
+      arena.add(glass, rim);
+    }
+  }
+  // the textured ball, the bodies (one per slot, in his team's kit) and the rings under them
+  L.ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20),
+    new THREE.MeshStandardMaterial({map: ballTexture(), roughness: 0.6, metalness: 0}));
+  scene3.add(L.ball);
+  const bytes = Uint8Array.from(atob(at("players-glb").textContent.trim()), ch => ch.charCodeAt(0));
+  rig = buildRig(bytes);
+  GAIT = {idle: {clip: rig.clips.Idle_Loop, stride: 0, speed: 0, offset: 0},
+          cIdle: {clip: rig.clips.Crouch_Idle_Loop, stride: 0, speed: 0, offset: 0},
+          walk: gaitOf(rig, rig.clips.Walk_Loop), jog: gaitOf(rig, rig.clips.Jog_Fwd_Loop),
+          cFwd: gaitOf(rig, rig.clips.Crouch_Fwd_Loop)};
+  bodies = Array.from({length: 10}, (_, k) => {
+    const kit = KITS[k < 5 ? 0 : 1], n = kit.numbers[k % 5];
+    const B = makeBody(rig, {skin: SKINS[(k * 3) % SKINS.length], top: kit.top, ink: kit.ink, edge: kit.edge,
+                             shorts: kit.shorts, shoe: kit.shoe, number: numberTexture(n),
+                             shortsMap: shortsTexture(kit.shorts, kit.stripe)});
+    const s = BODY_H / rig.height, bone = name => B.byName[name].position.length() * s;
+    B.arm = bone("lowerarm_r") + bone("hand_r");
+    B.palm = bone("middle_01_r");
+    scene3.add(B.group);
+    return B;
+  });
+  rings = Array.from({length: 10}, () => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(RING_IN, RING_OUT, 48),
+      new THREE.MeshBasicMaterial({color: C.grey, transparent: true, depthWrite: false}));
+    m.rotation.x = -Math.PI / 2;
+    m.renderOrder = 0;
+    scene3.add(m);
+    return m;
+  });
+  return L;
+}
+
+/** The look at e (0 broadcast, 1 plan): the arena's lights hand over to B4's, its floor and
+    lines fade under B4's, the stands and the far basket fade out, the rim turns to B4's grey.
+    At e = 1 everything drawn is B4's plan, exactly. */
+function setLook(e) {
+  const L = look, k = 1 - e;
+  L.hemi.intensity = ARENA_LIGHT.hemi * k;
+  L.key.intensity = ARENA_LIGHT.key * k;
+  L.fill.intensity = ARENA_LIGHT.fill * k;
+  L.amb.intensity = 0.45 * Math.PI * e;
+  L.sun.intensity = 0.55 * Math.PI * e;
+  L.arena.visible = e < 1;
+  for (const m of L.fade) m.opacity = (m.userData.opacity || 1) * k;
+  L.floor.visible = L.lines.mesh.visible = e > 0;
+  L.floor.material.opacity = L.lines.mat.opacity = e;
+  L.floor.material.transparent = L.lines.mat.transparent = e < 1;
+  L.rim.color.set(mix(ARENA.rim, C.court, e));
+  L.frame.opacity = 0.3 + 0.7 * e;              // the near board's frame, see-through over the drive
+  L.frame.transparent = e < 1;
+  L.frame.color.set(mix(ARENA.steel, C.court, e));
+  L.steel.color.set(mix(ARENA.steel, C.court, e));
+  L.ground.material.color.set(mix(ARENA.dark, C.sky, e));
+  renderer.setClearColor(mix(ARENA.dark, C.sky, e));
+}
+
+/** The court lines, in the drive frame, as figure 1 draws them; the far half is their mirror. */
+function courtLines() {
+  const hw = G.half_width_ft, pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
+  const R = G.three_radius_ft, cy = G.corner_line_y_ft, meet = HOOP_X + Math.sqrt(R * R - cy * cy);
+  const phi = Math.asin(cy / R);
+  const half = [
+    [[BASELINE, -hw], [BASELINE, hw], [0, hw], [0, -hw], [BASELINE, -hw]],
+    [[BASELINE, -pw], [ftx, -pw], [ftx, pw], [BASELINE, pw]],
+    arc(ftx, 0, FT_CIRCLE, -Math.PI / 2, Math.PI / 2),
+    arc(HOOP_X, 0, G.ra_radius_ft, -Math.PI / 2, Math.PI / 2, 40),
+    [[BASELINE, -cy], [meet, -cy], ...arc(HOOP_X, 0, R, -phi, phi, 120), [meet, cy], [BASELINE, cy]],
+    arc(0, 0, FT_CIRCLE, Math.PI / 2, 3 * Math.PI / 2),
+  ];
+  return [...half, ...half.map(line => line.map(([x, y]) => [-x, y]))];
+}
+
 function buildStage() {
   scene3 = new THREE.Scene();
   renderer.setClearColor(C.sky);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   // A light straight down: a puck's top shows its colour exactly (ambient + direct = pi, the
-  // Lambert normalisation), its side the ambient share only.
-  scene3.add(new THREE.AmbientLight(0xffffff, 0.45 * Math.PI));
+  // Lambert normalisation), its side the ambient share only. (B4b: these two are B4's plan
+  // light; the broadcast look's lights hand over to them on the rise, see setLook.)
+  const amb = new THREE.AmbientLight(0xffffff, 0.45 * Math.PI);
+  scene3.add(amb);
   const sun = new THREE.DirectionalLight(0xffffff, 0.55 * Math.PI);
   sun.position.set(0, 1, 0);
   scene3.add(sun);
@@ -527,28 +1281,17 @@ function buildStage() {
   scene3.add(floor);
 
   // The court lines, in the drive frame, as figure 1 draws them; the far half is their mirror.
-  const pw = G.paint_half_width_ft, ftx = BASELINE + G.paint_length_ft;
-  const R = G.three_radius_ft, cy = G.corner_line_y_ft, meet = HOOP_X + Math.sqrt(R * R - cy * cy);
-  const phi = Math.asin(cy / R);
-  const half = [
-    [[BASELINE, -hw], [BASELINE, hw], [0, hw], [0, -hw], [BASELINE, -hw]],
-    [[BASELINE, -pw], [ftx, -pw], [ftx, pw], [BASELINE, pw]],
-    arc(ftx, 0, FT_CIRCLE, -Math.PI / 2, Math.PI / 2),
-    arc(HOOP_X, 0, G.ra_radius_ft, -Math.PI / 2, Math.PI / 2, 40),
-    [[BASELINE, -cy], [meet, -cy], ...arc(HOOP_X, 0, R, -phi, phi, 120), [meet, cy], [BASELINE, cy]],
-    arc(0, 0, FT_CIRCLE, Math.PI / 2, 3 * Math.PI / 2),
-  ];
-  const lines = [...half, ...half.map(line => line.map(([x, y]) => [-x, y]))];
   const court = new Tris(C.court, 12000, 0.01, -1);
   court.mat.transparent = false;
   court.mat.depthTest = false;
-  for (const line of lines) strip(court, line.map(flat), LINE_W);
+  for (const line of courtLines()) strip(court, line.map(flat), LINE_W);
   court.commit();
   scene3.add(court.mesh);
 
   // The hoop: rim, backboard glass and frame. Drawn, not measured.
   const steel = new THREE.MeshLambertMaterial({color: C.court});
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), steel);
+  const rimMat = new THREE.MeshLambertMaterial({color: C.court});
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM_R, 0.07, 8, 48), rimMat);
   rim.rotation.x = Math.PI / 2;
   rim.position.copy(V(HOOP_X, 0, RIM_Z));
   scene3.add(rim);
@@ -557,10 +1300,11 @@ function buildStage() {
     new THREE.MeshBasicMaterial({color: C.white, transparent: true, opacity: 0.2, depthWrite: false}));
   glass.position.copy(V(bx, 0, (BOARD_LOW + BOARD_HIGH) / 2));
   scene3.add(glass);
+  const frameMat = new THREE.MeshLambertMaterial({color: C.court});   // B4b: see-through in broadcast
   for (const [w, h, x, y, z] of [[2 * BOARD_HALF, 0.14, bx, 0, BOARD_HIGH], [2 * BOARD_HALF, 0.14, bx, 0, BOARD_LOW],
                                  [0.14, bh, bx, -BOARD_HALF, (BOARD_LOW + BOARD_HIGH) / 2],
                                  [0.14, bh, bx, BOARD_HALF, (BOARD_LOW + BOARD_HIGH) / 2]]) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.14), steel);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.14), frameMat);
     bar.position.copy(V(x, y, z));
     scene3.add(bar);
   }
@@ -599,6 +1343,12 @@ function buildStage() {
   persp = new THREE.PerspectiveCamera(CAMERA.wide.fov, 4 / 3, 0.5, 400);
   ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1000);
   active = persp;
+
+  look = Object.assign(buildArena(), {amb, sun, floor, lines: court, rim: rimMat, frame: frameMat, steel});
+  // the B4 pieces the broadcast look hides: the tokens (they rise out of the rings) and the
+  // plain ball (the textured one stands in for it until the plan)
+  for (const m of pucks) m.castShadow = false;
+  ball.castShadow = false;
 }
 
 /** The orthographic frame that contains a scene's crop in the canvas's aspect ("contain",
@@ -617,6 +1367,104 @@ function planFrame(s) {
     The field of view narrows as the distance grows, holding the crop near its final size, and
     at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
     straight down at the same centre: on the floor the two project the same. */
+/** The broadcast camera of a scene, per frame (B4b): its look-at point on the hoop's axis and
+    its distance back along the fixed pitch. Each frame takes the tightest camera that holds the
+    players (feet, head, ring), the ball and the hoop inside the margin with the hoop low; the
+    distance is then never allowed to grow (the push-in), smoothed, and refitted where smoothing
+    cut a player off. Cached per canvas size. */
+function shotOf(s) {
+  const key = `${size.w}x${size.h}`;
+  if (s.shot && s.shot.key === key) return s.shot;
+  const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
+  const tv = t0 * (1 - 2 * FRAME_MARGIN), th = t0 * size.w / size.h * (1 - 2 * FRAME_MARGIN);
+  const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
+  const hoop = [[HOOP_X, 0, 0], [HOOP_X, 0, RIM_Z]];
+  const pointsAt = f => {
+    const pts = [...hoop];
+    for (const [x, y] of s.xy[f]) pts.push([x, y - RING_OUT, 0], [x, y + RING_OUT, 0], [x - RING_OUT, y, 0],
+                                           [x + RING_OUT, y, 0], [x, y - 1, BODY_H], [x, y + 1, BODY_H]);
+    const b = s.ball[f];
+    pts.push([b[0], b[1] - BALL_R, Math.max(b[2], BALL_R) + BALL_R], [b[0], b[1] + BALL_R, Math.max(b[2], BALL_R) + BALL_R]);
+    return pts;
+  };
+  const need = (pts, lx) => {
+    let D = 0;
+    for (const [x, y, z] of pts) {
+      const dx = x - lx, dz = z - LOOK_Z, along = dx * fx + dz * fz, up = dx * ux + dz * uz;
+      D = Math.max(D, Math.abs(y) / th - along, Math.abs(up) / tv - along);
+    }
+    return D;
+  };
+  const most = lx => Math.min(...hoop.map(([x, , z]) => {
+    const dx = x - lx, dz = z - LOOK_Z;
+    return (dx * ux + dz * uz) / (HOOP_LOW * t0) - (dx * fx + dz * fz);
+  }));
+  const frames = Array.from({length: F_END + 1}, (_, f) => pointsAt(f));
+  const look = [], dist = [];
+  for (const pts of frames) {
+    let best = null;
+    for (let lx = HOOP_X - 10; lx <= HOOP_X + 60; lx += 0.25) {
+      const D = need(pts, lx), ok = D <= most(lx);
+      if (!best || (ok && !best.ok) || (ok === best.ok && (ok ? D < best.D : most(lx) - D > best.slack))) {
+        best = {lx, D, ok, slack: most(lx) - D};
+      }
+    }
+    look.push(best.lx);
+    dist.push(best.D);
+  }
+  const blur = arr => smoothPts(arr.map(v => [v, 0]), PUSH_SMOOTH).map(v => v[0]);
+  const closing = arr => { for (let f = arr.length - 2; f >= 0; f--) arr[f] = Math.max(arr[f], arr[f + 1]); return arr; };
+  const L = blur(look), D = blur(closing(dist.slice()));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], need(frames[f], L[f]));
+  closing(D);
+  // the push-in: further back at the start, onto the fit by the end (only ever wider than it)
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], Math.min(D[f] * (1 + PUSH * (1 - smooth(f / F_END))), most(L[f])));
+  s.shot = {key, look: L, dist: D, pitch: p, fov: cam.fov,
+            hoopLow: D.every((d, f) => d <= most(L[f]) + 1e-6)};
+  return s.shot;
+}
+/** The broadcast camera at clip time t: frames interpolated, so a pure function of t. */
+function broadcastAt(s, t) {
+  const sh = shotOf(s), f = clamp(t * FPS, 0, F_END), i = Math.min(Math.floor(f), F_END), j = Math.min(i + 1, F_END), a = f - i;
+  const lx = sh.look[i] + (sh.look[j] - sh.look[i]) * a, D = sh.dist[i] + (sh.dist[j] - sh.dist[i]) * a;
+  return {look: V(lx, 0, LOOK_Z), eye: V(lx - D * Math.cos(sh.pitch), 0, LOOK_Z + D * Math.sin(sh.pitch)), fov: sh.fov};
+}
+
+/** The hook's wall clock (B4b): clip time against wall time for a broadcast run of a scene,
+    slow around the help step and RATE on average (SLOW, SLOW_W). Tabulated once per scene. */
+const CLOCK_N = 400;
+function clockOf(s) {
+  if (s.clock) return s.clock;
+  const h = s.roles.helper, cum = [0];
+  for (let f = 1; f <= F_NAMED; f++) cum.push(cum[f - 1] + Math.hypot(s.xy[f][h][0] - s.xy[f - 1][h][0], s.xy[f][h][1] - s.xy[f - 1][h][1]));
+  const centre = Math.max(0, cum.findIndex(c => c >= cum[F_NAMED] / 2)) / FPS;
+  const bump = t => { const u = (t - centre) / SLOW_W; return Math.abs(u) < 1 ? Math.cos(Math.PI * u / 2) ** 2 : 0; };
+  const table = out => {
+    const wall = [0];
+    for (let k = 0; k < CLOCK_N; k++) wall.push(wall[k] + T / CLOCK_N / (out - (out - SLOW) * bump((k + 0.5) / CLOCK_N * T)));
+    return wall;
+  };
+  let lo = RATE, hi = 4 * RATE;
+  for (let it = 0; it < 60; it++) {
+    const mid = (lo + hi) / 2;
+    if (table(mid)[CLOCK_N] > T / RATE) lo = mid; else hi = mid;
+  }
+  s.clock = {centre, out: (lo + hi) / 2, wall: table((lo + hi) / 2)};
+  return s.clock;
+}
+function wallOf(s, t) {
+  const w = clockOf(s).wall, x = clamp(t / T, 0, 1) * CLOCK_N, i = Math.min(CLOCK_N - 1, Math.floor(x));
+  return w[i] + (w[i + 1] - w[i]) * (x - i);
+}
+function clipOf(s, wall) {
+  const w = clockOf(s).wall;
+  if (wall <= 0) return 0;
+  if (wall >= w[CLOCK_N]) return T;
+  let lo = 0, hi = CLOCK_N;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (w[mid] <= wall) lo = mid; else hi = mid; }
+  return (lo + (wall - w[lo]) / (w[hi] - w[lo])) / CLOCK_N * T;
+}
+
 function placeCamera(p) {
   const s = SCENES[st.scene], frame = planFrame(s);
   if (p >= 1) {
@@ -629,8 +1477,9 @@ function placeCamera(p) {
     active = ortho;
     return;
   }
-  const e = smooth(clamp(p, 0, 1)), cam = CAMERA[size.square ? "square" : "wide"];
-  const eye = V(HOOP_X - cam.back, 0, cam.z), look = V(s.centroidX + cam.ahead, 0, cam.lookZ);
+  // B4b: the rise starts from the broadcast camera at the current t (it moves with t now)
+  const e = smooth(clamp(p, 0, 1)), cam = broadcastAt(s, st.t);
+  const eye = cam.eye, look = cam.look;
   const d0 = eye.clone().sub(look), D0 = d0.length();
   const th = Math.atan2(d0.y, d0.z) + (Math.PI / 2 - Math.atan2(d0.y, d0.z)) * e;
   const t0 = Math.tan(cam.fov * DEG / 2), t1 = Math.tan(FOV_PLAN * DEG / 2);
@@ -675,12 +1524,21 @@ function project(x, y, z = 0) {
     down-left, so the two never cover each other), and always inside the canvas. */
 function placeTags() {
   if (!current) return;
+  const z = TAG_Z + (LABEL_Z - TAG_Z) * lookE;          // over the heads, down to the tokens on the rise
+  const placed = [], free = (x, y, t) => !placed.some(q => x < q.x + q.w && q.x < x + t.w && y < q.y + q.h && q.y < y + t.h);
   for (const t of tags) {
     if (!t.w) { t.w = t.node.offsetWidth; t.h = t.node.offsetHeight; }
-    const p = current.players[t.slot], [px, py] = project(p[0], p[1], LABEL_Z);
-    const [dx, dy] = {handler: [-t.w / 2, -t.h - 10], helper: [8, -t.h - 8], left: [-t.w - 8, 8],
-                      other: [10, -t.h / 2]}[t.kind];
-    const x = clamp(px + dx, 2, size.w - t.w - 2), y = clamp(py + dy, 2, size.h - t.h - 2);
+    const p = current.players[t.slot], [px, py] = project(p[0], p[1], z);
+    const first = {handler: [-t.w / 2, -t.h - 10], helper: [8, -t.h - 8], left: [-t.w - 8, 8],
+                   other: [10, -t.h / 2]}[t.kind];
+    // B4b: a label that would cover one already placed tries the other sides of its point
+    let x = 0, y = 0;
+    for (const [dx, dy] of [first, [-t.w / 2, -t.h - 10], [10, -t.h / 2], [-t.w - 10, -t.h / 2], [-t.w / 2, 12], first]) {
+      x = clamp(px + dx, 2, size.w - t.w - 2);
+      y = clamp(py + dy, 2, size.h - t.h - 2);
+      if (free(x, y, t)) break;
+    }
+    placed.push({x, y, w: t.w, h: t.h});
     t.node.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
 }
@@ -730,18 +1588,94 @@ function drawPlan(s, P) {
   for (const t of hoverTris) t.commit();
 }
 
+/** The ten bodies at clip time t (B4b), a pure function of t: each at his tracked (x, y), his
+    hips and torso turned and his gait blended as `motionOf` drew them, his head toward the
+    ball (the ball handler's toward the hoop), the ball handler's hand on the ball. On the rise
+    (e > 0) the bodies sink into the floor and the rings give way to the tokens. */
+const UPY = new THREE.Vector3(0, 1, 0);
+function poseBodies(s, P, t, e) {
+  const sink = smooth(clamp(e / 0.75, 0, 1)), fadeRing = 1 - smooth(clamp((e - 0.25) / 0.75, 0, 1));
+  for (let k = 0; k < 10; k++) {
+    rings[k].visible = fadeRing > 0;
+    rings[k].material.opacity = fadeRing;
+    rings[k].position.copy(V(P.players[k][0], P.players[k][1], 0.03));
+  }
+  if (sink >= 1) { for (const B of bodies) B.group.visible = false; return; }
+  if (!s.motion) s.motion = motionOf(s);
+  const M = s.motion, lerp = arr => arr[P.i] + (arr[P.j] - arr[P.i]) * P.a, r = s.roles;
+  for (let k = 0; k < 10; k++) {
+    const B = bodies[k], m = M[k], me = P.players[k];
+    B.group.visible = true;
+    B.group.position.copy(V(me[0], me[1], 0));
+    const hips = lerp(m.hips), twist = lerp(m.twist), phase = lerp(m.phase);
+    B.group.rotation.set(0, hips, 0);
+    const s0 = BODY_H / rig.height;
+    B.armature.scale.set(s0, s0 * Math.max(1 - sink, 1e-3), s0);
+    const g = gait(lerp(m.speed), lerp(m.crouch));
+    poseBody(B, g.w.map(([gg, w]) => [gg.clip, gg.stride > 0
+      ? (((phase + gg.offset) % 1 + 1) % 1) * gg.clip.dur
+      : (t + k * 0.61) % gg.clip.dur, w]));
+    // the torso back toward the ball handler, then the head toward its target
+    for (const name of ["spine_01", "spine_02", "spine_03"]) B.byName[name].quaternion.multiply(Q3[2].setFromAxisAngle(UPY, twist / 3));
+    const goal = k === r.handler ? [HOOP_X, 0] : P.ball;
+    const turn = clamp(wrap(yawOf([goal[0] - me[0], goal[1] - me[1]]) - hips - twist), -HEAD_MAX * DEG, HEAD_MAX * DEG);
+    B.byName.neck_01.quaternion.multiply(Q3[2].setFromAxisAngle(UPY, turn * 0.4));
+    B.byName.Head.quaternion.multiply(Q3[2].setFromAxisAngle(UPY, turn * 0.6));
+    B.group.updateMatrixWorld(true);
+    if (k === r.handler) handleBall(B, s, P);
+  }
+}
+/** The ball handler's hands on the measured ball: the dribbling hand (on the side the ball is)
+    waits over it and meets its top, no lower than HAND_LOW; when the ball goes over his
+    shoulders and up (a shot) both hands follow it until it leaves them. Drawn: only the ball's
+    position is the provider's. */
+function handleBall(B, s, P) {
+  const b = P.ball, r = s.roles, side = s.motion.hand[P.a < 0.5 ? P.i : P.j];
+  const f0 = Math.max(0, P.i - 1), f1 = Math.min(F_END, P.j + 1);
+  const vz = (s.ball[f1][2] - s.ball[f0][2]) * FPS / (f1 - f0 || 1);
+  const shot = smoothstep(BODY_H * 0.75, BODY_H * 0.95, b[2]) * (vz > 0 ? 1 : 0);
+  const centre = V(b[0], b[1], Math.max(b[2], BALL_R));
+  const yaw = B.group.rotation.y, front = V3[7].set(Math.sin(yaw), 0, Math.cos(yaw));
+  for (const hand of shot > 0 ? ["r", "l"] : [side]) {
+    const S = new THREE.Vector3().setFromMatrixPosition(B.byName["upperarm_" + hand].matrixWorld);
+    const away = S.distanceTo(centre), w = Math.max(1 - smoothstep(B.arm, B.arm + REACH_SLACK, away), shot);
+    if (w <= 0) continue;
+    const H = new THREE.Vector3().setFromMatrixPosition(B.byName["hand_" + hand].matrixWorld);
+    const dribble = centre.clone().setY(Math.max(centre.y + BALL_R + B.palm * 0.6, HAND_LOW));
+    const out = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(hand === "r" ? -1 : 1);
+    const lift = centre.clone().addScaledVector(out, BALL_R + B.palm * 0.3).addScaledVector(UPY, -B.palm * 0.4);
+    const target = dribble.lerp(lift, shot);
+    const pole = front.clone().multiplyScalar(shot > 0 ? 0.6 : -1).add(out).addScaledVector(UPY, -0.6).normalize();
+    reach(B, hand, H.lerp(target, w), pole);
+  }
+}
+
 /** Draw the scene at clip time t: tokens, ball, and (in plan) the trails; then the panels. */
 function drawAt(t) {
   const s = SCENES[st.scene];
   current = posAt(s, t);
   const P = current;
   if (GL) {
-    for (let k = 0; k < 10; k++) pucks[k].position.copy(V(P.players[k][0], P.players[k][1], DOT_H / 2));
     // In plan the ball is a dot on the floor (seen from straight above, height draws nothing);
     // on the way up it sinks to it, and its shadow fades.
     const e = st.view === "plan" ? 1 : st.view === "rising" ? smooth(st.p) : 0;
+    // B4b: the broadcast look blends into B4's; each token rises out of its player's ring; the
+    // broadcast camera moves with t (the push-in)
+    lookE = e;
+    setLook(e);
+    if (st.view === "broadcast") placeCamera(0);
+    for (let k = 0; k < 10; k++) {
+      pucks[k].visible = e > 0;
+      pucks[k].scale.y = Math.max(e, 1e-3);
+      pucks[k].position.copy(V(P.players[k][0], P.players[k][1], DOT_H / 2 * pucks[k].scale.y));
+    }
+    poseBodies(s, P, t, e);
     const z = Math.max(P.ball[2], BALL_R), zDraw = z + (DOT_H + BALL_R - z) * e;
     ball.position.copy(V(P.ball[0], P.ball[1], zDraw));
+    ball.visible = e >= 1;
+    look.ball.visible = e < 1;
+    look.ball.position.copy(ball.position);
+    look.ball.rotation.set(t * 9, t * 3, 0);           // a spin, drawn
     shadow.position.copy(V(P.ball[0], P.ball[1], 0.015));
     shadow.scale.setScalar(Math.max(0.4, 1 - z / 30));
     shadow.material.opacity = 0.22 * (1 - e);
@@ -762,6 +1696,7 @@ function loadScene() {
   hover = -1;
   if (GL) {
     pucks.forEach((m, k) => m.material.color.set(s.colour[k]));
+    rings.forEach((m, k) => m.material.color.set(s.colour[k]));
     plan.forEach((t, k) => t.mat.color.set(trailOf(s.colour[k])));
     buildTags(s);
   }
@@ -781,13 +1716,21 @@ const stopFade = () => { cancelAnimationFrame(fadeRaf); fadeRaf = 0; };
 function startPlay() {
   st.phase = "playing";
   playLast = null;
+  st.wall = GL ? wallOf(SCENES[st.scene], st.t) : 0;
   playRaf = requestAnimationFrame(tick);
   syncUI();
 }
 function tick(now) {
   playRaf = 0;
   if (st.phase !== "playing") return;
-  if (playLast !== null) st.t = Math.min(T, st.t + Math.min(now - playLast, 100) / 1000 * RATE);
+  if (playLast !== null) {
+    const dt = Math.min(now - playLast, STEP_MAX) / 1000;
+    // B4b: in broadcast the hook's clock (slow around the help step, RATE on average)
+    if (st.view === "broadcast" && GL) {
+      st.wall += dt;
+      st.t = Math.min(T, clipOf(SCENES[st.scene], st.wall));
+    } else st.t = Math.min(T, st.t + dt * RATE);
+  }
   playLast = now;
   drawAt(st.t);
   if (st.t >= T) {
@@ -812,7 +1755,7 @@ function rise() {
 }
 function fly(now) {
   flyRaf = 0;
-  if (flyLast !== null) st.p = Math.min(1, st.p + Math.min(now - flyLast, 100) / 1000 / FLIGHT_S);
+  if (flyLast !== null) st.p = Math.min(1, st.p + Math.min(now - flyLast, STEP_MAX) / 1000 / FLIGHT_S);
   flyLast = now;
   if (st.p >= 1) { land(true); return; }
   placeCamera(st.p);
@@ -875,10 +1818,14 @@ function syncUI() {
     ? "From above, the measure: how far each of the other three moves toward him."
     : "One defender steps toward the ball. Watch the man he leaves.";
   at("watch").hidden = st.view === "plan";
+  at("drawn").hidden = st.view === "plan" || !GL;
 }
 
 const api = {
   T, RATE, HOLD_S, FLIGHT_S, FADE_S,
+  /** Addition (B4b): the clip time at wall second w of a broadcast run of this scene, so a
+      capture can follow the slow motion frame by frame with seek(); w = T / RATE gives T. */
+  hookTime(w) { return GL ? clipOf(SCENES[st.scene], Number(w)) : clamp(Number(w) * RATE, 0, T); },
   play() {
     if (st.view === "rising" || st.phase === "playing") return false;
     cancelHold();
@@ -1485,7 +2432,7 @@ function renderStatic() {
   const HS = L.horizon_s.toFixed(0) + NB + "s";
   at("eyebrow").textContent = `SkillCorner open ACB tracking · ${tb.n_games} games · the second help`;
   at("watch").innerHTML = `The broadcast camera behind the basket, at ${RATE === 0.5 ? "half speed" : RATE + "× speed"}.`
-    + ` Watch the helper (orange) step toward the ball, and the man he left (black) drift free.`
+    + ` Watch the helper (orange ring) step toward the ball, and the man he left (black ring) drift free.`
     + ` When the clip ends the camera rises: the measure is taken from above, where feet on the`
     + ` floor are not distorted. Every number waits for that view.`;
   at("key").innerHTML = [[C.ink, "ball handler and the man he left"], [C.orange, "helper"],
@@ -1544,7 +2491,9 @@ function renderStatic() {
       + ` ${q(dir.right.n, dir.right.n, HT, "provider_direction=right", "status=ok")} right-labelled drives: no`
       + ` validation. Nothing on this page depends on which side is which. <span class="src">(help_table.csv,`
       + ` provider_direction and flip)</span>`,
-    `Players are tokens on their tracked (x, y). The bundle has no bodies, no pose, no facing. The`
+    `Players stand on their tracked (x, y): bodies in the broadcast view, tokens from above. The`
+      + ` bundle has no bodies, no pose, no facing; the bodies' stride, facing and hands are drawn from`
+      + ` (x, y) and the ball, and nothing is measured from them. The`
       + ` ${SCENES.length} drives shown have all ten players detected on every frame of their window (the rule);`
       + ` the tables behind the numbers include extrapolated positions: ${q(D.vectors.detected_both, pct(D.vectors.detected_both, 1), "help_vectors.csv", "detected0 and detected1")}`
       + ` of the defenders off the ball are detected at both ends of the first second. <span class="src">(help_vectors.csv,`
@@ -1583,7 +2532,9 @@ function renderStatic() {
     + ` the <code>reports/*.csv</code> and <code>reports/wind_scenes.json</code> it reads.</p>`
     + `<h3>Run it</h3><pre>uv sync --extra dev\nuv run pytest\nuv run --extra figures python scripts/help_figures.py\nuv run python scripts/wind_html.py</pre>`
     + `<h3>Licence</h3><p>MIT. three.js r${esc(THREE.REVISION)} is MIT too, vendored in <code>vendor/three</code> with its`
-    + ` licence and inlined in this file: the page makes no request.</p>`
+    + ` licence and inlined in this file: the page makes no request. The players' body is Quaternius'`
+    + ` Universal Animation Library mannequin, CC0, vendored in <code>vendor/players</code> with the script`
+    + ` that trimmed it and inlined here too.</p>`
     + `<h3>Built</h3><p>${esc(D.built)}` + (rec ? `, on top of <code>${esc(rec.sha)}</code> ${esc(rec.subject)}` : "") + `.</p>`
     + `<h3>Data</h3><p>Tracking: SkillCorner's open ACB basketball data,`
     + ` <a href="https://github.com/SkillCorner/opendata-basketball">github.com/SkillCorner/opendata-basketball</a>.</p>`;
