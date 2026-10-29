@@ -332,6 +332,17 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       corrected; update the `pyproject.toml` description; every rebound script, test and CSV
       stays (open-source value, tests stay green); `range.bin` per D5. Accept: `uv run pytest`
       green after the move; every link in `docs/bounce/README.md` resolves (`ls` each path).
+- [ ] C1b The page on GitHub Pages [haiku, with Javier] (added 2026-10-29 on Javier's word):
+      GitHub shows an HTML file in a repo as source, so a link to `reports/*.html` would show
+      code, not the 3D page; the README links to a served page instead. Needs the public repo
+      on GitHub: today no remote is configured (`git remote -v` empty, 2026-10-29); creating it
+      and pushing is outward-facing, so Javier confirms at that moment. Served by a GitHub
+      Actions workflow (`.github/workflows/pages.yml`, the official `upload-pages-artifact` and
+      `deploy-pages` actions) that publishes the committed page (B4's `reports/*.html`, slug
+      per D1) as `index.html`, not rebuilt in CI (C3's clean clone proves the build); free on
+      a public repo. Accept: `curl -I` on the Pages URL returns 200; the served file hashes
+      equal to the committed page; B5's driver, pointed at the URL instead of the local file,
+      exits 0 (so `drive_wind_page.py` takes a path or a URL); C2's README links to that URL.
 - [ ] C2 `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
       help (corner side 2.5 %, 0-4 % in all twelve cells); the man left with its base rate in
       the same sentence (58.5 % against 72.6 %); the second help as a measured absence with its
@@ -378,7 +389,8 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       - Gates, all exit 0 on the clean clone of C3: `uv run ruff check .`; `uv run pytest`;
         `NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js`;
         `uv run python scripts/wind_html.py` then `uv run python scripts/drive_wind_page.py`;
-        `uv run python scripts/check_readme.py`.
+        `uv run python scripts/check_readme.py`; and on the published page (C1b), `curl -I`
+        on the Pages URL returns 200 and `drive_wind_page.py` exits 0 against it.
       - Aggregate acceptance of the plan: every number in README, page, video slides and
         memoria reads back from a `reports/*.csv` written by a script in the repo (lesson 1);
         each headline ships with its qualifier next to it: the corner share with its twelve
