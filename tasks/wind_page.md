@@ -16,14 +16,17 @@ drifting free); the measure is taken from above, where feet on the floor are not
   `nobody_helps_from_the_corner.html`; this replaces it. Same pattern as
   `reports/nobody_reads_the_bounce.html` and `docs/memoria/memoria_nobody_helps_the_helper.docx`.
 - **The clip is the measure's window:** frames 0 to 38 of each scene (0 to 1.52 s,
-  `headline_frame` in `wind_scenes.json`), played at half speed, so the hook takes 3.04 s of
-  wall time and freezes on the frame where figures 1 and 2 measure. Frames 39 to 50 stay in
-  the JSON (the 2.0 s sensitivity and `check_scene` use them); the page never draws them.
+  `headline_frame` in `wind_scenes.json`), played in slow motion, half speed on average
+  (B4b-2: slowest around the help step, faster elsewhere, the profile in 5.3), so the hook
+  takes 3.04 s of wall time and freezes on the frame where figures 1 and 2 measure. Frames 39
+  to 50 stay in the JSON (the 2.0 s sensitivity and `check_scene` use them); the page never
+  draws them.
 - **One flight, up.** The broadcast camera is the raised camera behind the basket, the one a
   broadcast cuts to for a replay of a drive, with the drive side on the right. At the freeze
   the camera pitches up into the top-down view in 1.5 s. The yaw never changes, so nothing
-  turns on screen and the hoop stays at the bottom throughout. Going back to the broadcast
-  camera is always a cut, as on TV.
+  turns on screen and the hoop stays in the bottom part of the frame throughout (B4b-2: the
+  broadcast frame may be slid sideways by a lens shift, which the rise takes back to zero;
+  2.3). Going back to the broadcast camera is always a cut, as on TV.
 - **The plan view is figure 1's layout, exactly:** hoop at the bottom, the drive side on the
   right, the same palette, the same labels, the same crop rule. A judge who has the README
   open sees the same drive drawn the same way, now moving.
@@ -31,7 +34,8 @@ drifting free); the measure is taken from above, where feet on the floor are not
   "toward" lines exist only while `state().view === "plan"`. Everything numeric lives in the
   DOM (HTML and SVG) outside the WebGL canvas, in one container `#measure` that carries the
   `hidden` attribute otherwise. Inside the canvas, the only things ever drawn in `broadcast`
-  and `rising` are the court, the ten tokens, their role labels and the ball.
+  and `rising` are the arena (court, hoops, stands and their crowd), the ten players (bodies,
+  sinking into the tokens on the rise) and the ball; the six tags are DOM over the canvas.
 - **The ball** is drawn at its measured height in the broadcast view, flat in the plan view,
   and nothing on the page is measured from its height. The limit is stated in words next to
   the hook, with no number (section 2.2 says why).
@@ -39,8 +43,9 @@ drifting free); the measure is taken from above, where feet on the floor are not
 - **Reduced motion:** the page opens in `plan` on the frozen frame; every flight is a cut;
   nothing autoplays; the wind is static streamlines.
 - **The state machine is B4's as written** (`play, pause, seek(t), next, view(name), state`),
-  with additions and no change of meaning: `T`, `flight(p)`, `camera()`, `unproject(px, py)`,
-  `field` (section 5.1). `view("rising")` is refused: `rising` is only ever passed through.
+  with additions and no change of meaning: `T`, `flight(p)`, `camera()`, `project(x, y, z)`,
+  `unproject(px, py)`, `hookTime(w)`, `field` (section 5.1). `view("rising")` is refused:
+  `rising` is only ever passed through.
 - **One horizon on the page: 1.5 s** (the frame-38 rows of the CSVs, the figures' horizon).
   The 1.0 and 2.0 s rows go in a `<details>` under the result as the sensitivity.
 
@@ -102,23 +107,47 @@ not data.
 
 ### 2.2 Tokens, labels and the ball
 
-- **Players are tokens on their tracked (x, y), never bodies.** A token is a flat puck,
-  radius 1.15 ft (the old page's `DOT_R`), 0.3 ft tall so it reads as an object in
-  perspective and as a disc from above. No pose, no height, no direction indicator: the
-  bundle carries none.
+- **Players are tokens on their tracked (x, y) in `plan`** (B4b-2 records what B4b changed:
+  bodies in `broadcast`). A token is a flat puck, radius 1.15 ft (the old page's `DOT_R`),
+  0.3 ft tall so it reads as an object in perspective and as a disc from above. In
+  `broadcast` each player is a rigged body 6.5 ft tall (`BODY_H`) standing on the same
+  tracked (x, y), with a ring of his colour on the floor; on the rise the bodies sink into the
+  tokens. The bundle has no pose, height or facing: stride, facing, stance, the hands on the
+  ball, skin tone, hair and kit are drawn, and nothing is measured from them. Skin tone, hair
+  colour and hairline are dealt per player of each scene by a seeded generator; the kits carry
+  no team's, league's or sponsor's mark.
+- **The arena (B4b-2), drawn:** the hardwood lit by one key light over the attacked half,
+  the keys and the apron past the lines stained darker so the court stands out of its
+  surround, and stands on four sides with a crowd painted by a seeded generator (rows of
+  seats, shirts, faces and hair, no signs, no text). The crowd never moves. Everything drawn
+  is a pure function of t: two renders of the same t give the same pixels.
 - **Palette, figure 1's:** ball handler black; the man he left black; the other three
   attackers grey; helper orange; the three other defenders purple; the ball handler's
   defender pale grey. Teams are therefore black/grey (attack) against orange/purple/pale
   (defence); nothing else distinguishes them.
-- **Labels** are DOM elements over the canvas, positioned every frame by projecting the token's
-  top (z = 1.5 ft) through the current camera: "ball handler", "helper", "the man he left",
-  and "1", "2", "3" on the three others (figure 1's numbering, by `roles.others` order).
-  Labels are not measures and are shown in every view; they are what makes the 3D show the
-  finding rather than ten pucks. In scene 1 the helper and the man he left start 1.79 ft apart
-  (`clearance_ft["0.0s"]`), so their labels collide at t = 0 and separate as he steps away:
-  that collision is the story and is accepted; B4 offsets the two labels in opposite
-  directions (helper up-right, the man left down-left) so they never fully overlap.
-  Font 12 px CSS minimum at every width; labels never scale with the canvas.
+- **Labels (tags)** are DOM elements over the canvas: "ball handler", "helper", "the man he
+  left", and "1", "2", "3" on the three others (figure 1's numbering, by `roles.others`
+  order). Labels are not measures and are shown in every view; they are what makes the 3D
+  show the finding rather than ten players. Font 12 px CSS minimum at every width; labels
+  never scale with the canvas.
+- **The tag rule (B4b-2).** B4b placed each tag beside its player's head by a fixed offset
+  and slid it aside when it hit another; in the cluster around the ball handler that put
+  "ball handler" over a defender and "1" over the helper, which tells a viewer the wrong
+  story. Now each tag points at its player:
+  - its **anchor** is his head: the tracked (x, y) at the top of a standing body (6.5 ft) in
+    `broadcast`, the token's top (1.5 ft) in `plan`, between the two on the rise, projected
+    through the current camera;
+  - a **leader** (an SVG `<line>` in `#tags`, its `data-tag` the tag's text) runs from the
+    tag's box to the anchor; the line's second end (`x2`, `y2`) *is* the anchor;
+  - every drawn frame places the six in a fixed order (ball handler, helper, the man he
+    left, 1, 2, 3), each at the cheapest of eight directions by six gaps around its anchor
+    (its own side first) whose box stays in the canvas, keeps 3 px from every tag already
+    placed and from the ball, and covers no player's anchor; failing all, the spot that
+    breaks the fewest. A function of the drawn frame alone, so `seek(t)` always gives the
+    same tags.
+  - **Acceptance**, on every frame 0..38 of the four scenes at 1440 and 390 px, in
+    `broadcast` and in `plan`: each anchor is nearer to its own player's projected head
+    than to any other player's; no two tag boxes overlap; no tag box covers the ball.
 - **The ball** is a sphere of radius 0.39 ft at `ball[f]` = (x, y, z), z clamped at 0, with a
   flat shadow disc on the floor under it at (x, y) whose radius shrinks with z, as the old
   page did; the shadow is what makes the height legible. In the plan view the ball is a dot
@@ -140,19 +169,45 @@ not data.
 
 ### 2.3 The broadcast camera (`view === "broadcast"`)
 
-A perspective camera raised behind the basket, the end-zone replay camera:
+A perspective camera raised behind the basket, the end-zone replay camera. B4 placed it at a
+fixed point off the axis; B4b put it on the hoop's axis looking down 52° (58° on the square
+canvas), fitted to all ten players, which left them about 40 px tall at 1440 px and 17 px at
+390 px (Head bone to foot bone), with the top of the frame empty far court. B4b-2, as now:
 
-- Position, drive frame: x = hoop_x - 19 (13 ft behind the baseline), y = -8 (toward the far
-  side, so the drive side opens to the right), z = 20. Look-at: the centroid of the ten
-  players at frame 38, at 3 ft height. Vertical fov 50° on the desktop canvas (4:3), 60° on
-  the phone canvas (1:1). B4 fits these so that all ten tokens and the ball are inside the
-  canvas on every frame 0..38 of all four scenes (B5 asserts that invariant, not the
-  numbers), the hoop sits in the bottom 40 % of the canvas and within 15 % of its horizontal
-  centre, and the camera's up vector is world up (no roll).
+- **On the hoop's axis, lower.** The camera stays in the vertical plane through the hoop's
+  axis (y = 0), its up vector world up (no roll), looking down 32° with a vertical field of
+  view of 22° on the desktop canvas (4:3) and 28° with 22° on the phone canvas (1:1). So the
+  rise to plan stays a pure pitch.
+- **Framed on the story, not on all ten.** Per frame, the page fits the tightest camera (its
+  look-at point on the axis and its distance back along the pitch) that holds inside the
+  canvas, less a 3 % margin, the **six story players** (ball handler, helper, the man he left,
+  the three others: feet and the top of the body, 1 ft either side), **the ball** and **the
+  hoop** (its base and its rim), aiming the hoop's base at the bottom 35 % of the canvas
+  (smoothing lets it rise to 37 %; B5 asserts 40 %). The other four players may leave the
+  frame.
+- **A lens shift.** The six can stand 19 ft to one side of the axis and 14 to the other; a
+  frame centred on the axis would be as wide as twice the larger. So the frame may slide
+  sideways by up to an eighth of the canvas's width (a shifted frustum, `setViewOffset`): the
+  camera itself never leaves the axis or turns, the hoop stays within 15 % of the horizontal
+  centre, and the rise takes the shift back to zero.
+- **The push-in.** Over the clip the distance only ever shrinks (smoothed over 6 frames) and
+  starts 10 % further back than the fit, closing to it by the end.
+- **Targets, measured from outside** (Head bone to the lower foot bone of each drawn body,
+  projected): the median rendered height of the six over frames 0..38 is at least 80 px at
+  1440 px and at least 40 px at 390 px, in each of the four scenes. A lower camera makes the
+  bodies around the ball handler overlap more; the rings on the floor and the tags' leaders
+  are what keep each one findable.
+- **B5 asserts the framing rule, not the numbers:** on frames 0..38 of all four scenes, the
+  six story players' tracked (x, y) at 0 and at 6.5 ft, the ball and the hoop's base and rim
+  project inside the canvas; the hoop's base is in the bottom 40 % and within 15 % of the
+  horizontal centre in every view.
+- The near hoop's rim and backboard now stand in the upper middle of the frame (a 10 ft rim
+  close to a camera this low projects high); the glass and frame are see-through in
+  `broadcast`, so a player behind them still reads.
 - The drive comes toward the camera and the lateral steps (the helper's step, the man's
   drift) read as left and right on screen, which perspective preserves far better than depth.
-- In this view: the court, ten tokens, labels, the ball with its shadow. No trails, no lines,
-  no numbers, nothing in `#measure`. The caption under the canvas says which drive and which
+- In this view: the arena, the ten players, the six tags, the ball with its shadow. No
+  trails, no measuring lines, no numbers, nothing in `#measure`. The caption under the canvas says which drive and which
   camera (section 5.3), the title above it is the h1; neither is a measure.
 
 ### 2.4 The flight (`view === "rising"`)
@@ -165,7 +220,9 @@ frame by frame with no clock:
   crop centre; its look-at lerps to the crop centre on the floor; its up vector lerps from
   world up (0, 1, 0) to (0, 0, -1) and is renormalised, so forward and up stay perpendicular
   and screen-right stays +y_drive the whole way. Nothing rotates on screen; the hoop slides
-  down to the bottom edge and the floor flattens.
+  down to the bottom edge and the floor flattens. The broadcast frame's lens shift (2.3)
+  eases to zero with the same progress, so the picture slides sideways at most an eighth of
+  its width on the way up.
 - The perspective collapses on the way: the vertical fov narrows from its broadcast value to
   about 2° while the distance grows so that the plan crop keeps the screen size it will have
   at p = 1 (the dolly-zoom to flat). At p = 1 the page swaps to the orthographic camera that
@@ -192,7 +249,9 @@ frame by frame with no clock:
 
 | Name | Value | What |
 |---|---|---|
-| `RATE` | 0.5 | clip seconds per wall second, both views |
+| `RATE` | 0.5 | clip seconds per wall second: in `plan` always; in `broadcast` the average, so a run takes `T / RATE` (B4b-2) |
+| `SLOW` | 0.3 | the broadcast run's rate at the help step, clip seconds per wall second (B4b) |
+| `SLOW_W` | 0.26 | half the slow window, clip seconds (B4b) |
 | `HOLD_S` | 0.5 | the freeze between the broadcast run's end and the rise |
 | `FLIGHT_S` | 1.5 | the rise |
 | `FADE_S` | 0.4 | the measures' fade-in on landing (0 under reduced motion) |
@@ -203,17 +262,30 @@ width. The aspect never changes within a view or during the flight, so the fligh
 re-fit. Rendering is on demand (a `requestAnimationFrame` loop only while playing or flying),
 and a hidden tab stops the clock, not the clip (the old page's rule).
 
+**Start-up and frame time (B4b-2).** B4b's page drew its first frame 1.4 to 3.2 s after
+navigation on this machine's GPU (cold browser), almost all of it the GPU compiling a dozen
+shader programs one at a time, synchronously, at the first draw. Targets on this machine
+(Intel Arc, ANGLE D3D11, headless Chromium with the GPU): the first stage frame painted
+within 1.0 s of navigation start, `state().phase === "playing"` within 1.5 s; while playing at
+1440 px, the median frame time at most 17 ms and the 95th percentile at most 20 ms. How: every
+program the stage uses is started at once on the GPU's threads (`compileAsync`, with
+`KHR_parallel_shader_compile`), the lit arena shares one program and the players another, the
+canvases the textures are painted on are drawn in software, and the wind map below the fold is
+drawn when it comes near the viewport. The page is under 8 MB.
+
 ## 3. The first five seconds (the hook, D8)
 
 Scene 0 is `drive-114243-1-1` (game 114243, a pull-up; helper 5.46 ft; the man he left 1.79 ft
 from the nearest defender at 0 s, 2.65 at 1.0 s, 9.29 at 1.5 s; all from `wind_scenes.json`),
-the same drive as figure 1. With motion allowed, on load and with no click:
+the same drive as figure 1. With motion allowed, on load and with no click (wall time from the
+hook's first frame, which is drawn within 1.0 s of navigation, see 2.6; before it the page
+reads `broadcast`, `idle`, t = 0; B4b-2 times, from the profile of 5.3):
 
 | Wall time | `view` | `phase` | t | What is on screen |
 |---|---|---|---|---|
-| 0.0 s | broadcast | playing | 0 | the court from behind the basket; the handler 24 ft up-court with the ball; the helper and the man he left side by side near the paint, labelled; the caption "Drive 1 of 4 · game 114243 · pull-up · the broadcast camera, half speed" |
-| 0 to 2.0 s | broadcast | playing | 0 to 1.0 | the handler drives at the camera, dribbling; the helper steps left toward his path (5.46 ft by t = 1.0); the man he left starts drifting left |
-| 2.0 to 3.04 s | broadcast | playing | 1.0 to 1.52 | the man he left keeps drifting, nobody follows him; in scene 1 the pull-up leaves the hand and is at 10 ft at the freeze |
+| 0.0 s | broadcast | playing | 0 | the court from behind the basket; the handler 24 ft up-court with the ball; the helper and the man he left side by side near the paint, tagged; the caption "Drive 1 of 4 · game 114243 · pull-up · the broadcast camera, slow motion (half speed on average)" |
+| 0 to 2.12 s | broadcast | playing | 0 to 1.0 | the handler drives at the camera, dribbling; the helper steps left toward his path (5.46 ft by t = 1.0), slowest (0.3×) from t = 0.18 to 0.70 s; the man he left starts drifting left |
+| 2.12 to 3.04 s | broadcast | playing | 1.0 to 1.52 | the man he left keeps drifting, nobody follows him; in scene 1 the pull-up leaves the hand and is at 10 ft at the freeze |
 | 3.04 s | broadcast | ended | 1.52 | the freeze: the telestrator moment |
 | 3.54 s | rising | ended | 1.52 | the camera pitches up; the floor flattens; the hoop slides to the bottom |
 | 5.04 s | plan | ended | 1.52 | the top-down view, figure 1's layout; trails and `#measure` fade in over 0.4 s |
@@ -377,7 +449,10 @@ belong to no section:
    with it on {left share} of left-labelled and {right share} of right-labelled drives,
    computed from `help_table.csv` (`provider_direction`, `flip`): two in three, no validation.
    Nothing on this page depends on which side is which.
-3. Players are tokens on their tracked (x, y). The bundle has no bodies, no pose, no facing.
+3. Players stand on their tracked (x, y): bodies in the broadcast view, tokens from above.
+   The bundle has no bodies, no pose, no facing; stride, facing and hands are drawn from (x, y)
+   and the ball, skin, hair and kits (and the crowd) are decoration, and nothing is measured
+   from any of them (B4b-2 records B4b's wording on the page, plus hair, skin and crowd).
    The four drives shown have all ten players detected on every frame of their window (the
    rule); the tables behind the numbers include extrapolated positions
    (`help_vectors.csv` `detected0`, `detected1`: the build reports the share detected at both
@@ -426,10 +501,13 @@ B4's five calls keep their names and meanings; the rest are additions.
 | `T` | the clip length in seconds, `headline_frame / fps` (1.52). |
 | `flight(p)` | addition. Sets the camera at progress p in [0, 1] of the flight with no clock, cancelling any running flight: p = 0 is the broadcast camera and `view` reads `"broadcast"`; 0 < p < 1 reads `"rising"`; p = 1 is the orthographic camera and reads `"plan"` (with `#measure` shown, no fade). For B5 and the video. |
 | `camera()` | addition. `{type: "perspective" \| "orthographic", projection: number[16], view: number[16], width, height}` (column-major as three.js, CSS pixels), so a test can project the JSON's feet to pixels on its own. |
+| `project(x, y, z)` | addition. Drive-frame feet to canvas CSS pixels through the current camera. |
 | `unproject(px, py)` | addition. The drive-frame (x, y) on the floor plane under a canvas pixel through the current camera (exact in `plan`; a ray-plane intersection otherwise). |
+| `hookTime(w)` | addition (B4b). The clip time a broadcast run of the current scene reaches w wall seconds after it starts, following the slow-motion profile of 5.3: 0 at 0, `T` at `T / RATE` and after. For the video, which follows the slow motion frame by frame with `seek`. |
 | `field` | addition. `{running(), start(), stop(), sample(x, y) -> [dx, dy]}` for the wind block of 4.3. |
 
-Playback is driven by `requestAnimationFrame` at `RATE`; a hidden tab pauses the clock and
+Playback is driven by `requestAnimationFrame` at `RATE` (in `broadcast`, by the profile of
+5.3, `RATE` on average); a hidden tab pauses the clock and
 resumes without a jump in t. The pending rise after a broadcast run is a timer of `HOLD_S`;
 any of `pause`, `seek`, `next`, `view` cancels it (the old page's `waiting` timer class of
 defect, closed by rule).
@@ -438,7 +516,7 @@ defect, closed by rule).
 
 | Event | From | To |
 |---|---|---|
-| load, motion allowed | - | scene 0, `broadcast`, t = 0, `playing` |
+| load, motion allowed | - | scene 0, `broadcast`, t = 0, `idle` while the stage's shaders compile (nothing drawn yet); then, at its first drawn frame, `playing` from t = 0 (B4b-2: `playing` means the clip is running, so it waits for the first frame). Any call before that cancels the start. |
 | load, reduced motion | - | scene 0, `plan`, t = T, `idle`, `#measure` shown |
 | playback reaches T in `broadcast` | `playing` | `ended`; after `HOLD_S`: `rising` for `FLIGHT_S` (cut if reduced); then `plan`, `#measure` fades in over `FADE_S` (0 if reduced). Every broadcast run that reaches T rises: the measure is always taken from above. |
 | playback reaches T in `plan` | `playing` | `ended`, stays |
@@ -459,7 +537,7 @@ The "replay the hook" button in `plan` is `view("broadcast")` then `play()`; no 
 
 | `view` | `phase`, t | `#play` label | `#view-broadcast` / `#view-plan` | `#next` | `#stage-caption` |
 |---|---|---|---|---|---|
-| broadcast | playing | "Pause" | broadcast pressed | "Next drive" | "Drive {i} of 4 · game {game} · {end type} · the broadcast camera, half speed" |
+| broadcast | playing | "Pause" | broadcast pressed | "Next drive" | "Drive {i} of 4 · game {game} · {end type} · the broadcast camera, slow motion (half speed on average)" |
 | broadcast | idle, t < T | "Play" | broadcast pressed | enabled | same |
 | broadcast | ended, or idle at t = T | "Replay" | broadcast pressed | enabled | same |
 | rising | ended or idle | disabled | both disabled | disabled | "rising to the top-down view" |
@@ -472,6 +550,30 @@ The "replay the hook" button in `plan` is `view("broadcast")` then `play()`; no 
 and disabled during `rising`. `{end type}` maps `pullup`, `kickout`, `shotNearBasket`,
 `interiorPass` to "pull-up", "kickout", "shot near the basket", "interior pass" (a word table,
 not data).
+
+**The slow-motion profile (B4b; written down by B4b-2).** B4b's caption said "half speed",
+but the broadcast run is not played at one speed: it slows around the help step and runs
+faster elsewhere, so "half speed" is only the average and the caption now says so. On the
+wall clock only (`seek(t)` never sees it), for each scene:
+
+- the **centre** c is the clip time of the first frame at which the helper has covered half
+  the length of his path from frame 0 to frame 25 (`horizon_frames`, where he is named);
+- the rate, in clip seconds per wall second, is r(t) = out - (out - 0.3) · cos²(π/2 · (t - c)
+  / 0.26) for |t - c| < 0.26 s (`SLOW`, `SLOW_W`), and `out` elsewhere;
+- `out` is the rate that makes the run take exactly T / `RATE` = 3.04 s.
+
+Read from `wind_scenes.json` with this rule (and from the page, which agrees):
+
+| Scene | c | slow window (clip s) | `out` | the run |
+|---|---|---|---|---|
+| 0 | 0.44 s | 0.18 to 0.70 | 0.563× | 3.04 s |
+| 1 | 0.48 s | 0.22 to 0.74 | 0.563× | 3.04 s |
+| 2 | 0.40 s | 0.14 to 0.66 | 0.563× | 3.04 s |
+| 3 | 0.56 s | 0.30 to 0.82 | 0.563× | 3.04 s |
+
+So the hook plays at 0.3× at the help step, 0.563× before and after it, and half speed on
+average; in scene 0 it reaches t = 0.5 s at 1.14 s of wall time and t = 1.0 s at 2.12 s.
+`#watch` says it in words: "in slow motion, slowest as the helper steps".
 
 ### 5.4 What B5 asserts (its own list, plus the invariants this storyboard adds)
 
@@ -494,9 +596,26 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
   1 px; at `flight(1)` `#measure` is visible and `camera().type` is orthographic.
 - **No measure outside plan:** `#measure` carries `hidden` whenever `state().view !== "plan"`,
   and a pixel scan of the canvas in `broadcast` finds none of the trail colours.
-- **Framing:** over the four scenes and frames 0..38, every token's projected position in
-  `broadcast` is inside the canvas; the hoop's projection is in the bottom 40 % and within
-  15 % of the horizontal centre in every view.
+- **Framing** (B4b-2's rule, 2.3): over the four scenes and frames 0..38, in `broadcast`, the
+  six story players' tracked (x, y) at 0 and at 6.5 ft, the ball and the hoop's base and rim
+  project inside the canvas (the other four players are not asserted); the hoop's base is in
+  the bottom 40 % and within 15 % of the horizontal centre in every view.
+- **Tags** (B4b-2, 2.2): on frames 0..38 of the four scenes at 1440 and 390 px, in
+  `broadcast` and in `plan`, each tag's anchor (its leader's `x2`, `y2`) is nearer to its own
+  player's head, projected by the check itself through `camera()` from the JSON's (x, y) at
+  6.5 ft (1.5 ft in `plan`), than to any other player's; no two tag boxes overlap; no tag box
+  covers the ball, projected the same way.
+- **The broadcast clock** (B4b-2, 5.3): the natural run's clip time, sampled against the
+  wall clock, follows the written profile: the observed rate is below `out` around the
+  centre and near `out` well outside the window, and t reaches T at T / `RATE` after the first
+  frame. The check computes c and `out` itself from the JSON and the rule; it never reads
+  `hookTime`, which would test the page against itself. In `plan` the clip plays at `RATE`.
+- **Start-up and frame time** (B4b-2, 2.6), on the GPU only: the first draw on the stage's
+  WebGL canvas and the animation frame after it within 1.0 s of navigation start; `playing`
+  within 1.5 s; 3 s of frames while playing at 1440 px, median at most 17 ms and 95th
+  percentile at most 20 ms. Before the first frame the natural run reads `broadcast`, `idle`,
+  t = 0. If the browser's WebGL renderer is a software one (SwiftShader), these rows and the
+  clock's fail as "software renderer: timing not measurable", not pass.
 - **The numbers at the headline frame:** at `seek(T)` the three black and grey bars equal
   `to_left[i][38]` and `placebo[i][38]` and the matching `second_help_pairs.csv` rows
   (`drive_id`, `horizon == 38`, `def_slot`) within 0.01 ft; the live tile equals
@@ -509,7 +628,12 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
 - **Reduced motion** (Playwright `reducedMotion: "reduce"`): load reads `plan`, `idle`, t = T,
   `#measure` shown; `view("broadcast")` then `view("plan")` never reads `rising`; `next()` in
   `broadcast` does not autoplay; the wind block draws streamlines and `field.running()` is
-  `false`.
+  `false`. The streamlines are static: the flow canvas's bytes are identical 0.7 s apart.
+  B4b-2: on a GPU-accelerated 2D canvas the *first* `getImageData` unpremultiplies on the GPU
+  and every later one on the CPU, so the first read differs from all the others by one level
+  in the colour of the anti-aliased edge pixels (530 of them, alpha identical) with nothing
+  drawn in between; the check takes one read first and discards it, then compares two reads
+  0.7 s apart byte for byte.
 - **Mutations (lesson 4), B5's three:** a typed number in the template, a broken `seek`, a
   perspective camera left on in `plan`. The storyboard adds a fourth worth one run: a trail
   drawn in `broadcast` (the pixel scan must catch it).
@@ -540,8 +664,9 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
 `scripts/wind_video.py` drives the built page in Playwright at 1920 x 1080 with motion
 allowed, captures frame by frame and never waits on the page's clock:
 
-- the hook: `view("broadcast")`, then `seek(f / fps)` for f = 0..38, each frame captured twice
-  (the page's half speed at 25 fps video), 78 frames; the freeze, 12 frames of frame 38; the
+- the hook: `view("broadcast")`, then `seek(hookTime(k / 25))` for k = 0..76 (B4b-2: the
+  slow motion of 5.3, frame by frame, 77 frames over the run's 3.04 s); the freeze, 12 frames
+  of frame 38; the
   rise, `flight(p)` for p = k / 37, k = 0..37, 38 frames; the landing, 10 frames at
   `flight(1)` (the fade is skipped; `flight(1)` shows the measures at once); then plan frames
   as D1's script needs them (`seek(t)` for the bars, `next()` for another drive). About 5.5 s
