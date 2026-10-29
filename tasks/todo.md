@@ -254,9 +254,11 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       helped at 5 ft and 2.0 s (-1.20 to +0.14) and two unhelped 3 ft cells do not. Left typed,
       no CSV carries them: 7.1's 283 tests (true at W1), 9.3's 55 % (history), section 5 and
       10.2's council numbers. The PDF is ignored by `.gitignore:32`; E2 decides whether it ships.
-- [ ] A7 Phase close [haiku]: `uv run ruff check .` and `uv run pytest` exit 0; then Javier's
+- [x] A7 Phase close [haiku]: `uv run ruff check .` and `uv run pytest` exit 0; then Javier's
       check (figure 2, decisions D1, D3, D4).
-      2026-10-29: ruff clean, 293 passed. Javier's look at figure 2 pending.
+      **DONE 2026-10-29**: ruff clean, 295 passed; Javier approved figure 2 v4 (7ff6827).
+      Phase A is closed; the corner base rate (section "OPEN 2026-10-29" below) is new work
+      that comes before B1.
 
 #### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
 - [ ] B1 Kernel field into the package [sonnet]: move the field `help_figures.py` computes into

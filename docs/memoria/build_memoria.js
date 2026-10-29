@@ -519,7 +519,7 @@ const s12 = [
   h1("12. Plan y calendario", { pageBreakBefore: true }),
   grid(["Fase", "Fechas", "Trabajo", "Estado"], [
     ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
-    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "A1 a A4 hechas el 28 de octubre; A5 hecha el 29 de octubre; A6 (esta memoria) y A7 (cierre de fase) pendientes"],
+    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Cerrada el 29 de octubre: A1 a A4 el 28, A5 a A7 el 29, con la figura 2 aprobada por Javier. Queda abierta, antes de la fase B, la tasa base de la ayuda desde la esquina"],
     ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en canvas sin CDN conducida desde la consola; memoria v0.4", "Pendiente"],
     ["C", "30 de noviembre a 6 de diciembre", "El repositorio público y el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.5", "Pendiente"],
     ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.6", "Pendiente"],
