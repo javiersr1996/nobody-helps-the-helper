@@ -530,6 +530,38 @@ rate, if distance explains top_3, if top_3 or paint by bearing stop containing 1
 inside defenders become nearer the spot). Figure size now read from the PNG header. Read back
 from the PDF text by an independent script against the CSVs: 17 of 17 section-12 numbers.
 Open: Javier looks at figure 1; README and page carry the helper qualifier (C2, B3).
+**Council screening of the redrawn figure 1, same day: 37/100, not ready** (Contrarian 30,
+First Principles 40, Expansionist 55, Outsider 30, Executor 45, mean 40; the screener took
+-3 for an unresolved blind spot, outside the skill's -5 to -10 range, so 35 by the rule;
+either way under 50, no full council). Judged on a written description, not the image.
+Core: with two figures allowed and the thesis now only the second help, a context figure
+spends half the visual budget on an occupancy fact and a null; the 32 % against 5 % by
+bearing is largely the helper definition itself, so it is a qualifier, not a finding; the
+first image is where Originality and Communication are judged. Proposed: figure 1 becomes
+the mechanism (one real drive: the helper stepping out, the man he leaves, the others
+flat), the context moves to two README sentences. **ANSWERED 2026-10-29: Javier says do
+it.** Plan: (a) B2 pulled forward as written below (`scripts/wind_scenes.py` ->
+`reports/wind_scenes.json`, the D6 rule, its test), executed by a Sonnet agent; (b) figure 1
+redrawn from that JSON: the rule's first drive in the drive frame, trails to 1.5 s of the
+handler, the helper, the man he leaves and the three others, with that drive's own numbers
+and where it sits in the distribution, so one drive is not sold as typical; the wind map
+moves to the memoria and the page; (c) memoria 9.1, 12.4 and the version row follow (v0.4
+is not yet shared, so the same version). Accept: the scene test passes and fails on its
+mutation; every number on the figure greps to a CSV or the JSON; looked at before accepting.
+**(a) B2 DONE 2026-10-29** (Sonnet agent; `scripts/wind_scenes.py`, `tests/test_wind_scenes.py`,
+`reports/wind_scenes.json`): the strict D6 rule found a drive in each of the first four games
+tried (114243, 114234, 114169, 114099; 10-16 drives pass every condition per game), nothing
+relaxed; helper movement and per-frame projections at 25/38/50 equal `help_table.csv` and
+`second_help_pairs.csv` within 0.01 ft; `check_scene` refuses a helper moved 0.5 ft (5.949
+against 5.461); 309 tests pass. **(b) STOPPED before drawing:** the rule's first drive
+(drive-114243-1-1, pull-up; helper 5.46 ft; man left 1.79 / 2.65 / 9.29 ft clear at 0 / 1.0 /
+1.5 s; per-drive paired mean -2.61 ft, 23rd percentile of 252, median -0.25) does NOT show
+"the others flat": at 1.5 s the three others move toward the man left -5.26 / +7.35 / +7.15
+ft and toward the placebo +5.06 / +4.85 / +7.16. The council's figure assumed flat others;
+the thesis is an absence against a placebo (a >= 4 ft mover toward him in 44 % of helped
+drives, 42 % toward the placebo), which one drive cannot show as "nobody moves". Picking
+another drive that looks flat would be the cherry-picking the rule exists to prevent.
+Back to Javier.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
