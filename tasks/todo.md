@@ -267,7 +267,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       reads it. Test: one vector gives a field that points its way, decays with distance and is
       masked under `min_weight`. Accept: figure 1 rebuilt is unchanged or the diff is named; the
       page and figure 1 read the same file.
-- [ ] B2 `scripts/wind_scenes.py` [sonnet] -> `reports/wind_scenes.json`: drives chosen by a
+- [x] B2 (DONE 2026-10-29, pulled forward for figure 1; see the record) `scripts/wind_scenes.py` [sonnet] -> `reports/wind_scenes.json`: drives chosen by a
       rule, not a search (per decision D6, default: the first helped drive of each of four games
       in which the ten players are detected on every frame of the 2 s window and the man left
       has a provider matchup); per drive, 2 s of ten players and ball in the drive frame, slot
@@ -674,16 +674,18 @@ difference column with its three values computed in the build), 9.3 a paragraph 
 pass, 14 pending updated, version row; read back from the PDF by script against the JSON,
 13 of 13 (the first run missed three lists on a "+" the memoria does not print: format, not
 values). 309 tests pass, ruff clean.
+**Javier approved the new figure 1, 2026-10-29** ("apruebo la figura 1"). Memoria 9.3, 14 and
+the version row say so. B1 (Sonnet) and B3 (Fable) were launched in parallel the same day.
 
 ### NEXT SESSION (left 2026-10-29)
-1. Javier looks at the new figure 1 (`reports/figures/wind_figure_1_one_drive.png`, memoria
-   9.1). If it still does not read, the next lever is drawing on the court the line each
-   "toward" is measured along (left out to keep the court lean).
-2. B1 (kernel field into `scbasket.wind`) as planned; the wind map, now `wind_map_league.png`,
-   is a top-down section of the page, not a README figure; since D8 the hook is the drive in 3D.
+1. B3: Javier reads the storyboard in `tasks/wind_page.md` and accepts it or not; B4 does not
+   start before.
+2. B1 (kernel field into `scbasket.wind`, `reports/help_field.csv`); the wind map, now
+   `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
+   hook is the drive in 3D.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
    next to the 45.3 %; nothing says where help comes from.
-4. Memoria v0.4 is built and committed (30 pages) and not yet shared; each step updates it.
+4. Memoria v0.4 is built and committed (31 pages) and not yet shared; each step updates it.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
