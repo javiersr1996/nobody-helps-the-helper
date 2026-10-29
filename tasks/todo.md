@@ -579,6 +579,28 @@ game's choice), 9.3 the council's 37 and the stop, 12.4 revised, 12.5 the wind m
 version row; section-12 readback still 17 of 17. 309 tests pass, ruff clean.
 Open: Javier looks at the new figure 1; README C2 carries the corner and helper context in
 two sentences.
+**Council screening of the one-drive figure 1, same day: 48/100, not ready** (Contrarian 40,
+First Principles 59, Expansionist 70, Outsider 40, Executor 55, mean 52.8; +5 unanimous
+strength, -5 blind spot, -5 unrebutted red; under 50, no full council). Judged on a written
+description. Strengths: the rule and the percentile make it honest; it teaches the
+instrument figure 2 cannot; clean split, figure 1 the measure, figure 2 the result. Blind
+spot, checked: the drive's -2.61 ft is one defender moving away (-10.3 of the -7.8 summed
+difference; the second is +2.5, the third 0.0), so without the text a reader sees "two of
+three rotate", and "the whole defence closes in" feeds that reading; the 252 drives appear
+only as a percentile in a sentence; nobody checked legibility at README width. Proposed:
+subtitle reframed as the measure, not the result; text cut to the bars plus one line; a
+strip of the 252 per-drive means with this drive and the median marked; check at 800 px.
+**Applied 2026-10-29 on Javier's word** (all but one point: the percentile stays on the
+figure, not moved to the README, since it is this drive's qualifier, lesson 2). Subtitle:
+"One drive, chosen by rule, to show the measure, not the result ... the measure is the
+difference" ("closes in" gone); text cut to the bars, the strip and one line; the strip is
+the 252 per-drive means from `second_help_pairs.csv` with this drive (purple, percentile
+23) and the median (dashed) marked, and the figure refuses to draw unless the CSV gives the
+scene's n, drive mean and median; the court is cropped above the drive (FIG1_TOP_FT 27, never
+under 2 ft above any trail), so the drive fills the width. Checked downscaled to 800 px: body
+text about 17 px, nothing overlaps. 1440 x 2593 px. Figure 2 byte-identical. Memoria 9.1
+(the strip) and 9.3 (the 48, the one-defender split computed from the JSON, what was applied)
+read back from the PDF: 7 of 7, plus the section-12 17 of 17.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

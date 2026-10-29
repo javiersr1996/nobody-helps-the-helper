@@ -104,6 +104,8 @@ RATE_ALPHA = 0.75
 WIDTH_MIN, WIDTH_MAX, WIDTH_FULL_FT = 0.4, 2.8, 6.0
 
 CORNER_Y_FT = 18.0
+#: Figure 1's court is cropped this far above the hoop line (the arc's apex is 22.15 ft).
+FIG1_TOP_FT = 27.0
 
 #: Both figures are laid out top-down in inches (the strip carries paragraphs at TEXT_PT, so
 #: the height follows from what it holds): width, each court's height, the side margin, the
@@ -183,8 +185,12 @@ def headline(table: pd.DataFrame) -> dict:
     }
 
 
-def figure_1(scenes: dict, path: Path) -> None:
+def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
     scene, t = scenes["scenes"][0], scenes["headline_frame"]
+    # Every helped drive's mean over the three others of toward him minus placebo, at t: the
+    # distribution this one drive is placed in, checked against what the scene recorded.
+    at_t = pairs[pairs["helped"] & (pairs["horizon"] == t)]
+    per_drive = (at_t["to_left"] - at_t["placebo"]).groupby(at_t["drive_id"]).mean()
     xy = np.array(scene["xy"], dtype=float)[: t + 1]  # frames, slots 0-4 attack 5-9 defence
     roles = scene["roles"]
     others = roles["others"]
@@ -195,7 +201,11 @@ def figure_1(scenes: dict, path: Path) -> None:
         raise ValueError(f"the scene's projections give {mean_diff:+.2f} ft, its record "
                          f"{scene['paired_mean_1_5s']:+.2f}: rerun scripts/wind_scenes.py")
     among = scene["paired_mean_1_5s_among_helped"]
-    clear = scene["clearance_ft"]
+    if (len(per_drive) != among["n_helped"]
+            or abs(per_drive[scene["drive_id"]] - mean_diff) > 0.01
+            or abs(per_drive.median() - among["median"]) > 0.01):
+        raise ValueError("second_help_pairs.csv and wind_scenes.json disagree on the helped "
+                         "drives at the headline horizon: rerun second_help.py, wind_scenes.py")
     seconds = t / scenes["fps"]
     window = (scenes["n_frames"] - 1) / scenes["fps"]
     left_in = {roles["left"]}
@@ -227,11 +237,16 @@ def figure_1(scenes: dict, path: Path) -> None:
                     tall / height]
 
         put("How the absence is measured, on one drive", gap=0.06, weight="bold")
-        put("Each other defender's own movement is projected toward the man the helper left, "
-            "and toward the other attackers off the ball as a placebo. Only the difference "
-            "counts: the whole defence closes in.", gap=0.1)
+        put("One drive, chosen by rule, to show the measure, not the result. Each other "
+            "defender's own movement is projected toward the man the helper left, and toward "
+            "the other attackers off the ball as a placebo; the measure is the difference.",
+            gap=0.1)
         ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
         draw_court(ax)
+        # One drive fills the court near the hoop only: crop above it so the drive is drawn
+        # larger, never closer than 2 ft above the highest point of any trail.
+        reach = float(to_plot(xy[..., 0], xy[..., 1])[1].max()) + 2.0
+        ax.set_ylim(ax.get_ylim()[0], max(FIG1_TOP_FT, reach))
         for slot, (colour, width, marker, size, edge) in style.items():
             px, py = to_plot(xy[:, slot, 0], xy[:, slot, 1])
             ax.plot(px, py, color=colour, linewidth=width, solid_capstyle="round", zorder=3)
@@ -262,9 +277,9 @@ def figure_1(scenes: dict, path: Path) -> None:
         key._legend_box.align = "left"
         used[0] += 4 * TEXT_PT * LINE_SPACING / 72 + 0.2
 
-        put(f"The three other defenders at {seconds:.1f} s: their own movement toward the man "
-            f"left, and toward the placebo (the mean over the attackers off the ball who are "
-            f"not the man left and not their own man), in feet.", gap=0.05)
+        put(f"At {seconds:.1f}{nb}s, in feet: each other defender's movement toward the man "
+            f"left, and toward the placebo (the other attackers off the ball, not his own man).",
+            gap=0.05)
         chart_h = 1.25
         chart = fig.add_axes(frac(0.75, used[0] + 0.1, 4.2, chart_h))
         rows = np.arange(len(others))
@@ -288,18 +303,32 @@ def figure_1(scenes: dict, path: Path) -> None:
                      fontsize=TEXT_PT - 1, handlelength=1.2)
         used[0] += 0.1 + chart_h + 0.55
 
+        put(f"Toward him minus the placebo, mean of the three, in all {len(per_drive)} helped "
+            f"drives at {seconds:.1f}{nb}s:", gap=0.05)
+        strip_h = 1.1
+        strip = fig.add_axes(frac(0.75, used[0] + 0.45, FIG2_WIDTH_IN - 1.2, strip_h))
+        edges = np.arange(np.floor(per_drive.min()), np.ceil(per_drive.max()) + 0.5, 0.5)
+        strip.hist(per_drive, bins=edges, color=GREY, edgecolor="white", linewidth=0.5)
+        strip.axvline(0, color=COURT, linewidth=1.0)
+        strip.axvline(per_drive.median(), color=INK, linewidth=1.4, linestyle="--")
+        strip.axvline(mean_diff, color=PURPLE, linewidth=2.4)
+        top = strip.get_ylim()[1]
+        strip.text(mean_diff - 0.25, top * 1.04, f"this drive {fmt(mean_diff, 2)}, percentile "
+                   f"{among['percentile']:.0f}", color=PURPLE, fontsize=TEXT_PT - 1,
+                   ha="right", va="bottom", weight="bold")
+        strip.text(per_drive.median() + 0.25, top * 1.04,
+                   f"median {fmt(per_drive.median(), 2)}", color=INK, fontsize=TEXT_PT - 1,
+                   ha="left", va="bottom")
+        strip.set_yticks([])
+        strip.tick_params(labelsize=TEXT_PT, length=3)
+        strip.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
+        for spine in ("top", "right", "left"):
+            strip.spines[spine].set_visible(False)
+        used[0] += 0.45 + strip_h + 0.55
+
         put(f"Chosen by rule, not by look: the first drive with a helper, in the first game, "
-            f"with all ten players detected in every frame of its {window:.0f}{nb}s window "
-            f"(it ends in a {scene['end_type']}). In 1.0{nb}s the helper moves "
-            f"{scene['helper_help_move']:.1f}{nb}ft toward where the ball goes; the man he left "
-            f"is {clear['0.0s']:.1f}{nb}ft from the nearest defender at the start, "
-            f"{clear['1.0s']:.1f}{nb}ft at 1.0{nb}s and {clear['1.5s']:.1f}{nb}ft at "
-            f"{seconds:.1f}{nb}s.")
-        put(f"Toward him minus toward the placebo, mean of the three: "
-            f"{fmt(mean_diff, 2)}{nb}ft. That puts this drive at percentile "
-            f"{among['percentile']:.0f} of the {among['n_helped']} helped drives (median "
-            f"{fmt(among['median'], 2)}{nb}ft): a clearer case than most, not a typical one. "
-            f"Figure 2 averages them all, against drives with no helper.", gap=0.1)
+            f"with all ten players detected for its whole {window:.0f}{nb}s window. Figure 2 "
+            f"has the result, over all drives and against drives with no helper.", gap=0.1)
         if out is not None:
             fig.savefig(out, dpi=200)
         plt.close(fig)
@@ -559,6 +588,7 @@ def main() -> int:
                          ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
                          ("second_help_contrast_sensitivity.csv", "second_help"),
+                         ("second_help_pairs.csv", "second_help"),
                          ("wind_scenes.json", "wind_scenes")):
         if not (args.reports / name).exists():
             print(f"no {args.reports / name}; run scripts/{script}.py first", file=sys.stderr)
@@ -571,6 +601,7 @@ def main() -> int:
     contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
     sweep = pd.read_csv(args.reports / "second_help_contrast_sensitivity.csv")
     scenes = json.loads((args.reports / "wind_scenes.json").read_text(encoding="utf-8"))
+    pairs = pd.read_csv(args.reports / "second_help_pairs.csv")
     numbers = headline(table)
     print("numbers printed on the figures (from help_table.csv):")
     for key, value in numbers.items():
@@ -578,7 +609,7 @@ def main() -> int:
     print(f"vectors in the field: {len(vectors)}; helper threshold {HELP_FT} ft in {HORIZON_S} s")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    figure_1(scenes, args.out / "wind_figure_1_one_drive.png")
+    figure_1(scenes, pairs, args.out / "wind_figure_1_one_drive.png")
     figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
     wind_map(table, vectors, rates, numbers, args.out / "wind_map_league.png")
     print(f"wrote {args.out / 'wind_figure_1_one_drive.png'}, "
