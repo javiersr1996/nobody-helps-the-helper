@@ -312,10 +312,15 @@ const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
    slide sideways by up to SHIFT of the canvas's half-width, a lens shift: the camera stays on the
    axis and never turns, and the rise takes the shift back to zero. Over the clip the fit only
    ever closes in, smoothed over PUSH_SMOOTH frames, and the camera starts PUSH further back than
-   the fit and closes to it by the end: the push-in. FOV_PLAN: the narrowest field of view the
-   rise reaches before the swap to the orthographic camera. Degrees and feet. */
+   the fit and closes to it by the end: the push-in. B4b-3: the frame also slides up or down, by
+   up to SHIFT_V of the canvas's half-height, so that the lowest of the story players' feet, the
+   hoop's base and the ball sits at BOTTOM below the centre (normalised device height) and the
+   spare height goes to the top; choosing where to look along the axis, each unit of that shift
+   costs SHIFT_COST of the camera's distance. FOV_PLAN: the narrowest field of view the rise
+   reaches before the swap to the orthographic camera. Degrees and feet. */
 const CAMERA = {wide: {pitch: 32, fov: 22}, square: {pitch: 28, fov: 22}};
 const FRAME_MARGIN = 0.03, HOOP_LOW = -0.3, SHIFT = 0.25, BODY_HALF = 1, PUSH_SMOOTH = 6, PUSH = 0.1;
+const SHIFT_V = 1.6, BOTTOM = 0.88, SHIFT_COST = 0.1;
 const LOOK_Z = 3, FOV_PLAN = 1;
 const DEG = Math.PI / 180;
 /* Slow motion around the help step, on the wall clock only (seek(t) never sees it): playback
@@ -1461,81 +1466,76 @@ function planFrame(s) {
     The field of view narrows as the distance grows, holding the crop near its final size, and
     at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
     straight down at the same centre: on the floor the two project the same. */
-/** The broadcast camera of a scene, per frame (B4b-2): its look-at point on the hoop's axis, its
-    distance back along the fixed pitch and its lens shift. Each frame takes the tightest camera
-    that holds the six story players, the ball and the hoop inside the margin with the hoop's
-    base low, shifted as little as that allows; the distance is then never allowed to grow (the
-    push-in), smoothed, and refitted where smoothing cut a story player off. Cached per canvas
-    size. */
+/** The broadcast camera of a scene, per frame (B4b-2, B4b-3): its look-at point on the hoop's
+    axis, its distance back along the fixed pitch and its lens shift, sideways and up or down.
+    Each frame takes the tightest camera that holds the six story players, the ball and the hoop
+    inside the margin with some shift; the distance is then never allowed to grow (the push-in),
+    smoothed, and refitted where smoothing cut a story player off. Last, each frame's vertical
+    shift sets the lowest of the story players' feet, the hoop's base and the ball BOTTOM above
+    the bottom edge (no lower than the margin and the hoop below HOOP_LOW allow): the spare
+    height goes to the top of the frame, past the court, not to the apron behind the baseline.
+    Cached per canvas size. */
 function shotOf(s) {
   const key = `${size.w}x${size.h}`;
   if (s.shot && s.shot.key === key) return s.shot;
   const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
-  const inner = 1 - 2 * FRAME_MARGIN, tv = t0 * inner, A = t0 * size.w / size.h;
+  const inner = 1 - 2 * FRAME_MARGIN, A = t0 * size.w / size.h;
   const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
   const r = s.roles, story = [r.handler, r.helper, r.left, ...r.others];
+  // the points to hold; the first 8 are the ones the bottom rule reads (the hoop's base, the six
+  // players' tracked feet, the ball)
   const pointsAt = f => {
-    const pts = [[HOOP_X, 0, 0], [HOOP_X, 0, RIM_Z]];
+    const b = s.ball[f], pts = [[HOOP_X, 0, 0], ...story.map(k => [...s.xy[f][k], 0]), [b[0], b[1], Math.max(b[2], BALL_R)]];
+    pts.push([HOOP_X, 0, RIM_Z], [b[0], b[1], Math.max(b[2], BALL_R) + BALL_R]);
     for (const k of story) {
       const [x, y] = s.xy[f][k];
       for (const z of [0, BODY_H]) pts.push([x, y - BODY_HALF, z], [x, y + BODY_HALF, z]);
       pts.push([x - BODY_HALF, y, 0], [x + BODY_HALF, y, 0]);
     }
-    const b = s.ball[f];
-    pts.push([b[0], b[1], Math.max(b[2], BALL_R) + BALL_R], [b[0], b[1], 0]);
     return pts;
   };
-  // the distance back from (lx, 0, LOOK_Z) that holds pts with the frame shifted by sx (in NDC)
-  const need = (pts, lx, sx) => {
-    let D = 0;
-    for (const [x, y, z] of pts) {
-      const dx = x - lx, dz = z - LOOK_Z, along = dx * fx + dz * fz;
-      D = Math.max(D, Math.abs(dx * ux + dz * uz) / tv - along, (y > 0 ? y / (inner - sx) : -y / (inner + sx)) / A - along);
-    }
-    return D;
-  };
-  // the least distance that holds pts with some shift, and the shift nearest 0 that does: each
-  // point bounds the shift from one side, more loosely the farther back the camera is, so the
-  // distance is found by bisection on whether the shifts left are an empty interval
-  const shiftFor = (pts, lx) => {
-    const n = pts.length, along = new Float64Array(n);
-    let lo = 0;
-    pts.forEach(([x, , z], i) => {
-      const dx = x - lx, dz = z - LOOK_Z;
-      along[i] = dx * fx + dz * fz;
-      lo = Math.max(lo, Math.abs(dx * ux + dz * uz) / tv - along[i], 0.01 - along[i]);
+  const LOW = 8;
+  // for a camera looking at (lx, 0, LOOK_Z) from D back: the shifts that hold every point, as
+  // [left, right] sideways and [below, above] up or down (NDC); the vertical one also keeps the
+  // hoop's base below HOOP_LOW, and `top` is the highest shift the bottom rule allows
+  const bounds = (pts, lx, D) => {
+    let a = -SHIFT, b = SHIFT, c = -SHIFT_V, d = SHIFT_V, low = Infinity, hoop = 0;
+    pts.forEach(([x, y, z], i) => {
+      const dx = x - lx, dz = z - LOOK_Z, depth = dx * fx + dz * fz + D;
+      const q = depth > 0 ? y / (A * depth) : Infinity, v = depth > 0 ? (dx * ux + dz * uz) / (t0 * depth) : Infinity;
+      a = Math.max(a, -inner - q);
+      b = Math.min(b, inner - q);
+      c = Math.max(c, -inner - v);
+      d = Math.min(d, inner - v);
+      if (i === 0) hoop = v;
+      if (i < LOW) low = Math.min(low, v);
     });
-    const shifts = D => {
-      let a = -SHIFT, b = SHIFT;
-      for (let i = 0; i < n; i++) {
-        const q = pts[i][1] / (A * (along[i] + D));
-        a = Math.max(a, -inner - q);
-        b = Math.min(b, inner - q);
-      }
-      return [a, b];
-    };
-    let hi = lo + 8;
-    while (shifts(hi)[0] > shifts(hi)[1]) hi = lo + 2 * (hi - lo);
-    for (let it = 0; it < 22; it++) {
-      const mid = (lo + hi) / 2, [a, b] = shifts(mid);
-      if (a <= b) hi = mid; else lo = mid;
-    }
-    const [a, b] = shifts(hi);
-    return [clamp(0, a, b), hi];
+    d = Math.min(d, HOOP_LOW - hoop);
+    return {a, b, c, d, top: Math.min(d, -BOTTOM - low)};
   };
-  // the farthest the camera may be with the hoop's base still below HOOP_LOW
-  const most = lx => {
-    const dx = HOOP_X - lx, dz = -LOOK_Z;
-    return (dx * ux + dz * uz) / (HOOP_LOW * t0) - (dx * fx + dz * fz);
+  // the least distance with room for both shifts (sideways fixed at sx if given), by bisection:
+  // the bounds only widen as the camera goes back
+  const fitAt = (pts, lx, sx) => {
+    const ok = D => {
+      const k = bounds(pts, lx, D);
+      return k.c <= k.d && (sx === undefined ? k.a <= k.b : k.a <= sx && sx <= k.b);
+    };
+    let lo = 0, hi = 8;
+    while (!ok(hi)) { lo = hi; hi *= 2; }
+    for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
+    const k = bounds(pts, lx, hi);
+    return {D: hi, sx: sx === undefined ? clamp(0, k.a, k.b) : sx};
   };
   const frames = Array.from({length: F_END + 1}, (_, f) => pointsAt(f));
   const look = [], dist = [], shift = [];
-  const better = (c, best) => !best || (c.ok && !best.ok) || (c.ok === best.ok && (c.ok ? c.D < best.D : c.over < best.over));
   for (const pts of frames) {
     let best = null;
+    // the closest camera, but a vertical shift costs SHIFT_COST of the distance per unit (NDC), so
+    // the look-at point keeps the action low by itself where that costs little
     const tryAt = lx => {
-      const [sx, D] = shiftFor(pts, lx), c = {lx, sx, D, ok: D <= most(lx), over: D - most(lx)};
-      if (better(c, best)) best = c;
+      const c = fitAt(pts, lx), k = bounds(pts, lx, c.D);
+      c.cost = c.D * (1 + SHIFT_COST * Math.abs(Math.max(k.c, k.top)));
+      if (!best || c.cost < best.cost) best = Object.assign(c, {lx});
     };
     for (let lx = HOOP_X - 5; lx <= HOOP_X + 50; lx += 2) tryAt(lx);       // coarse, then fine
     const lc = best.lx;
@@ -1547,11 +1547,34 @@ function shotOf(s) {
   const blur = arr => smoothPts(arr.map(v => [v, 0]), PUSH_SMOOTH).map(v => v[0]);
   const closing = arr => { for (let f = arr.length - 2; f >= 0; f--) arr[f] = Math.max(arr[f], arr[f + 1]); return arr; };
   const L = blur(look), S = blur(shift), D = blur(closing(dist.slice()));
-  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], need(frames[f], L[f], S[f]));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], fitAt(frames[f], L[f], S[f]).D);
   closing(D);
   // the push-in: further back at the start, onto the fit by the end (only ever wider than it)
-  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], Math.min(D[f] * (1 + PUSH * (1 - smooth(f / F_END))), most(L[f])));
-  s.shot = {key, look: L, dist: D, shift: S, pitch: p, fov: cam.fov};
+  for (let f = 0; f <= F_END; f++) D[f] = D[f] * (1 + PUSH * (1 - smooth(f / F_END)));
+  // a second pass on that distance: the push-in keeps the early frames as wide as the widest
+  // later one, so their action sits small and high; each frame's look-at point moves along the
+  // axis to where it needs the least vertical shift (smoothed, and the distance refitted where
+  // that cut someone off), then the shifts are set on the final camera, the vertical one as high
+  // as the bottom rule allows
+  const L2 = blur(frames.map((pts, f) => {
+    let best = L[f], least = Infinity;
+    for (let lx = L[f] - 20; lx <= L[f] + 30; lx += 0.5) {
+      const k = bounds(pts, lx, D[f]);
+      if (k.a > k.b || k.c > k.d) continue;
+      const need = Math.abs(Math.max(k.c, k.top));
+      if (need < least) { least = need; best = lx; }
+    }
+    return best;
+  }));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], fitAt(frames[f], L2[f]).D);
+  closing(D);
+  const S2 = [], SY = [];
+  frames.forEach((pts, f) => {
+    const k = bounds(pts, L2[f], D[f]);
+    S2.push(clamp(0, k.a, k.b));
+    SY.push(Math.max(k.c, k.top));
+  });
+  s.shot = {key, look: L2, dist: D, shift: S2, shiftY: SY, pitch: p, fov: cam.fov};
   return s.shot;
 }
 /** The broadcast camera at clip time t: frames interpolated, so a pure function of t. */
@@ -1559,7 +1582,7 @@ function broadcastAt(s, t) {
   const sh = shotOf(s), f = clamp(t * FPS, 0, F_END), i = Math.min(Math.floor(f), F_END), j = Math.min(i + 1, F_END), a = f - i;
   const lerpF = arr => arr[i] + (arr[j] - arr[i]) * a, lx = lerpF(sh.look), D = lerpF(sh.dist);
   return {look: V(lx, 0, LOOK_Z), eye: V(lx - D * Math.cos(sh.pitch), 0, LOOK_Z + D * Math.sin(sh.pitch)), fov: sh.fov,
-          shift: lerpF(sh.shift)};
+          shift: lerpF(sh.shift), shiftY: lerpF(sh.shiftY)};
 }
 
 /** The hook's wall clock (B4b): clip time against wall time for a broadcast run of a scene,
@@ -1626,9 +1649,10 @@ function placeCamera(p) {
   persp.position.set(0, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
   persp.up.set(0, 1 - e, -e).normalize();
   persp.lookAt(target);
-  // B4b-2: the broadcast frame's lens shift, taken back to zero on the way up (the camera itself
-  // never leaves the axis)
-  persp.setViewOffset(size.w, size.h, -cam.shift * (1 - e) * size.w / 2, 0, size.w, size.h);
+  // B4b-2, B4b-3: the broadcast frame's lens shifts, sideways and up or down, taken back to zero
+  // on the way up (the camera itself never leaves the axis)
+  persp.setViewOffset(size.w, size.h, -cam.shift * (1 - e) * size.w / 2, cam.shiftY * (1 - e) * size.h / 2,
+                     size.w, size.h);
   persp.updateProjectionMatrix();
   persp.updateMatrixWorld();
   active = persp;
