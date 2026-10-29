@@ -308,6 +308,24 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       phase: idle|playing|ended, view: broadcast|rising|plan, positions}`.
       Accept: builds from the CSVs; `rg '[0-9]+\.[0-9]+ ?(%|ft)'` on the template finds nothing
       outside the court geometry; renders with DevTools offline.
+- [ ] B4b The hook, rebuilt to hook (Javier, 2026-10-29, on opening B4's page: "no engancha
+      nada; las fichas deben ser jugadores de baloncesto; vamos a currárnoslo todo lo que
+      podamos"). Amends D8's "players as tokens": in `broadcast` and `rising` the players are
+      rigged 3D basketball players (a CC0 or MIT/CC-BY asset found by a research spike, licence
+      quoted and vendored with it; procedural figures only if no asset qualifies), animated
+      from the tracking: position tracked, stride and blend (idle, jog, run) from speed, facing
+      drawn (attackers along their motion, defenders toward the ball handler), the handler's
+      dribble synced to the ball's measured height. Two teams by jersey (no real team or league
+      branding); roles by a coloured ring on the floor under each player (figure 1's colours)
+      and the two name tags; the ring is what the rise turns into figure 1's token, so `plan`
+      stays exactly B4's (B5's checks hold). An arena: lit court, procedural hardwood, dark
+      surroundings, soft shadows. Cinematography inside the 1.52 s clip: the broadcast camera
+      may move (push-in), slow motion around the help step; the rise unchanged. No measure in
+      perspective still holds; no ring, glow or spotlight encodes a number. Next to the hook,
+      the limit: only where each player stands is tracked; bodies, facing and stride are drawn.
+      Order: research spike (assets) -> storyboard amendment (section 2.2, 2.3, 3) -> a hook
+      prototype Javier judges as a capture (GIF/MP4) BEFORE the rest is polished -> integrate.
+      Accept: Javier says it hooks; B5 passes; page under 8 MB; 60 fps desktop.
 - [ ] B5 `scripts/drive_wind_page.py` [sonnet] (Playwright headless, under a new `page` extra,
       never core): drives the built page from the console: `seek(1.0)` puts the helper within
       0.1 ft of the JSON; `play()` and wait reads `ended` with the last frame drawn; pause then
@@ -727,8 +745,9 @@ full-court floor with the far half's lines only; plan crop on the canvas's botto
 Not verified: the hidden-tab clock (headless cannot hide a tab). 328 tests pass, ruff clean.
 
 ### NEXT SESSION (left 2026-10-29)
-1. B5 (the console driver, Sonnet, written from the storyboard, not from B4's code), then B7:
-   Javier opens `reports/nobody_helps_the_helper.html` on his own machine and judges the hook.
+1. B4b: Javier opened B4's page and rejected the hook ("no engancha nada; las fichas deben ser
+   jugadores de baloncesto"). Research spike for CC0 rigged players running; B5 (console
+   driver) running in parallel on B4's page, whose state machine and plan view B4b keeps.
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
