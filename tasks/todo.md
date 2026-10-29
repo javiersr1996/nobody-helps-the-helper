@@ -603,10 +603,41 @@ text about 17 px, nothing overlaps. 1440 x 2593 px. Figure 2 byte-identical. Mem
 read back from the PDF: 7 of 7, plus the section-12 17 of 17.
 **Javier, looking at it, asked "qué estamos representando en esta nueva figura 1?"**: it does
 not explain itself, the Outsider's point in the 48. Written as pending in memoria 14.
+**Figure 1 made to read on its own, 2026-10-29 (next session).** Decided: simplify, and NO
+fourth council screening (its screenings judge a written description, which cannot test
+whether an image reads by itself; Javier asked for fewer reviews). The test instead: a cold
+read of the PNG by a fresh agent (Sonnet, image only, no project context: what question,
+what happens on the court, what the bars and the strip mean, what it could not decode), on
+the old figure and on the new. Old: guessed the bars' sign, unsure whether the placebo is one
+player or a mean, "absence" and the corner labels undefined, misread where the man left
+starts, purple bars read as the purple defenders. Applied: title is the question ("Does
+anyone else move toward the man the helper left?", figure 2 answers it); players named on the
+court, the six-entry legend gone; only the measure's cast in colour (handler black, his
+defender pale, the other attackers the placebo's grey); arrows instead of hollow/filled
+(a player who ends under 1.5 ft from his start gets no arrow); numbers 1-3 placed behind
+each defender's own motion, off the trails; bars coloured by their target (black toward the
+man left, grey toward the others); a "black − grey" column with each difference and the
+mean, which is the number the strip places; the strip gets a "drives" axis; no corner labels
+(`draw_court(sides=False)`, which also drops the margin they needed); court height computed
+from its aspect. Second cold read: sign, placebo-as-mean and the difference read right, and
+a correct, cautious conclusion ("whether -0.25 differs from 0 is figure 2's"). Its remaining
+doubts fixed after it: "toward" defined (his own movement along the line from his start to
+where the target is then), why the placebo (the whole defence sinks with a drive), the man
+left's trail ends in an arrow (read as a link before), "drives with a helper". Both reads
+said "60-90 s"; a model's timing is not evidence and is not used. A model decodes keys better
+than a hurried reader: necessary, not sufficient. 1440 x 2685 px; figure 2 and the wind map
+byte-identical; every number still from `wind_scenes.json` / `second_help_pairs.csv` behind
+the same guards. Memoria v0.4 (31 pages): section 9 intro (the "nothing inside the court"
+rule now scoped to figure 2 and the wind map), 9.1 caption and text (arrows, colours, the
+difference column with its three values computed in the build), 9.3 a paragraph on this
+pass, 14 pending updated, version row; read back from the PDF by script against the JSON,
+13 of 13 (the first run missed three lists on a "+" the memoria does not print: format, not
+values). 309 tests pass, ruff clean.
 
 ### NEXT SESSION (left 2026-10-29)
-1. Figure 1's legibility: decide whether to simplify (fewer categories on the court, the
-   bars and strip carrying the reading) and/or re-screen with the council; then Javier looks.
+1. Javier looks at the new figure 1 (`reports/figures/wind_figure_1_one_drive.png`, memoria
+   9.1). If it still does not read, the next lever is drawing on the court the line each
+   "toward" is measured along (left out to keep the court lean).
 2. B1 (kernel field into `scbasket.wind`) as planned; the wind map, now `wind_map_league.png`,
    is the page's hook (B3), not a README figure.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences

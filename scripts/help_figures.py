@@ -7,13 +7,14 @@ writes. Everything is drawn in the DRIVE FRAME and in shot-chart orientation: th
 hoop at the bottom, the baseline under it, and the ball handler's lateral motion to the
 RIGHT, so left- and right-hand drives pool and "the corner side" is always bottom right.
 
-  1. **How the absence is measured, on one drive.** The first scene of
+  1. **Does anyone else move toward the man the helper left?** The first scene of
      `reports/wind_scenes.json` (`scripts/wind_scenes.py`, chosen by rule, not by look):
-     the ten players from the start to the headline horizon, the helper's step, the man he
-     left, and the three other defenders, whose own movement is projected toward the man
-     left and toward the placebo. Under the court, those two projections per defender, and
-     where this drive's mean difference sits among all helped drives, so one drive is never
-     sold as typical. The claim itself is figure 2's.
+     the ten players from the start to the headline horizon, named on the court rather than
+     in a key, only the measure's cast in colour (the helper, the man he left, the three
+     other defenders, the ball handler). Under the court, each of the three's movement
+     toward the man left and toward the placebo, their difference and its mean, and where
+     that mean sits among all helped drives, so one drive is never sold as typical. The
+     claim itself is figure 2's.
 
   0. **The wind map** (not one of the README's two since 2026-10-29; the memoria and the
      page keep it). The mean displacement, over the first second of every drive, of the
@@ -32,9 +33,10 @@ RIGHT, so left- and right-hand drives pool and "the corner side" is always botto
      the court, the three other defenders' rotation toward him against the placebo, and the
      share nearest and the open share with its base rate.
 
-Every number printed on either figure is computed here from the CSVs, never typed. Nothing
-is drawn inside the court but the court, the data and the ball's median path: numbers,
-keys and legends live in a strip under it, where no streamline can cross them.
+Every number printed on either figure is computed here from the CSVs, never typed. On the
+wind map and figure 2 nothing is drawn inside the court but the court, the data and the
+ball's median path: numbers, keys and legends live in a strip under it, where no streamline
+can cross them. Figure 1 draws one drive, sparse enough to name its players where they stand.
 
 Needs `reports/help_base_rate.csv` from the same script, the `second_help_*.csv` drives,
 summary, contrast and contrast_sensitivity, which `scripts/second_help.py` writes, and
@@ -68,6 +70,7 @@ INK = "#2b2b2b"
 COURT = "#555555"
 ORANGE = "#f0a33c"
 GREY = "#9a9a9a"
+PALE = "#cfcfcf"
 BLUE = "#0072b2"
 PURPLE = "#cc79a7"
 
@@ -119,8 +122,12 @@ def to_plot(x, y) -> tuple[np.ndarray, np.ndarray]:
     return np.asarray(y, float), np.asarray(x, float) - HOOP_X
 
 
-def draw_court(ax) -> None:
-    """The FIBA half court in plot feet: hoop at (0, 0), baseline below, half court on top."""
+def draw_court(ax, sides: bool = True) -> None:
+    """The FIBA half court in plot feet: hoop at (0, 0), baseline below, half court on top.
+
+    `sides` names the two corners under the baseline, which matters when drives are pooled
+    and not when one drive is drawn.
+    """
     baseline = -(FIBA.half_length_ft + HOOP_X)
     top = -HOOP_X
     half = FIBA.half_width_ft
@@ -143,13 +150,14 @@ def draw_court(ax) -> None:
     bb = baseline + BACKBOARD_FROM_BASELINE_FT
     ax.plot([-BACKBOARD_HALF_WIDTH_FT, BACKBOARD_HALF_WIDTH_FT], [bb, bb], color=COURT,
             linewidth=1.8)
-    ax.text(half - 0.6, baseline - 0.8, "corner side of the drive", fontsize=7.5, color=COURT,
-            ha="right", va="top", style="italic")
-    ax.text(-half + 0.6, baseline - 0.8, "far corner", fontsize=7.5, color=COURT, ha="left",
-            va="top", style="italic")
+    if sides:
+        ax.text(half - 0.6, baseline - 0.8, "corner side of the drive", fontsize=7.5,
+                color=COURT, ha="right", va="top", style="italic")
+        ax.text(-half + 0.6, baseline - 0.8, "far corner", fontsize=7.5, color=COURT,
+                ha="left", va="top", style="italic")
     ax.set_aspect("equal")
     ax.set_xlim(-half - 1.5, half + 1.5)
-    ax.set_ylim(baseline - 3.0, top + 1.0)
+    ax.set_ylim(baseline - (3.0 if sides else 0.5), top + 1.0)
     ax.axis("off")
 
 
@@ -208,16 +216,23 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
                          "drives at the headline horizon: rerun second_help.py, wind_scenes.py")
     seconds = t / scenes["fps"]
     window = (scenes["n_frames"] - 1) / scenes["fps"]
-    left_in = {roles["left"]}
-    placebo_men = [a for a in roles["off_ball"] if a not in left_in]
-    #: Who is drawn how: slot -> colour, line width, marker, size, edge.
-    style = {roles["handler"]: (INK, 2.2, "o", 70, INK),
-             roles["left"]: (INK, 1.2, "D", 80, INK),
-             roles["handler_def"]: (BLUE, 1.6, "s", 55, BLUE),
-             roles["helper"]: (ORANGE, 3.0, "o", 80, ORANGE),
-             **{s: (PURPLE, 1.6, "^", 70, PURPLE) for s in others},
-             **{s: (GREY, 1.0, "o", 45, GREY) for s in placebo_men}}
-    fmt = lambda v, d=1: f"{v:+.{d}f}".replace("-", "−")  # noqa: E731
+    clear = scene["clearance_ft"][f"{seconds:.1f}s"]
+    placebo_men = [a for a in roles["off_ball"] if a != roles["left"]]
+    #: Who is drawn how: slot -> colour, line width. Only the measure's cast is coloured; the
+    #: other attackers are the placebo's grey, the ball handler's defender paler still.
+    style = {roles["handler_def"]: (PALE, 1.2),
+             **{s: (GREY, 1.2) for s in placebo_men},
+             roles["handler"]: (INK, 2.2),
+             roles["left"]: (INK, 1.6),
+             **{s: (PURPLE, 1.8) for s in others},
+             roles["helper"]: (ORANGE, 3.0)}
+    on_court = {"fontsize": TEXT_PT, "zorder": 7,
+                "bbox": {"boxstyle": "round,pad=0.15", "facecolor": "white", "edgecolor": "none",
+                         "alpha": 0.85}}
+
+    def fmt(v: float, d: int = 1) -> str:
+        return f"{0:.{d}f}" if round(v, d) == 0 else f"{v:+.{d}f}".replace("-", "−")
+
     nb = " "  # a number and its unit never split across lines
 
     def build(height: float, out: Path | None) -> float:
@@ -236,55 +251,70 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
             return [left / FIG2_WIDTH_IN, 1 - (top + tall) / height, width / FIG2_WIDTH_IN,
                     tall / height]
 
-        put("How the absence is measured, on one drive", gap=0.06, weight="bold")
-        put("One drive, chosen by rule, to show the measure, not the result. Each other "
-            "defender's own movement is projected toward the man the helper left, and toward "
-            "the other attackers off the ball as a placebo; the measure is the difference.",
-            gap=0.1)
+        put("Does anyone else move toward the man the helper left?", gap=0.06, weight="bold")
+        put(f"One drive, chosen by rule, to show the measure. The helper steps toward the ball "
+            f"handler; {seconds:.1f}{nb}s later the man he was guarding is {clear:.1f}{nb}ft "
+            f"from the nearest defender. For each of the three other defenders: how far he "
+            f"moves toward that man, against how far toward the other attackers off the "
+            f"ball.", gap=0.1)
         ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
-        draw_court(ax)
+        draw_court(ax, sides=False)
         # One drive fills the court near the hoop only: crop above it so the drive is drawn
         # larger, never closer than 2 ft above the highest point of any trail.
         reach = float(to_plot(xy[..., 0], xy[..., 1])[1].max()) + 2.0
         ax.set_ylim(ax.get_ylim()[0], max(FIG1_TOP_FT, reach))
-        for slot, (colour, width, marker, size, edge) in style.items():
+        # Equal aspect: the court's own height at this width, so no blank band is left.
+        (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
+        court_h = (FIG2_WIDTH_IN - 0.2) * (y1 - y0) / (x1 - x0)
+        ax.set_position(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, court_h))
+        for slot, (colour, width) in style.items():
             px, py = to_plot(xy[:, slot, 0], xy[:, slot, 1])
             ax.plot(px, py, color=colour, linewidth=width, solid_capstyle="round", zorder=3)
-            ax.scatter(px[:1], py[:1], s=size, marker=marker, facecolor="white", edgecolor=edge,
-                       linewidth=1.4, zorder=4)
-            ax.scatter(px[-1:], py[-1:], s=size, marker=marker, facecolor=colour, edgecolor=edge,
-                       linewidth=1.0, zorder=5)
-        for n, slot in enumerate(others, start=1):
-            px, py = to_plot(xy[-1, slot, 0], xy[-1, slot, 1])
-            ax.text(px + 1.1, py + 0.6, str(n), fontsize=TEXT_PT, color=PURPLE,
-                    weight="bold", zorder=6)
-        used[0] += COURT_IN + 0.1
+            ax.scatter(px[:1], py[:1], s=28, facecolor="white", edgecolor=colour, linewidth=1.4,
+                       zorder=4)
+            if np.hypot(px[-1] - px[0], py[-1] - py[0]) < 1.5:  # stayed: the hollow says it
+                continue
+            # The arrow's direction from the last foot of the trail, not the last frame's jitter.
+            back = np.hypot(px - px[-1], py - py[-1])
+            tail = int(np.nonzero(back >= 1.0)[0][-1]) if (back >= 1.0).any() else 0
+            ax.annotate("", xy=(px[-1], py[-1]), xytext=(px[tail], py[tail]), zorder=5,
+                        arrowprops={"arrowstyle": "-|>", "color": colour, "linewidth": width,
+                                    "mutation_scale": 14, "shrinkA": 0, "shrinkB": 0})
+        # Named where they stand, not in a key: labels sit by each start, away from the
+        # collapse into the paint where the trails end.
+        start = {slot: to_plot(*xy[0, slot]) for slot in style}
+        end = {slot: to_plot(*xy[-1, slot]) for slot in style}
+        hx, hy = start[roles["handler"]]
+        ax.text(hx, hy + 1.2, "ball handler", color=INK, ha="center", va="bottom", **on_court)
+        hx, hy = start[roles["helper"]]
+        ax.text(hx - 1.0, hy - 2.0, "helper", color=ORANGE, weight="bold", ha="center",
+                va="top", **on_court)
+        lx, ly = end[roles["left"]]
+        ax.text(lx, ly + 1.2, "the man\nhe left", color=INK, weight="bold", ha="center",
+                va="bottom", linespacing=1.1, **on_court)
+        for n, slot in enumerate(others, start=1):  # behind where he moves, off his trail
+            (ox, oy), (ex, ey) = start[slot], end[slot]
+            back = np.hypot(ox - ex, oy - ey)
+            ax.text(ox + 1.6 * (ox - ex) / back, oy + 1.6 * (oy - ey) / back, str(n),
+                    color=PURPLE, weight="bold", ha="center", va="center", **on_court)
+        used[0] += court_h + 0.15
 
-        key = fig.legend(
-            handles=[Line2D([], [], marker=m, color=c, markersize=8, linewidth=w, label=name)
-                     for name, (c, w, m) in (
-                         ("the ball handler", (INK, 2.2, "o")),
-                         ("the man the helper left", (INK, 1.2, "D")),
-                         ("the helper", (ORANGE, 3.0, "o")),
-                         ("the ball handler's defender", (BLUE, 1.6, "s")),
-                         ("the three other defenders", (PURPLE, 1.6, "^")),
-                         ("the other attackers off the ball", (GREY, 1.0, "o")))],
-            title=f"From the start (hollow) to {seconds:.1f} s (filled)", ncol=2,
-            loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
-                                              1 - used[0] / height),
-            frameon=False, fontsize=TEXT_PT - 1, title_fontsize=TEXT_PT, handletextpad=0.4,
-            columnspacing=1.2, labelspacing=0.45, borderaxespad=0)
-        key._legend_box.align = "left"
-        used[0] += 4 * TEXT_PT * LINE_SPACING / 72 + 0.2
+        put(f"Hollow: where each player starts; arrows: where he is {seconds:.1f}{nb}s later. "
+            f"Purple, 1 to 3: the three other defenders. Grey: the other attackers off the "
+            f"ball; pale: the ball handler's defender.", gap=0.2)
 
-        put(f"At {seconds:.1f}{nb}s, in feet: each other defender's movement toward the man "
-            f"left, and toward the placebo (the other attackers off the ball, not his own man).",
+        put(f"Feet each of the three moves in {seconds:.1f}{nb}s toward a target: his own "
+            f"movement along the line from his start to where the target is then (negative: "
+            f"away). The whole defence sinks with a drive, so the test is the difference "
+            f"against the other attackers off the ball, his own man excepted (the placebo).",
             gap=0.05)
         chart_h = 1.25
-        chart = fig.add_axes(frac(0.75, used[0] + 0.1, 4.2, chart_h))
+        chart = fig.add_axes(frac(0.75, used[0] + 0.6, 4.2, chart_h))
         rows = np.arange(len(others))
-        chart.barh(rows - 0.18, to_left, height=0.34, color=PURPLE, label="toward the man left")
-        chart.barh(rows + 0.18, placebo, height=0.34, color=GREY, label="toward the placebo")
+        chart.barh(rows - 0.18, to_left, height=0.34, color=INK,
+                   label="toward the man he left")
+        chart.barh(rows + 0.18, placebo, height=0.34, color=GREY,
+                   label="toward the other attackers, on average")
         chart.axvline(0, color=COURT, linewidth=1.0)
         span = max(abs(to_left).max(), abs(placebo).max())
         chart.set_xlim(-span - 2.5, span + 2.5)
@@ -293,18 +323,28 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
                 chart.text(value + (0.3 if value >= 0 else -0.3), row + shift, fmt(value),
                            fontsize=TEXT_PT - 1, va="center",
                            ha="left" if value >= 0 else "right")
+            # The difference per defender, then their mean: the number the strip places.
+            chart.text(1.22, row, fmt(a - b), transform=chart.get_yaxis_transform(),
+                       fontsize=TEXT_PT, va="center", ha="right")
+        chart.text(1.22, -0.6, "black − grey", transform=chart.get_yaxis_transform(),
+                   fontsize=TEXT_PT - 1, va="bottom", ha="right", color=COURT)
+        chart.text(1.22, len(others) - 0.15, f"mean {fmt(mean_diff, 2)}",
+                   transform=chart.get_yaxis_transform(), fontsize=TEXT_PT, va="top",
+                   ha="right", color=PURPLE, weight="bold")
         chart.set_yticks(rows, [str(n) for n in range(1, len(others) + 1)])
         chart.set_ylim(len(others) - 0.5, -0.5)
         chart.tick_params(labelsize=TEXT_PT, length=3)
+        chart.tick_params(axis="y", colors=PURPLE)
         chart.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
         for spine in ("top", "right"):
             chart.spines[spine].set_visible(False)
-        chart.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False,
-                     fontsize=TEXT_PT - 1, handlelength=1.2)
-        used[0] += 0.1 + chart_h + 0.55
+        chart.legend(loc="lower left", bbox_to_anchor=(0.0, 1.04), frameon=False,
+                     fontsize=TEXT_PT - 1, handlelength=1.2, borderaxespad=0)
+        used[0] += 0.6 + chart_h + 0.55
 
-        put(f"Toward him minus the placebo, mean of the three, in all {len(per_drive)} helped "
-            f"drives at {seconds:.1f}{nb}s:", gap=0.05)
+        put(f"That mean, for each of the {len(per_drive)} drives with a helper. Left of 0, "
+            f"the three moved less toward the man he left than toward the other attackers.",
+            gap=0.05)
         strip_h = 1.1
         strip = fig.add_axes(frac(0.75, used[0] + 0.45, FIG2_WIDTH_IN - 1.2, strip_h))
         edges = np.arange(np.floor(per_drive.min()), np.ceil(per_drive.max()) + 0.5, 0.5)
@@ -319,10 +359,10 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
         strip.text(per_drive.median() + 0.25, top * 1.04,
                    f"median {fmt(per_drive.median(), 2)}", color=INK, fontsize=TEXT_PT - 1,
                    ha="left", va="bottom")
-        strip.set_yticks([])
         strip.tick_params(labelsize=TEXT_PT, length=3)
         strip.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
-        for spine in ("top", "right", "left"):
+        strip.set_ylabel("drives", fontsize=TEXT_PT, labelpad=4)
+        for spine in ("top", "right"):
             strip.spines[spine].set_visible(False)
         used[0] += 0.45 + strip_h + 0.55
 
