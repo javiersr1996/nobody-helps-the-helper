@@ -13,8 +13,10 @@ check passes and 1 otherwise.
 
 Out of scope, said once: headless Chromium cannot hide a tab, so the hidden-tab clock rule of
 the storyboard (section 2.6, "a hidden tab stops the clock, not the clip") is not exercised.
-WebGL needs `--use-angle=swiftshader --enable-unsafe-swiftshader` headless; if it is not live
-the driver fails loudly before anything else.
+The browser runs on the machine's GPU (B4b-2: ANGLE on D3D11; the WebGL row prints the
+renderer). If WebGL is not live the driver fails loudly before anything else; if the renderer
+is a software one (SwiftShader), every row that times something fails as "software renderer:
+timing not measurable" rather than passing on a clock that measures the CPU.
 """
 
 from __future__ import annotations
@@ -34,7 +36,8 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
 DEFAULT_PAGE = REPORTS / "nobody_helps_the_helper.html"
-CHROMIUM_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+CHROMIUM_ARGS = ["--use-angle=d3d11", "--enable-gpu", "--ignore-gpu-blocklist"]
+SOFTWARE = "software renderer: timing not measurable"
 END_WORD = {
     "pullup": "pull-up",
     "kickout": "kickout",
@@ -45,6 +48,13 @@ SUB_BROADCAST = "One defender steps toward the ball. Watch the man he leaves."
 SUB_PLAN = "From above, the measure: how far each of the other three moves toward him."
 BODY_MIN_PX = 16
 SCENES_N = 4
+# The storyboard's numbers the checks are written from (tasks/wind_page.md): a body's height and
+# a token's top (2.2, the tags' anchors), the broadcast clock's profile (5.3), the start-up and
+# frame-time targets (2.6).
+HEAD_FT, TOKEN_TOP_FT, BALL_R_FT, RIM_FT = 6.5, 1.5, 0.39, 10.0
+SLOW, SLOW_W = 0.3, 0.26
+FIRST_FRAME_S, PLAYING_S, FRAME_MEDIAN_MS, FRAME_P95_MS = 1.0, 1.5, 17.0, 20.0
+TIMED = {"on": True}  # set False when the renderer is software: timing rows then fail
 
 # In-page helpers, installed before the page's own script runs. `__ui()` reads the buttons and
 # captions, `__vis(el)` is "really visible" (not hidden, not display none, has a box), and a
@@ -72,6 +82,7 @@ INIT_JS = """
   };
   window.__log = [];
   window.__rise = [];
+  window.__clock = [];
   let last = '';
   setInterval(() => {
     const w = window.wind, m = document.getElementById('measure');
@@ -84,6 +95,43 @@ INIT_JS = """
     }
     if (s.view === 'rising') window.__rise.push(JSON.stringify(s.positions));
   }, 10);
+  // B4b-2: the clip time against the wall clock, once per animation frame while a broadcast run
+  // plays; the first draw on the stage's WebGL canvas and the animation frame after it (painted);
+  // the frame times while playing
+  window.__frames = [];
+  // the frame's timestamp is taken in an animation frame and the state read in a task posted
+  // from it, so after the page's own tick of that frame: t and the timestamp are the same frame's
+  const after = new MessageChannel();
+  let stamp = 0;
+  after.port1.onmessage = () => {
+    const w = window.wind;
+    if (!w || !w.state) return;
+    const s = w.state();
+    const c = window.__clock, done = c.length && c[c.length - 1][1] >= w.T;
+    if (s.view === 'broadcast' && (s.phase === 'playing' || (s.phase === 'ended' && !done))) c.push([stamp, s.t]);
+    if (s.phase === 'playing') window.__frames.push(stamp);
+    if (window.__playing === undefined && s.phase === 'playing') window.__playing = performance.now();
+  };
+  const sample = (now) => {
+    stamp = now;
+    after.port2.postMessage(0);
+    requestAnimationFrame(sample);
+  };
+  requestAnimationFrame(sample);
+  for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
+    if (!C) continue;
+    for (const n of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
+      const f = C.prototype[n];
+      if (!f) continue;
+      C.prototype[n] = function (...a) {
+        if (window.__firstDraw === undefined && this.canvas && this.canvas.id === 'court') {
+          window.__firstDraw = performance.now();
+          requestAnimationFrame(() => { window.__firstPaint = performance.now(); });
+        }
+        return f.apply(this, a);
+      };
+    }
+  }
 })();
 """
 
@@ -211,6 +259,38 @@ class Data:
         who = "third" if best[0].startswith("third") else best[0]
         return who, float(np.hypot(*(pts[best[1]] - left)))
 
+    def clock(self, scene: int, rate: float) -> tuple[float, float]:
+        """The broadcast run's profile (storyboard 5.3) from the JSON and the written rule: the
+        centre c (the first frame at which the helper has covered half his path to frame 25)
+        and `out`, the rate outside the slow window that makes the run last T / rate."""
+        h = self.scenes[scene]["roles"]["helper"]
+        fn = self.js["horizon_frames"]
+        steps = np.hypot(*np.diff(self.xy_series(scene, h)[: fn + 1], axis=0).T)
+        cum = np.concatenate([[0.0], np.cumsum(steps)])
+        c = int(np.argmax(cum >= cum[fn] / 2)) / self.fps
+        lo, hi = rate, 4 * rate
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if self.wall(0, self.T, c, mid) > self.T / rate else (lo, mid)
+        return c, (lo + hi) / 2
+
+    @property
+    def T(self) -> float:
+        return self.headline / self.fps
+
+    @staticmethod
+    def rate_at(t: float, c: float, out: float) -> float:
+        u = (t - c) / SLOW_W
+        return out - (out - SLOW) * math.cos(math.pi * u / 2) ** 2 if abs(u) < 1 else out
+
+    def wall(self, a: float, b: float, c: float, out: float, n: int = 2000) -> float:
+        """Wall seconds the profile takes to play clip seconds a to b."""
+        ts = a + (np.arange(n) + 0.5) / n * (b - a)
+        return float(np.sum((b - a) / n / np.array([self.rate_at(t, c, out) for t in ts])))
+
+    def xy_series(self, scene: int, slot: int) -> np.ndarray:
+        return np.array([f[slot] for f in self.scenes[scene]["xy"]], dtype=float)
+
     def drive_means(self, horizon: int = 38) -> pd.Series:
         """Per-drive mean of (to_left - placebo), helped drives, NaN placebo dropped (4.1)."""
         p = self.pairs[(self.pairs.horizon == horizon) & self.pairs.helped].dropna(
@@ -317,7 +397,7 @@ def expect_ui(D: Data, st: dict, u: dict) -> list[str]:
         eq(f"{k} enabled", u[k]["disabled"], False)
     eq("scrub enabled", u["scrub"]["disabled"], False)
     tail = (
-        "the broadcast camera, half speed"
+        "the broadcast camera, slow motion (half speed on average)"
         if st["view"] == "broadcast"
         else "from above: the measure"
     )
@@ -401,6 +481,93 @@ def webgl_alive(pg) -> bool:
     return bool(ok and page_gl)
 
 
+def check_clock(D: Data, clock: list, rate: float) -> None:
+    """The natural run's clip time against the wall clock follows the written profile (5.3):
+    slow around the help step, `out` well away from it, T reached T / RATE after the clock
+    starts (its last sample at t = 0; each sample is a frame's timestamp with the t the page
+    drew in that frame). The expected rates come from the JSON and the rule, never from the
+    page."""
+    if not TIMED["on"]:
+        R.check("broadcast clock follows the written slow-motion profile", False, SOFTWARE)
+        return
+    c, out = D.clock(0, rate)
+    w = np.array([s[0] for s in clock]) / 1000
+    t = np.array([s[1] for s in clock])
+    if len(t) < 30 or t[-1] < D.T - 1e-6:
+        R.check("broadcast clock: the natural run was sampled to its end", False, f"{len(t)} samples")
+        return
+
+    def observed(a: float, b: float) -> float:
+        """Clip seconds per wall second between the first samples at or past clip times a and b."""
+        i, j = int(np.argmax(t >= a)), int(np.argmax(t >= b))
+        return float((t[j] - t[i]) / (w[j] - w[i]))
+
+    def expected(a: float, b: float) -> float:
+        return (b - a) / D.wall(a, b, c, out)
+
+    slow = (c - 0.1, c + 0.1)
+    fast = (c + SLOW_W + 0.05, D.T - 0.05)
+    got_slow, want_slow = observed(*slow), expected(*slow)
+    got_fast = observed(*fast)
+    took = float(w[int(np.argmax(t >= D.T - 1e-9))] - w[np.flatnonzero(t == 0)[-1]])
+    R.check(
+        "broadcast clock follows the written slow-motion profile: slow around the help step,"
+        " out elsewhere, T reached at T / RATE (expected rates from the JSON, not the page)",
+        abs(got_slow - want_slow) <= 0.03
+        and abs(got_fast - out) <= 0.03
+        and got_slow < got_fast
+        and abs(took - D.T / rate) <= 0.1,
+        f"centre {c:.2f} s: {got_slow:.3f} vs {want_slow:.3f} over {slow[0]:.2f}..{slow[1]:.2f} s;"
+        f" {got_fast:.3f} vs out {out:.3f} over {fast[0]:.2f}..{fast[1]:.2f} s;"
+        f" T after {took:.3f} s vs {D.T / rate:.2f}",
+    )
+
+
+@guarded
+def check_startup(D: Data, p, target: str) -> None:
+    """Start-up and frame time (2.6), each in a fresh browser so nothing is compiled or cached
+    yet: the first draw on the stage canvas and the animation frame after it (painted), the
+    first `playing`, and the frame times while the hook plays at 1440 px. Three cold loads."""
+    if not TIMED["on"]:
+        for name in ("start-up: first stage frame painted", "start-up: playing", "frame time while playing"):
+            R.check(name, False, SOFTWARE)
+        return
+    runs = []
+    for _ in range(3):
+        browser = p.chromium.launch(args=CHROMIUM_ARGS)
+        ctx, pg, _ = open_page(browser, target)
+        pg.wait_for_function("wind.state().phase === 'ended' || wind.state().view !== 'broadcast'", timeout=15000)
+        runs.append(
+            pg.evaluate(
+                """() => { const f = window.__frames, d = [];
+                   for (let i = 1; i < f.length; i++) d.push(f[i] - f[i - 1]);
+                   d.sort((a, b) => a - b);
+                   return {paint: window.__firstPaint, draw: window.__firstDraw, playing: window.__playing,
+                           median: d[d.length >> 1], p95: d[Math.floor(d.length * 0.95)], max: d[d.length - 1],
+                           n: d.length}; }"""
+            )
+        )
+        ctx.close()
+        browser.close()
+    paints = [r["paint"] / 1000 for r in runs]
+    plays = [r["playing"] / 1000 for r in runs]
+    R.check(
+        f"start-up: first stage frame painted within {FIRST_FRAME_S} s of navigation, three cold loads",
+        all(x <= FIRST_FRAME_S for x in paints),
+        ", ".join(f"{x:.2f}" for x in paints) + " s",
+    )
+    R.check(
+        f"start-up: playing within {PLAYING_S} s of navigation, three cold loads",
+        all(x <= PLAYING_S for x in plays),
+        ", ".join(f"{x:.2f}" for x in plays) + " s",
+    )
+    R.check(
+        f"frame time while playing at 1440 px: median <= {FRAME_MEDIAN_MS} ms, p95 <= {FRAME_P95_MS} ms",
+        all(r["median"] <= FRAME_MEDIAN_MS and r["p95"] <= FRAME_P95_MS and r["n"] > 100 for r in runs),
+        "; ".join(f"{r['median']:.1f}/{r['p95']:.1f} ms (longest {r['max']:.0f}) over {r['n']} frames" for r in runs),
+    )
+
+
 @guarded
 def check_hook(D: Data, browser, target: str) -> None:
     """Natural run from load: opens in broadcast, ends, holds, rises, lands in plan, no click."""
@@ -420,23 +587,33 @@ def check_hook(D: Data, browser, target: str) -> None:
         and 0 < c["FADE"] <= 0.5,
         json.dumps(c),
     )
-    first = pg.evaluate("window.__log[0]")
+    log0 = pg.evaluate("window.__log")
+    # B4b-2 (5.2): idle at t = 0 until the stage's first frame, then playing
+    first = next((e for e in log0 if e["s"]["phase"] == "playing"), None)
+    boot = log0[: log0.index(first)] if first is not None else log0
     R.check(
-        "opens in scene 0, broadcast, playing",
-        first
+        "opens in scene 0, broadcast: idle at t = 0 until its first frame, then playing",
+        first is not None
         and first["s"]["scene"] == 0
         and first["s"]["view"] == "broadcast"
-        and first["s"]["phase"] == "playing",
-        f"{first['s']['view']}/{first['s']['phase']} t={first['s']['t']:.3f}"
+        and all(
+            e["s"]["view"] == "broadcast" and e["s"]["phase"] == "idle" and e["s"]["t"] == 0
+            for e in boot
+        ),
+        f"{len(boot)} state(s) before playing; then {first['s']['view']}/{first['s']['phase']}"
+        f" t={first['s']['t']:.3f}"
         if first
-        else "no log",
+        else "never playing",
     )
-    R.check("measure hidden at load", bool(first and first["mh"] and not first["mv"]))
+    R.check(
+        "measure hidden at load",
+        bool(log0) and all(e["mh"] and not e["mv"] for e in boot + ([first] if first else [])),
+    )
     total = c["T"] / c["RATE"] + c["HOLD"] + c["FLIGHT"] + c["FADE"]
     wait_view(pg, "plan", total + 4)
     pg.wait_for_timeout(int((c["FADE"] + 0.4) * 1000))
     log = pg.evaluate("window.__log")
-    t0 = first["ts"] - first["s"]["t"] / c["RATE"]
+    clock = pg.evaluate("window.__clock")
 
     def when(pred):
         return next((e["ts"] for e in log if pred(e["s"])), None)
@@ -446,6 +623,8 @@ def check_hook(D: Data, browser, target: str) -> None:
     t_plan = when(lambda s: s["view"] == "plan")
     seq = []
     for e in log:
+        if e["s"]["phase"] == "idle" and not seq:
+            continue  # the boot, checked above
         k = (e["s"]["view"], e["s"]["phase"] if e["s"]["view"] != "rising" else "-")
         if not seq or seq[-1] != k:
             seq.append(k)
@@ -456,7 +635,11 @@ def check_hook(D: Data, browser, target: str) -> None:
         and seq[1][1] == "ended",
         " > ".join(f"{a}/{b}" for a, b in seq),
     )
-    if t_end and t_rise and t_plan:
+    # the run starts at its first `playing` (the first drawn frame)
+    t0 = first["ts"] if first else None
+    if not TIMED["on"]:
+        R.check("timeline: end at T/RATE, rise after HOLD_S, plan after FLIGHT_S", False, SOFTWARE)
+    elif t0 and t_end and t_rise and t_plan:
         R.check(
             "timeline: end at T/RATE, rise after HOLD_S, plan after FLIGHT_S (observed from the page)",
             abs((t_end - t0) / 1000 - c["T"] / c["RATE"]) < 0.5
@@ -465,6 +648,9 @@ def check_hook(D: Data, browser, target: str) -> None:
             f"end {(t_end - t0) / 1000:.2f}s, hold {(t_rise - t_end) / 1000:.2f}s, "
             f"flight {(t_plan - t_rise) / 1000:.2f}s",
         )
+    else:
+        R.check("timeline: the natural run's end, rise and landing were observed", False)
+    check_clock(D, clock, c["RATE"])
     ended = next(
         (e for e in log if e["s"]["view"] == "broadcast" and e["s"]["phase"] == "ended"), None
     )
@@ -591,18 +777,23 @@ def check_transport(D: Data, browser, target: str) -> None:
         abs(t3["t"] - t1["t"]) < 0.05 and t3["phase"] == "playing",
         f"{t1['t']:.4f} -> {t3['t']:.4f}",
     )
+    R.check("play() while playing is a no-op returning false", pg.evaluate("wind.play()") is False)
+    pg.evaluate("wind.pause()")
+    # B4b-2: one speed only in plan (the broadcast run's profile is check_clock's)
+    go_plan(pg)
+    pg.evaluate("wind.seek(0.2); wind.play()")
     pg.evaluate("window.__a = [performance.now(), wind.state().t]")
     pg.wait_for_timeout(600)
     rate = pg.evaluate(
         "(performance.now() - __a[0]) > 0 ? (wind.state().t - __a[1]) / ((performance.now() - __a[0]) / 1000) : 0"
     )
     R.check(
-        "playback advances at RATE clip-seconds per second",
-        abs(rate - c["RATE"]) < 0.08,
-        f"{rate:.3f} vs RATE {c['RATE']}",
+        "plan: playback advances at RATE clip-seconds per second",
+        TIMED["on"] and abs(rate - c["RATE"]) < 0.08,
+        f"{rate:.3f} vs RATE {c['RATE']}" if TIMED["on"] else SOFTWARE,
     )
-    R.check("play() while playing is a no-op returning false", pg.evaluate("wind.play()") is False)
     pg.evaluate("wind.pause()")
+    go_broadcast(pg)
 
     # Pause during the hold cancels the rise; seek during the hold does too.
     for how, call in (("pause", "wind.pause()"), ("seek", "wind.seek(0.5)")):
@@ -966,20 +1157,26 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         pg.evaluate("wind.pause()")
         cam = pg.evaluate("wind.camera()")
         W, H = cam["width"], cam["height"]
-        worst = (1e9, 0, 0)
+        worst = 1e9
         outside = 0
+        hoop_ok = True
+        r = D.scenes[i]["roles"]
+        story = [r["handler"], r["helper"], r["left"], *r["others"]]
         for f in range(D.headline + 1):
-            pts = [[float(x), float(y), 0.0] for x, y in D.xy(i, f)] + [
-                list(map(float, D.ball(i, f)))
-            ]
-            for p in pts:
-                px, py = pg.evaluate(PROJ_JS, p)
+            # B4b-2 (2.3): the six story players' feet and heads, the ball, the hoop's base and
+            # rim; the other four may leave the frame. The camera moves with t: seek each frame.
+            pg.evaluate(f"wind.seek({f} / {D.fps})")
+            xy = D.xy(i, f)
+            pts = [[float(xy[k][0]), float(xy[k][1]), z] for k in story for z in (0.0, HEAD_FT)]
+            b = D.ball(i, f)
+            pts += [[float(b[0]), float(b[1]), max(float(b[2]), 0.0)], [D.hoop_x, 0.0, 0.0], [D.hoop_x, 0.0, RIM_FT]]
+            for px, py in pg.evaluate(f"(ps) => ps.map(p => ({PROJ_JS})(p))", pts):
                 if not (0 <= px <= W and 0 <= py <= H):
                     outside += 1
-                worst = (min(worst[0], px, W - px, py, H - py), worst[1], worst[2])
-        hx, hy = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
-        hoop_ok = hy >= 0.6 * H and abs(hx - W / 2) <= 0.15 * W
-        out.append((i, outside, round(worst[0], 1), hoop_ok))
+                worst = min(worst, px, W - px, py, H - py)
+            hx, hy = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
+            hoop_ok = hoop_ok and hy >= 0.6 * H and abs(hx - W / 2) <= 0.15 * W
+        out.append((i, outside, round(worst, 1), hoop_ok))
         go_plan(pg)
         px, py = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
         out.append(
@@ -990,11 +1187,91 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
             )
         )
     R.check(
-        f"framing at {width}px: every token and the ball inside the canvas on frames 0..38 of all scenes in broadcast; "
-        "hoop in the bottom 40 % and within 15 % of centre in broadcast and plan",
+        f"framing at {width}px: the six story players (feet and heads), the ball and the hoop (base and rim) inside the"
+        " canvas on frames 0..38 of all scenes in broadcast; hoop in the bottom 40 % and within 15 % of centre in"
+        " broadcast and plan",
         all(o[1] == 0 and o[3] for o in out if len(o) == 4)
         and all(o[2] for o in out if len(o) == 3),
         str(out),
+    )
+    ctx.close()
+
+
+TAGS_JS = """
+([plan, headZ, ball, ballZ, rBall, pts]) => {
+  const cam = wind.camera(), W = cam.world, P = cam.projection, V = cam.view;
+  const mul = (m, v) => [0,1,2,3].map(r => m[r]*v[0] + m[4+r]*v[1] + m[8+r]*v[2] + m[12+r]*v[3]);
+  const prj = ([x, y, z]) => { const q = mul(P, mul(V, mul(W, [x, y, z, 1])));
+    return [(q[0]/q[3]*0.5 + 0.5) * cam.width, (1 - (q[1]/q[3]*0.5 + 0.5)) * cam.height]; };
+  const box = document.getElementById('stage').getBoundingClientRect();
+  const lines = [...document.querySelectorAll('#tags line[data-tag]')];
+  const tags = [...document.querySelectorAll('#tags .tag')].map(e => {
+    const b = e.getBoundingClientRect(), text = e.textContent.trim();
+    const line = lines.find(l => l.dataset.tag === text);
+    return {text, x: b.left - box.left, y: b.top - box.top, w: b.width, h: b.height,
+            anchor: line ? [line.x2.baseVal.value, line.y2.baseVal.value] : null};
+  });
+  const bc = prj([ball[0], ball[1], ballZ]), be = prj([ball[0], ball[1] + rBall, ballZ]);
+  return {tags, heads: pts.map(p => prj([p[0], p[1], headZ])),
+          ball: [bc[0], bc[1], Math.hypot(be[0] - bc[0], be[1] - bc[1])]};
+}
+"""
+
+
+@guarded
+def check_tags(D: Data, browser, target: str, width: int) -> None:
+    """The tag rule (2.2): on every frame 0..38 of every scene, in broadcast and in plan, each
+    tag's anchor (its leader's second end) is nearer to its own player's head than to any other
+    player's, the heads projected here through camera() from the JSON; no two tag boxes overlap;
+    no tag box covers the ball. Would fail on B4b's tags (no leader, a box beside a defender)."""
+    ctx, pg, _ = open_page(browser, target, width=width, height=900 if width > 600 else 844)
+    wrong, overlaps, on_ball, missing, worst = [], 0, 0, 0, 1e9
+    frames = 0
+    for view in ("broadcast", "plan"):
+        for i in range(SCENES_N):
+            (go_broadcast if view == "broadcast" else go_plan)(pg)
+            while state(pg)["scene"] != i:
+                pg.evaluate("wind.next()")
+            pg.evaluate("wind.pause()")
+            sc = D.scenes[i]
+            r = sc["roles"]
+            owner = {"ball handler": r["handler"], "helper": r["helper"], "the man he left": r["left"]}
+            owner.update({str(k + 1): s for k, s in enumerate(r["others"])})
+            for f in range(D.headline + 1):
+                pg.evaluate(f"wind.seek({f} / {D.fps})")
+                b = D.ball(i, f)
+                plan = view == "plan"
+                got = pg.evaluate(
+                    TAGS_JS,
+                    [plan, TOKEN_TOP_FT if plan else HEAD_FT, [float(b[0]), float(b[1])],
+                     0.0 if plan else max(float(b[2]), BALL_R_FT), BALL_R_FT, D.xy(i, f).tolist()],
+                )
+                frames += 1
+                tags, heads, ball = got["tags"], got["heads"], got["ball"]
+                if len(tags) != 6 or any(t["anchor"] is None or t["text"] not in owner for t in tags):
+                    missing += 1
+                    continue
+                for t in tags:
+                    d = [math.hypot(t["anchor"][0] - hx, t["anchor"][1] - hy) for hx, hy in heads]
+                    own = owner[t["text"]]
+                    other = min(v for k, v in enumerate(d) if k != own)
+                    worst = min(worst, other - d[own])
+                    if not d[own] < other:
+                        wrong.append(f"{view} s{i} f{f} {t['text']!r}")
+                    cx = min(max(ball[0], t["x"]), t["x"] + t["w"])
+                    cy = min(max(ball[1], t["y"]), t["y"] + t["h"])
+                    on_ball += math.hypot(cx - ball[0], cy - ball[1]) < ball[2]
+                for j in range(6):
+                    for k in range(j + 1, 6):
+                        a, q = tags[j], tags[k]
+                        overlaps += (a["x"] < q["x"] + q["w"] and q["x"] < a["x"] + a["w"]
+                                     and a["y"] < q["y"] + q["h"] and q["y"] < a["y"] + a["h"])
+    R.check(
+        f"tags at {width}px, broadcast and plan, frames 0..38 of all scenes: each anchor nearest its own"
+        " player's head, no two tags overlap, none covers the ball",
+        not wrong and not overlaps and not on_ball and not missing and frames == 2 * SCENES_N * (D.headline + 1),
+        f"{frames} frames; wrong {len(wrong)} {wrong[:3]}; overlaps {overlaps}; on the ball {on_ball};"
+        f" frames without six tags and leaders {missing}; closest call {worst:.1f} px",
     )
     ctx.close()
 
@@ -1080,9 +1357,9 @@ def check_reduced_motion(D: Data, browser, target: str) -> None:
         """() => { const c = document.getElementById('wind-flow'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
                    let n = 0, h = 0; for (let i = 3; i < d.length; i += 4) { if (d[i] > 0) { n++; h = (h * 31 + d[i-3] + d[i-2] * 7 + i) | 0; } } return [n, h]; }"""
     )
-    # a GPU 2D canvas's first readback unpremultiplies on the GPU and every later one on the
-    # CPU, so the first read differs by one colour level on the anti-aliased edges with nothing
-    # drawn (storyboard 5.4); read once to settle the path, then compare byte for byte
+    # B4b-2: a GPU 2D canvas's first readback unpremultiplies on the GPU and every later one on
+    # the CPU, so the first read differs by one colour level on the anti-aliased edges with
+    # nothing drawn (storyboard 5.4); read once to settle the path, then compare byte for byte
     ink()
     a = ink()
     pg.wait_for_timeout(700)
@@ -1266,12 +1543,23 @@ def main(argv: list[str]) -> int:
             )
             browser.close()
             return 1
+        renderer = pg.evaluate(
+            """() => { const gl = document.createElement('canvas').getContext('webgl2');
+                       const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+                       return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unknown'; }"""
+        )
+        TIMED["on"] = "swiftshader" not in renderer.lower()
         R.check(
             "WebGL is live in the browser being driven",
             True,
-            pg.evaluate("navigator.userAgent")[-60:],
+            f"{renderer}; {pg.evaluate('navigator.userAgent')[-40:]}"
+            + ("" if TIMED["on"] else f"; {SOFTWARE}"),
         )
         ctx.close()
+        browser.close()
+        # the cold loads first, each in its own browser with nothing else running (a reader's)
+        check_startup(D, p, target)
+        browser = p.chromium.launch(args=CHROMIUM_ARGS)
         check_hook(D, browser, target)
         check_transport(D, browser, target)
         check_scenes(D, browser, target)
@@ -1280,6 +1568,7 @@ def main(argv: list[str]) -> int:
         check_reduced_motion(D, browser, target)
         for w in (1440, 390):
             check_framing(D, browser, target, w)
+            check_tags(D, browser, target, w)
             check_layout(D, browser, target, w)
         browser.close()
     n_fail = sum(1 for r in R.rows if not r[0])
