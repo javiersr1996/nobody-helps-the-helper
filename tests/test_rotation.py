@@ -135,6 +135,18 @@ def test_a_cut_window_drops_the_horizons_it_cannot_reach_and_keeps_the_row():
     assert all(np.isfinite(whole[f"left_clear_{t}"]) for t in CLEARANCE_FRAMES)
 
 
+# (g) ------------------------------------------- the man left's position is in the drive frame
+
+
+def test_the_man_left_position_is_in_the_drive_frame_on_either_side():
+    plain = _run(_scene())[1].iloc[0]
+    mirrored = _run(_scene(mirror_y=True))[1].iloc[0]  # the same drive seen from the other side
+    assert plain["left_x_25"] == pytest.approx(START[1][0]) and plain["left_y_25"] == -20.0
+    # raw y is +20 here; only the flip puts him back on y = -20, where the other side has him
+    assert mirrored["left_y_25"] == pytest.approx(plain["left_y_25"])
+    assert mirrored["left_x_25"] == pytest.approx(plain["left_x_25"])
+
+
 # (f) ----------------------------------------------------------------------- nearest_who
 
 

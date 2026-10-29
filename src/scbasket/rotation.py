@@ -80,7 +80,9 @@ def rotation_table(
       when the defender has no placebo target).
     - `drives_out`: one row per drive with `window_frames`, then per horizon T the best mover
       toward each target (`rot_left_T`, `rot_placebo_T`), `nearest_who_T`, `nearest_dist_T`,
-      and the man left's clearance `left_clear_t` at each of CLEARANCE_FRAMES.
+      where the man left stands (`left_x_T`, `left_y_T`, the drive frame of `wind`: y
+      mirrored by the table's `flip`), and the man left's clearance `left_clear_t` at each of
+      CLEARANCE_FRAMES.
 
     A horizon the window cannot reach is absent from `pairs` and NaN / "" in `drives_out`.
     """
@@ -110,10 +112,13 @@ def rotation_table(
             row[f"left_clear_{t}"] = clear
         for horizon in horizons:
             row.update({f"rot_left_{horizon}": np.nan, f"rot_placebo_{horizon}": np.nan,
-                        f"nearest_who_{horizon}": "", f"nearest_dist_{horizon}": np.nan})
+                        f"nearest_who_{horizon}": "", f"nearest_dist_{horizon}": np.nan,
+                        f"left_x_{horizon}": np.nan, f"left_y_{horizon}": np.nan})
             if window < horizon:
                 continue
             r1 = r0 + horizon
+            row[f"left_x_{horizon}"] = float(xy[r1, left, 0])
+            row[f"left_y_{horizon}"] = float(xy[r1, left, 1] * d.flip)  # the drive frame
             best_left, best_placebo = -np.inf, -np.inf
             for x in others:
                 p0, p1 = xy[r0, N_SIDE + x], xy[r1, N_SIDE + x]
