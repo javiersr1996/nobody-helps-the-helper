@@ -141,7 +141,10 @@ def base_rate(vectors: pd.DataFrame, help_ft: float) -> pd.DataFrame:
                       labels=[f"{a:g}-{b:g}" for a, b in zip(Y_BANDS[:-1], Y_BANDS[1:],
                                                              strict=True)]),
         dist_band=pd.cut(vectors["target_dist"], TARGET_DIST_BANDS, right=False),
-        bearing_band=pd.cut(vectors["target_bearing_x"], BEARING_BANDS, include_lowest=True),
+        bearing_band=pd.cut(vectors["target_bearing_x"], BEARING_BANDS, include_lowest=True,
+                            labels=[f"{a:g} to {b:g}" for a, b in zip(BEARING_BANDS[:-1],
+                                                                       BEARING_BANDS[1:],
+                                                                       strict=True)]),
     )
     parts = [
         helper_rate(bands, grouping, help_ft, strata)

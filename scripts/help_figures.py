@@ -9,11 +9,13 @@ RIGHT, so left- and right-hand drives pool and "the corner side" is always botto
 
   1. **The wind map.** The mean displacement, over the first second of every drive, of the
      four defenders who are not the ball handler's matchup: a kernel-smoothed field drawn as
-     streamlines, line width by how far the defence moves. Under it, in orange, where the
-     HELPER starts (the largest mover, HELP_FT or more toward where the ball ends up). The
-     field shows the whole defence sinking with the drive as well as the help; the table
-     separates the two (`help_move` is the movement toward the ball's future position), the
-     picture does not, and the caption says so.
+     streamlines, line width by how far the defence moves. Under it, in orange, the share of
+     the defenders starting at each spot who are the HELPER (the largest mover, HELP_FT or
+     more toward where the ball ends up), drawn only where enough defenders start, so white
+     means nobody stands there. Context, not a claim about who helps: the strip states the
+     corner as occupancy, with its per-defender rate, and that most helpers start above the
+     ball, where a plain sink is movement toward it (`help_base_rate.csv`). The field shows
+     the whole defence sinking with the drive as well as the help, and the strip says so.
 
   2. **Who covers the man he left.** Where the attacker the helper was guarding stands at the
      headline horizon (1.5 s), one dot per helped drive, coloured and shaped by which
@@ -25,8 +27,8 @@ Every number printed on either figure is computed here from the CSVs, never type
 is drawn inside the court but the court, the data and the ball's median path: numbers,
 keys and legends live in a strip under it, where no streamline can cross them.
 
-Needs the `second_help_*.csv` drives, summary, contrast and contrast_sensitivity too, which
-`scripts/second_help.py` writes.
+Needs `reports/help_base_rate.csv` from the same script, and the `second_help_*.csv` drives,
+summary, contrast and contrast_sensitivity, which `scripts/second_help.py` writes.
 
 Writes {out}/wind_figure_1_wind_map.png and {out}/wind_figure_2_who_covers.png.
 """
@@ -79,21 +81,22 @@ RIM_RADIUS_FT = 0.74
 GRID_FT = 1.5
 BANDWIDTH_FT = 4.0
 MIN_WEIGHT = 10.0
-DENSITY_BANDWIDTH_FT = 3.0
+#: Figure 1's orange: the helper rate per defender, kernel-smoothed like the field, drawn only
+#: where RATE_MIN_WEIGHT defenders' worth of kernel mass started, in these bands. At 80 the
+#: rate's binomial standard error stays near 3.5 points, under a band's width, and the
+#: smoothing no longer bleeds into the corner-3 zone, where no defender starts (at 30 it did).
+RATE_MIN_WEIGHT = 80.0
+RATE_LEVELS = (0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 1.0)
+RATE_ALPHA = 0.75
 #: Streamline width, points, for a mean displacement of zero and of WIDTH_FULL_FT.
 WIDTH_MIN, WIDTH_MAX, WIDTH_FULL_FT = 0.4, 2.8, 6.0
 
-MIDDLE_Y_FT = 8.0
 CORNER_Y_FT = 18.0
 
-#: Figure layout, figure fractions: the court on top, a strip under it for everything else.
-FIGSIZE = (7.2, 8.9)
-COURT_BOX = (0.03, 0.175, 0.94, 0.745)
-STRIP_TOP = 0.15
-#: Figure 2 is laid out top-down in inches (the strip carries a chart and five paragraphs at
-#: TEXT_PT, so its height follows from what it holds): width, the court's height, the side
-#: margin, the line spacing and the characters per line that fit the width at TEXT_PT.
-FIG2_WIDTH_IN, COURT_IN, MARGIN_IN = 7.2, 4.9, 0.3
+#: Both figures are laid out top-down in inches (the strip carries paragraphs at TEXT_PT, so
+#: the height follows from what it holds): width, each court's height, the side margin, the
+#: line spacing and the characters per line that fit the width at TEXT_PT.
+FIG2_WIDTH_IN, COURT_IN, COURT1_IN, MARGIN_IN = 7.2, 4.9, 6.2, 0.3
 TEXT_PT, LINE_SPACING, WRAP_CHARS = 11, 1.4, 82
 
 
@@ -136,25 +139,17 @@ def draw_court(ax) -> None:
     ax.axis("off")
 
 
-def kernel_field(px, py, u, v, grid_x, grid_y):
+def kernel_field(px, py, u, v, grid_x, grid_y, min_weight=MIN_WEIGHT):
     """Gaussian-weighted mean of (u, v) on the grid, masked where too few vectors are near."""
     gx, gy = np.meshgrid(grid_x, grid_y)
     d2 = (gx.ravel()[:, None] - px[None, :]) ** 2 + (gy.ravel()[:, None] - py[None, :]) ** 2
     w = np.exp(-0.5 * d2 / BANDWIDTH_FT**2)
     mass = w.sum(axis=1)
     safe = np.maximum(mass, 1e-9)
-    mask = (mass < MIN_WEIGHT).reshape(gx.shape)
+    mask = (mass < min_weight).reshape(gx.shape)
     U = np.ma.array((w @ u / safe).reshape(gx.shape), mask=mask)
     V = np.ma.array((w @ v / safe).reshape(gx.shape), mask=mask)
     return gx, gy, U, V
-
-
-def density(px, py, grid_x, grid_y) -> np.ndarray:
-    """Gaussian kernel density of the points on the grid, in points per square foot."""
-    gx, gy = np.meshgrid(grid_x, grid_y)
-    d2 = (gx.ravel()[:, None] - px[None, :]) ** 2 + (gy.ravel()[:, None] - py[None, :]) ** 2
-    k = np.exp(-0.5 * d2 / DENSITY_BANDWIDTH_FT**2).sum(axis=1)
-    return (k / (2 * np.pi * DENSITY_BANDWIDTH_FT**2)).reshape(gx.shape)
 
 
 def width_of(displacement_ft) -> np.ndarray:
@@ -172,13 +167,12 @@ def headline(table: pd.DataFrame) -> dict:
         "n_resolved": len(ok),
         "n_helped": len(helped),
         "share_helped": len(helped) / len(ok),
-        "from_middle": (helped["helper_origin_y"].abs() < MIDDLE_Y_FT).mean(),
-        "from_corner_side": (helped["helper_origin_y"].abs() > CORNER_Y_FT).mean(),
         "helper_start_dist": helped["helper_start_dist"].median(),
     }
 
 
-def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, numbers: dict, path: Path) -> None:
+def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, numbers: dict,
+             path: Path) -> None:
     px, py = to_plot(vectors["origin_x"], vectors["origin_y"])
     u, v = vectors["dy"].to_numpy(float), vectors["dx"].to_numpy(float)  # lateral, along
     grid_x = np.arange(-24.0, 24.0 + GRID_FT, GRID_FT)
@@ -186,55 +180,112 @@ def figure_1(table: pd.DataFrame, vectors: pd.DataFrame, numbers: dict, path: Pa
     gx, gy, U, V = kernel_field(px, py, u, v, grid_x, grid_y)
     magnitude = np.ma.filled(np.hypot(U, V), 0.0)
 
-    fig = plt.figure(figsize=FIGSIZE)
-    ax = fig.add_axes(COURT_BOX)
-    draw_court(ax)
-
-    helped = table[(table["status"] == "ok") & table["has_helper"]]
-    hx, hy = to_plot(helped["helper_origin_x"], helped["helper_origin_y"])
-    dens = density(hx, hy, grid_x, grid_y)
-    levels = np.linspace(0.12 * dens.max(), dens.max(), 7)
-    ax.contourf(gx, gy, dens, levels=levels, cmap="Oranges", alpha=0.55, antialiased=True)
-    ax.streamplot(grid_x, grid_y, U, V, density=1.2, color=INK, linewidth=width_of(magnitude),
-                  arrowsize=0.9, arrowstyle="-|>", zorder=3)
-
+    # Which vector is the helper: help_table's (help_wind.py refuses to run if the vectors
+    # disagree), checked here against the per-defender counts the strip prints.
+    helper_slot = vectors["drive_id"].map(
+        table[table["has_helper"]].set_index("drive_id")["helper_def_slot"])
+    flag = (vectors["def_slot"] == helper_slot).to_numpy(float)
+    by_y = rates[(rates["grouping"] == "y_band")
+                 & (rates["standardised_by"] == "none")].set_index("group")
+    bearing = rates[rates["grouping"] == "bearing_band"]
+    if int(flag.sum()) != int(by_y["n_helpers"].sum()) or len(flag) != by_y["n_defenders"].sum():
+        raise ValueError("help_table, help_vectors and help_base_rate disagree: rerun help_wind.py")
+    # The kernel mean of a 0/1 flag is the share of the defenders starting nearby who are it.
+    _, _, rate, _ = kernel_field(px, py, flag, flag, grid_x, grid_y, RATE_MIN_WEIGHT)
+    colours = plt.get_cmap("Oranges")(np.linspace(0.12, 0.85, len(RATE_LEVELS) - 1))
+    corner, middle = by_y.iloc[-1], by_y.iloc[0]  # the |y| bands run from the middle out
+    if not str(corner.name).startswith(f"{CORNER_Y_FT:g}-"):
+        raise ValueError(f"the last |y| band is {corner.name}, not the corner side")
+    above = (vectors.loc[flag == 1, "target_bearing_x"] < 0).mean()
     ok = table[table["status"] == "ok"]
     start = to_plot(ok["handler_x0"].median(), ok["handler_y0"].median())
     end = to_plot(ok["handler_x1"].median(), ok["handler_y1"].median())
-    ax.annotate("", xy=end, xytext=start, zorder=5,
-                arrowprops={"arrowstyle": "-|>", "color": "black", "linewidth": 2.4,
-                            "shrinkA": 0, "shrinkB": 0})
-    ax.scatter([start[0]], [start[1]], s=70, color="white", edgecolor="black", linewidth=1.6,
-               zorder=6)
-    ax.text(start[0] - 1.4, start[1] + 0.6, "the ball:\nmedian start,\none second later",
-            fontsize=7.5, color="black", ha="right", va="bottom", zorder=6, linespacing=1.3,
-            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.9, "pad": 1.5})
-    ax.set_title("On a drive the defence moves like weather, and the help blows from the\n"
-                 "middle and the top. Nobody helps from the corner.", fontsize=11, loc="left")
+    pct = lambda v, d=0: f"{100 * v:.{d}f}%"  # noqa: E731
 
-    # Lines kept under 75 characters so the block ends before the line-width key begins.
-    text = (f"{numbers['n_resolved']} drives, ten ACB games, the first {HORIZON_S:.0f} s of each.\n"
-            f"Streamlines: where the four defenders off the ball move, every one of\n"
-            f"them, so the field carries the whole defence sinking with the drive\n"
-            f"as well as the help. Orange: where the HELPER starts, the defender who\n"
-            f"moves most toward where the ball will be, {HELP_FT:.0f} ft or more: "
-            f"{numbers['n_helped']} drives, {100 * numbers['share_helped']:.0f}%.\n"
-            f"From the middle {100 * numbers['from_middle']:.0f}%; from the corner side "
-            f"{100 * numbers['from_corner_side']:.1f}%.")
-    fig.text(0.04, STRIP_TOP, text, fontsize=8, color=INK, ha="left", va="top", linespacing=1.5)
+    def build(height: float, out: Path | None) -> float:
+        """Draw top-down on a figure `height` inches tall; return the inches used."""
+        fig = plt.figure(figsize=(FIG2_WIDTH_IN, height))
+        inches = fig.dpi_scale_trans
+        used = [0.2]
 
-    key = fig.add_axes([0.74, 0.025, 0.23, 0.075])
-    key.axis("off")
-    key.set_xlim(0, 1)
-    key.set_ylim(0, 1)
-    for i, feet in enumerate((1.0, 3.0, 6.0)):
-        y = 0.82 - 0.33 * i
-        key.plot([0.0, 0.3], [y, y], color=INK, linewidth=width_of(feet), solid_capstyle="butt")
-        key.text(0.36, y, f"{feet:.0f} ft in {HORIZON_S:.0f} s", fontsize=7.5, va="center")
-    key.set_title("line width: mean displacement", fontsize=7.5, loc="left", pad=2)
+        def put(text: str, gap: float = 0.14, **style) -> None:
+            wrapped = textwrap.fill(text, WRAP_CHARS)
+            fig.text(MARGIN_IN, height - used[0], wrapped, transform=inches, va="top",
+                     fontsize=TEXT_PT, color=INK, linespacing=LINE_SPACING, **style)
+            used[0] += (wrapped.count("\n") + 1) * TEXT_PT * LINE_SPACING / 72 + gap
 
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
+        def frac(left, top, width, tall):  # inches from the top-left -> figure fractions
+            return [left / FIG2_WIDTH_IN, 1 - (top + tall) / height, width / FIG2_WIDTH_IN,
+                    tall / height]
+
+        put("Where the defence goes in the first second of a drive", gap=0.06, weight="bold")
+        put(f"Almost no defender starts in the corner, so almost no help comes from there. Of "
+            f"the helpers, {pct(above)} start above the ball, where sinking is moving toward it.",
+            gap=0.1)
+        ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT1_IN))
+        draw_court(ax)
+        ax.contourf(gx, gy, rate, levels=RATE_LEVELS, colors=colours, alpha=RATE_ALPHA)
+        ax.streamplot(grid_x, grid_y, U, V, density=1.2, color=INK,
+                      linewidth=width_of(magnitude), arrowsize=0.9, arrowstyle="-|>", zorder=3)
+        ax.annotate("", xy=end, xytext=start, zorder=5,
+                    arrowprops={"arrowstyle": "-|>", "color": "black", "linewidth": 2.4,
+                                "shrinkA": 0, "shrinkB": 0})
+        ax.scatter([start[0]], [start[1]], s=70, color="white", edgecolor="black",
+                   linewidth=1.6, zorder=6)
+        ax.text(start[0] - 1.4, start[1] + 0.6, "the ball:\nmedian start,\none second later",
+                fontsize=TEXT_PT - 1, color="black", ha="right", va="bottom", zorder=6,
+                linespacing=1.3,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.9, "pad": 1.5})
+        used[0] += COURT1_IN + 0.15
+
+        # Two keys side by side: line width, and the orange bands (white: too few defenders).
+        widths = fig.add_axes(frac(MARGIN_IN, used[0], 2.6, 0.9))
+        widths.axis("off")
+        widths.set_xlim(0, 1)
+        widths.set_ylim(0, 1)
+        widths.text(0.0, 1.0, "line width: mean displacement", fontsize=TEXT_PT, va="top")
+        for i, feet in enumerate((1.0, 3.0, 6.0)):
+            y = 0.62 - 0.27 * i
+            widths.plot([0.0, 0.25], [y, y], color=INK, linewidth=width_of(feet),
+                        solid_capstyle="butt")
+            widths.text(0.3, y, f"{feet:.0f} ft in {HORIZON_S:.0f} s", fontsize=TEXT_PT,
+                        va="center")
+        bands = fig.add_axes(frac(3.3, used[0], FIG2_WIDTH_IN - 3.3 - MARGIN_IN, 0.9))
+        bands.axis("off")
+        bands.set_xlim(0, len(colours) + 0.4)
+        bands.set_ylim(0, 1)
+        bands.text(0.0, 1.0, "orange: % of the defenders starting there\nwho are the helper "
+                   "(white: too few for a rate)", fontsize=TEXT_PT, va="top", linespacing=1.2)
+        for i, colour in enumerate(colours):
+            bands.add_patch(plt.Rectangle((i, 0.12), 1, 0.2, color=colour, alpha=RATE_ALPHA))
+            bands.text(i, 0.07, f"{100 * RATE_LEVELS[i]:.0f}", fontsize=TEXT_PT - 2,
+                       ha="center", va="top")
+        used[0] += 0.9 + 0.25
+
+        put(f"{numbers['n_resolved']} drives, ten ACB games, the first {HORIZON_S:.0f} s of each. "
+            f"Streamlines: where the four defenders off the ball move, all of them, so the field "
+            f"carries the whole defence sinking with the drive as well as the help.")
+        put(f"Helper: the defender who moves most toward where the ball will be, "
+            f"{HELP_FT:.0f} ft or more, in {numbers['n_helped']} drives "
+            f"({pct(numbers['share_helped'])}). Of the {len(flag):,} defenders off the ball, "
+            f"{pct(flag.mean(), 1)} are one.")
+        put(f"The corner: {corner['n_defenders']} defenders ({pct(corner['defender_share'], 1)}) "
+            f"start more than {CORNER_Y_FT:.0f} ft from the middle, and {corner['n_helpers']} "
+            f"helpers ({pct(corner['helper_share'], 1)}) come from there. Each is the helper "
+            f"{pct(corner['rate'])} of the time (95% CI {pct(corner['rate_low'])} to "
+            f"{pct(corner['rate_high'])}), against {pct(middle['rate'])} in the middle: the "
+            f"corner is empty, and too few stand there to say whether it helps less.")
+        put(f"Above the ball: {pct(above)} of helpers start farther from the hoop line than "
+            f"where the ball goes, where a plain sink counts as movement toward it. A defender "
+            f"is the helper {pct(bearing['rate'].iloc[0])} of the time when that spot lies "
+            f"mostly toward the hoop from him, {pct(bearing['rate'].iloc[-1])} when it lies "
+            f"mostly away.", gap=0.1)
+        if out is not None:
+            fig.savefig(out, dpi=200)
+        plt.close(fig)
+        return used[0]
+
+    build(build(40.0, None), path)  # the first pass only measures the height it needs
 
 
 def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFrame,
@@ -366,6 +417,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=Path("reports/figures"))
     args = parser.parse_args()
     for name, script in (("help_table.csv", "help_wind"), ("help_vectors.csv", "help_wind"),
+                         ("help_base_rate.csv", "help_wind"),
                          ("second_help_drives.csv", "second_help"),
                          ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
@@ -375,6 +427,7 @@ def main() -> int:
             return 1
     table = pd.read_csv(args.reports / "help_table.csv")
     vectors = pd.read_csv(args.reports / "help_vectors.csv")
+    rates = pd.read_csv(args.reports / "help_base_rate.csv")
     second = pd.read_csv(args.reports / "second_help_drives.csv")
     summary = pd.read_csv(args.reports / "second_help_summary.csv")
     contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
@@ -386,7 +439,7 @@ def main() -> int:
     print(f"vectors in the field: {len(vectors)}; helper threshold {HELP_FT} ft in {HORIZON_S} s")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    figure_1(table, vectors, numbers, args.out / "wind_figure_1_wind_map.png")
+    figure_1(table, vectors, rates, numbers, args.out / "wind_figure_1_wind_map.png")
     figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
     print(f"wrote {args.out / 'wind_figure_1_wind_map.png'} and "
           f"{args.out / 'wind_figure_2_who_covers.png'}")

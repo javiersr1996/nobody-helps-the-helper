@@ -22,7 +22,7 @@ const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
 const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.3";
+const VERSION = "0.4";
 const DATE = "29 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
@@ -58,6 +58,7 @@ const byGame = readCsv(path.join(REPORTS, "help_by_game.csv"));
 const sensitivity = readCsv(path.join(REPORTS, "help_sensitivity.csv"));
 const flow = readCsv(path.join(REPORTS, "help_flow.csv"));
 const vectors = readCsv(path.join(REPORTS, "help_vectors.csv"));
+const baseRate = readCsv(path.join(REPORTS, "help_base_rate.csv"));
 const sh = readCsv(path.join(REPORTS, "second_help_summary.csv"));
 const shGame = readCsv(path.join(REPORTS, "second_help_by_game.csv"));
 const shContrast = readCsv(path.join(REPORTS, "second_help_contrast.csv"));
@@ -150,6 +151,47 @@ const cornerSide = sensitivity.map((s) => num(s.helper_from_corner_side));
 const sharesHelper = byGame.map((g) => num(g.share_with_helper));
 const halfSecThree = sensitivity.find((s) => num(s.horizon_s) === 0.5 && num(s.help_ft) === 3);
 
+// La esquina con su tasa base (sección 12), leída de reports/help_base_rate.csv.
+const RATE_MIN_WEIGHT = 80; // scripts/help_figures.py: masa kernel mínima para pintar la tasa
+const BR = (grouping, by, group) => baseRate.find((r) => r.grouping === grouping && r.standardised_by === by && r.group === group);
+const yBands = baseRate.filter((r) => r.grouping === "y_band" && r.standardised_by === "none");
+const cornerBand = yBands[yBands.length - 1];
+const middleBand = yBands[0];
+const bearingRows = baseRate.filter((r) => r.grouping === "bearing_band");
+const ZONES = ["top_3", "wing_3", "mid_range", "paint_non_ra", "restricted_area", "far"];
+const ZONE_NAME = {
+  top_3: "Triple frontal", wing_3: "Triple de ala", mid_range: "Media distancia",
+  paint_non_ra: "Pintura (fuera del área restringida)", restricted_area: "Área restringida",
+  far: "Lejos (más de 32 ft del aro)",
+};
+const bandName = (g) => {
+  const [lo, hi] = g.split("-");
+  return hi === "inf" ? `más de ${lo} ft (lado de la esquina)` : `${lo} a ${hi} ft${lo === "0" ? " (centro)" : ""}`;
+};
+const ratio = (r) => es(num(r.ratio), 2);
+const ratioCi = (r) => `${ratio(r)} (${es(num(r.ratio_low), 2)} a ${es(num(r.ratio_high), 2)})`;
+const rateCi = (r) => `${pct(num(r.rate), 1)} (${pct(num(r.rate_low), 1)} a ${pct(num(r.rate_high), 1)})`;
+const helperKey = new Set(helped.map((r) => `${r.drive_id}|${num(r.helper_def_slot)}`));
+const helperVectors = vectors.filter((r) => helperKey.has(`${r.drive_id}|${num(r.def_slot)}`));
+if (helperVectors.length !== helped.length) throw new Error("help_vectors y help_table no coinciden en los ayudantes");
+const farDx = median(helperVectors.filter((r) => r.zone0 === "far").map((r) => num(r.dx)));
+const nCorner3 = vectors.filter((r) => r.zone0 === "corner_3").length;
+const sens = (col) => sensitivity.map((s) => num(s[col]));
+const cornerMinusMiddle = sensitivity.filter((s) => num(s.horizon_s) >= 1)
+  .map((s) => num(s.helper_rate_corner_side) - num(s.helper_rate_middle));
+const halfSecCorner = Math.max(...sensitivity.filter((s) => num(s.horizon_s) === 0.5)
+  .map((s) => Math.round(num(s.helper_rate_corner_side) * num(s.n_defenders_corner_side))));
+const targetDist = (z) => median(vectors.filter((r) => r.zone0 === z).map((r) => num(r.target_dist)));
+const rateSe = Math.sqrt(num(base.helper_rate) * (1 - num(base.helper_rate)) / RATE_MIN_WEIGHT);
+// Lo que la sección 12 afirma se comprueba al generar, no se supone.
+if (!(num(cornerBand.rate_low) <= num(middleBand.rate) && num(middleBand.rate) <= num(cornerBand.rate_high))) throw new Error("el IC de la esquina ya no contiene la tasa del centro: revisar la sección 12.1");
+if (!(Math.min(targetDist("paint_non_ra"), targetDist("restricted_area")) > targetDist("top_3"))) throw new Error("los interiores ya están más cerca del punto adonde va el balón: revisar la sección 12.2");
+if (!(num(BR("zone0", "target_dist", "top_3").ratio_low) > 1)) throw new Error("la distancia ya explica el exceso del triple frontal: revisar la sección 12.2");
+for (const z of ["top_3", "paint_non_ra"]) {
+  const r = BR("zone0", "bearing", z);
+  if (!(num(r.ratio_low) <= 1 && 1 <= num(r.ratio_high))) throw new Error(`por orientación, ${z} ya no contiene el 1: revisar la sección 12.2`);
+}
+
 const BODY = 22; // 11 pt
 const p = (text, opts = {}) => new Paragraph({
   spacing: { after: 120, line: 276 },
@@ -205,10 +247,11 @@ function grid(headers, rows, widths, { align = [] } = {}) {
 }
 const spacer = () => new Paragraph({ spacing: { after: 120 }, children: [] });
 
-function figure(file, caption, ratio = 8.9 / 7.2) { // ratio alto/ancho; la figura 2 es 7,2 x 10,8 pulgadas
+function figure(file, caption) {
   const data = fs.readFileSync(path.join(FIGURES, file));
-  const width = 460; // píxeles a 96 ppp: 4,8 pulgadas; las figuras son 7,2 x 8,9 pulgadas
-  const height = Math.round(width * ratio);
+  const width = 460; // píxeles a 96 ppp: 4,8 pulgadas
+  // alto/ancho leído de la cabecera IHDR del PNG, para que no se quede viejo al redibujar
+  const height = Math.round(width * data.readUInt32BE(20) / data.readUInt32BE(16));
   return [
     new Paragraph({
       alignment: AlignmentType.CENTER, spacing: { before: 120, after: 60 },
@@ -253,8 +296,9 @@ const SECTIONS = [
   "6. Definiciones y reglas de esta entrada", "7. Implementación (semana 1)",
   "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)",
   "10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)",
-  "11. La segunda ayuda: una ausencia medida", "12. Plan y calendario", "13. Pendientes y decisiones abiertas",
-  "14. Registro de versiones de este documento",
+  "11. La segunda ayuda: una ausencia medida", "12. La esquina, con su tasa base (29 de octubre de 2026)",
+  "13. Plan y calendario", "14. Pendientes y decisiones abiertas",
+  "15. Registro de versiones de este documento",
 ];
 const toc = [
   h1("Índice"),
@@ -333,7 +377,7 @@ const s6 = [
   p("Las definiciones se fijaron una vez, antes de leer las tablas completas, y cada titular se publica con una tabla de sensibilidad al lado. No hay pre-registro, ni mitad reservada, ni puertas; los cortes por partido se publican, nunca se usan para decidir."),
   bullet([bold("Horizonte. "), run("Un segundo (25 fotogramas) desde el startFrame de la penetración, dentro de la misma oportunidad (chance).")]),
   bullet([bold("Marco de la penetración. "), run("El marco de ataque (aro atacado en x negativa) reflejado en y para que el movimiento lateral del jugador con balón durante el horizonte apunte a +y. Así las penetraciones por la izquierda y por la derecha se superponen, y \"el lado de la esquina\" es siempre el mismo lado. Las zonas de tiro se clasifican antes del reflejo.")]),
-  bullet([bold("Movimiento de ayuda. "), run("Para un defensor que no es el emparejado del jugador con balón, su propio desplazamiento durante el horizonte proyectado sobre el vector unitario que va desde donde empezó hasta donde está el jugador con balón al final del horizonte. En pies; positivo significa que se movió hacia donde iba el balón. Un defensor que solo se hunde con la penetración puntúa bajo, porque hundirse va a lo largo de la pista y la posición futura del balón le queda casi siempre de través.")]),
+  bullet([bold("Movimiento de ayuda. "), run("Para un defensor que no es el emparejado del jugador con balón, su propio desplazamiento durante el horizonte proyectado sobre el vector unitario que va desde donde empezó hasta donde está el jugador con balón al final del horizonte. En pies; positivo significa que se movió hacia donde iba el balón. Un defensor que solo se hunde con la penetración puntúa bajo si está más cerca de la línea del aro que el punto adonde va el balón; por encima de ese punto, hundirse ya cuenta como movimiento de ayuda. Corregido el 29 de octubre: hasta entonces esta definición decía que hundirse puntuaba bajo siempre (sección 12.3).")]),
   bullet([bold("Ayudante. "), run(`El defensor no emparejado con mayor movimiento de ayuda, cuando ese movimiento es de al menos ${es(HELP_FT, 0)} pies. La tabla describe siempre al que más se mueve, de modo que el umbral puede barrerse después sin recalcular nada.`)]),
   bullet([bold("El hombre que deja. "), run(`El atacante que la tabla matchups del proveedor asigna al ayudante en el startFrame: su separación del ayudante en los dos extremos del horizonte, su distancia a cualquier defensor al final, y si esa distancia llega a ${es(OPEN_FT, 0)} pies (\"abierto\").`)]),
   bullet([bold("Sensibilidad. "), run("Umbrales de 3, 4, 5 y 6 pies; horizontes de 0,5, 1,0 y 1,5 segundos.")]),
@@ -366,6 +410,7 @@ const s8 = [
     ["Distancia del ayudante al aro al arrancar (mediana)", ft(N.helperHoopDist)],
     ["Ayudantes que salen por el centro (|y| < 8 ft)", pct(N.fromMiddle, 1)],
     ["Ayudantes que salen del lado de la esquina (|y| > 18 ft)", pct(N.fromCorner, 1)],
+    ["Defensores sin balón que empiezan en el lado de la esquina (su tasa base, sección 12)", pct(num(base.defenders_from_corner_side), 1)],
     ["El hombre que deja: separación al inicio y al final (medianas)", `${ft(N.leftSep0)} a ${ft(N.leftSep1)}`],
     ["El hombre que deja: distancia al defensor más cercano al final (mediana)", ft(N.leftNearest)],
     [`El hombre que deja: abierto (nadie a ${es(OPEN_FT, 0)} ft)`, pct(N.leftOpen, 1)],
@@ -395,7 +440,7 @@ const s8 = [
     [1826, 1800, 1800, 1800, 1800], { align: ["l", "r", "r", "r", "r"] }),
   source("reports/help_by_game.csv."),
   h2("8.4 Sensibilidad"),
-  p(`La misma tabla con el umbral y el horizonte barridos. La lectura que importa: "desde el lado de la esquina" se queda entre el ${pct(Math.min(...cornerSide))} y el ${pct(Math.max(...cornerSide))} en las ${sensitivity.length} celdas, así que el título aguanta bajo cualquier definición razonable; y a medio segundo solo una de cada ${es(1 / num(halfSecThree.share_with_helper), 0)} penetraciones tiene a alguien movido tres pies: la ayuda tarda más de medio segundo en verse.`),
+  p(`La misma tabla con el umbral y el horizonte barridos. La lectura que importa: "desde el lado de la esquina" se queda entre el ${pct(Math.min(...cornerSide))} y el ${pct(Math.max(...cornerSide))} en las ${sensitivity.length} celdas. Eso mide dónde están los defensores y no si ayudan menos desde allí: por defensor, la esquina no se distingue del centro (sección 12), y la frase que esta memoria escribió aquí en la versión 0.1, que el título aguantaba bajo cualquier definición, era cierta de la cuota y no del título. Y a medio segundo solo una de cada ${es(1 / num(halfSecThree.share_with_helper), 0)} penetraciones tiene a alguien movido tres pies: la ayuda tarda más de medio segundo en verse.`),
   grid(["Horizonte (s)", "Umbral (ft)", "Con ayudante", "Por el centro", "Lado de la esquina", "Abierto", "Más allá del arco"],
     sensitivity.map((s) => [es(num(s.horizon_s)), es(num(s.help_ft), 0), pct(num(s.share_with_helper)), pct(num(s.helper_from_middle)), pct(num(s.helper_from_corner_side), 1), pct(num(s.left_open_share)), pct(num(s.left_beyond_arc))]),
     [1226, 1200, 1300, 1300, 1400, 1200, 1400], { align: ["r", "r", "r", "r", "r", "r", "r"] }),
@@ -404,17 +449,19 @@ const s8 = [
 
 const s9 = [
   h1("9. Las dos figuras (semana 2, 28 de octubre de 2026)", { pageBreakBefore: true }),
-  p("El concurso permite dos figuras y el argumento tiene dos mitades, así que no hay elección: de dónde viene la ayuda, y a quién deja. Las dos se dibujan en el marco de la penetración y en orientación de carta de tiro: el aro abajo, la línea de fondo debajo, y el movimiento lateral del jugador con balón hacia la derecha, de modo que \"el lado de la esquina\" es siempre la esquina inferior derecha. Dentro de la pista solo están la pista, el dato y el recorrido mediano del balón; números, claves y leyendas viven en una franja debajo, donde ninguna línea de corriente puede cruzarlos."),
+  p("El concurso permite dos figuras: adónde va la defensa en el primer segundo, y a quién deja la ayuda. Hasta el 29 de octubre la primera decía de dónde viene la ayuda; desde entonces es contexto descriptivo (sección 12.4). Las dos se dibujan en el marco de la penetración y en orientación de carta de tiro: el aro abajo, la línea de fondo debajo, y el movimiento lateral del jugador con balón hacia la derecha, de modo que \"el lado de la esquina\" es siempre la esquina inferior derecha. Dentro de la pista solo están la pista, el dato y el recorrido mediano del balón; números, claves y leyendas viven en una franja debajo, donde ninguna línea de corriente puede cruzarlos."),
   h2("9.1 Figura 1: el mapa de viento"),
-  ...figure("wind_figure_1_wind_map.png", "Figura 1. El mapa de viento de las defensas de la ACB en el primer segundo de una penetración, y dónde arranca el ayudante."),
-  p("Un campo suavizado por kernel gaussiano (ancho de banda 4 pies, rejilla de 1,5 pies) del desplazamiento de los cuatro defensores sin balón durante el primer segundo, sobre los " + thousands(vectors.length) + " vectores, dibujado como líneas de corriente cuyo grosor crece con el desplazamiento medio (clave en pies en la franja). Debajo, en naranja, la densidad de los puntos de origen del ayudante. El campo lleva a la defensa entera hundiéndose con la penetración además de la ayuda; la tabla separa las dos cosas (el movimiento de ayuda es la proyección hacia la posición futura del balón), la imagen no, y el pie lo dice. El viento solo se dibuja donde hubo defensores: las celdas con menos de diez vectores de masa kernel quedan en blanco, lo que eliminó un remolino espurio junto a la línea de fondo que tenía la primera versión."),
+  ...figure("wind_figure_1_wind_map.png", "Figura 1. Adónde va la defensa en el primer segundo de una penetración, y qué cuota de los defensores que empiezan en cada punto es el ayudante."),
+  p("Un campo suavizado por kernel gaussiano (ancho de banda 4 pies, rejilla de 1,5 pies) del desplazamiento de los cuatro defensores sin balón durante el primer segundo, sobre los " + thousands(vectors.length) + " vectores, dibujado como líneas de corriente cuyo grosor crece con el desplazamiento medio (clave en pies en la franja). El campo lleva a la defensa entera hundiéndose con la penetración además de la ayuda, y la franja lo dice. El viento solo se dibuja donde hubo defensores: las celdas con menos de diez vectores de masa kernel quedan en blanco, lo que eliminó un remolino espurio junto a la línea de fondo que tenía la primera versión."),
+  p(`Debajo, en naranja, la cuota de los defensores que empiezan en cada punto que son el ayudante: la media kernel de una bandera 0/1 con el mismo ancho de banda, pintada solo donde empiezan al menos ${RATE_MIN_WEIGHT} defensores de masa kernel. Con ese umbral el error estándar binomial de la tasa queda cerca de ${es(100 * rateSe, 1)} puntos, por debajo del ancho de una banda de color (5 puntos), y el suavizado deja de invadir la zona del triple de esquina, donde no empieza ningún defensor. Sustituye, desde el 29 de octubre, a la densidad bruta de los orígenes del ayudante, que un cribado del council de ese día (46 sobre 100, no lista) señaló porque se leía como una tasa. El título ya no afirma de dónde viene la ayuda: dice adónde va la defensa, y la franja da la esquina como ocupación (${cornerBand.n_defenders} de ${thousands(vectors.length)} defensores, el ${pct(num(cornerBand.defender_share), 1)}) y el ${pct(num(base.helper_above_ball))} de ayudantes que empiezan por encima del balón, con sus tasas por defensor (sección 12). Todo número de la figura sale de reports/help_table.csv, help_vectors.csv y help_base_rate.csv, y la figura no se genera si los tres no coinciden en los ayudantes.`),
   h2("9.2 Figura 2: quién cubre al hombre que deja"),
-  ...figure("wind_figure_2_who_covers.png", `Figura 2. Nadie más se mueve hacia el hombre que deja el ayudante: a ${hsec(HEADLINE)} s de arrancar la penetración, con ayudante los otros tres defensores se mueven hacia él no más que sin ayudante.`, 2437 / 1440),
+  ...figure("wind_figure_2_who_covers.png", `Figura 2. Nadie más se mueve hacia el hombre que deja el ayudante: a ${hsec(HEADLINE)} s de arrancar la penetración, con ayudante los otros tres defensores se mueven hacia él no más que sin ayudante.`),
   p(`Un punto por penetración con ayudante (${SH(HEADLINE, true).n_drives} de ${SH(25, true).n_drives}; en las demás la ventana no llega a ${hsec(HEADLINE)} s), allí donde está el atacante al que marcaba el ayudante. El color y la forma dicen quién es el defensor más cercano a él, y la leyenda da su cuota con la tasa base entre paréntesis y la distancia mediana al defensor más cercano (${es(num(SH(HEADLINE, true).nearest_dist_median), 1)} pies, ${es(num(SH(HEADLINE, false).nearest_dist_median), 1)} sin ayudante): el propio defensor del hombre (el ayudante; sin ayudante, el que más se mueve por debajo del umbral, que marcaba al hombre comparable) el ${pct(num(SH(HEADLINE, true).nearest_helper))} frente al ${pct(num(SH(HEADLINE, false).nearest_helper))}, el emparejado del jugador con balón el ${pct(num(SH(HEADLINE, true).nearest_handler_def))} frente al ${pct(num(SH(HEADLINE, false).nearest_handler_def))} y un tercer defensor el ${pct(num(SH(HEADLINE, true).nearest_third))} frente al ${pct(num(SH(HEADLINE, false).nearest_third))}. Que el ayudante sea el más cercano es casi cierto por construcción, porque marcaba a ese hombre al empezar; por eso el titular no es ese, sino la ausencia de rotación. Es una medida de distancia, no de intención.`),
   p(`El panel de debajo es la prueba: la rotación de los otros tres defensores hacia el hombre dejado menos hacia el placebo (los demás atacantes sin balón), en pies, con la media por penetración y su intervalo del 95 % para ${HORIZONS.map((h) => hsec(h)).join(" / ")} s, con ayudante y sin él. Junto a cada media de las penetraciones con ayudante van la mediana y la cuota de parejas por encima de cero (una pareja es una penetración y uno de los tres defensores): el par típico queda cerca del placebo y la media la arrastran las colas. La serie sin ayudante también es negativa, así que la referencia es esa serie y no el cero. La diferencia entre ambas (con ayudante menos sin él), con su intervalo del 95 % por bootstrap de dos muestras, es ${CONTRAST_TEXT} ft a ${HORIZONS.map((h) => hsec(h)).join(" / ")} s; ningún intervalo queda por encima de cero (la figura no se genera si alguno lo estuviera), de modo que con ayudante los otros tres defensores no rotan más hacia él que sin ayudante. Robustez, contada al generar la figura sobre el mismo contraste y no contra el cero: con umbrales de ayudante de 3, 4 y 5 pies por los tres horizontes, ${shContrastSens.filter((r) => num(r.contrast_ci_low) <= 0 && num(r.contrast_ci_high) >= 0).length} de los ${shContrastSens.length} intervalos contienen el cero y ${shContrastSens.filter((r) => num(r.contrast_ci_low) > 0).length} quedan por encima (reports/second_help_contrast_sensitivity.csv).`),
   p(`La cuota de hombre libre ya no va en la figura sino junto al 58,5 % de la sección 8, con su tasa base y como dato, no como coste: el hombre dejado está libre (nadie a ${es(OPEN_FT, 0)} pies) el ${pct(num(SH(HEADLINE, true).left_open0_share))} al arrancar y el ${pct(num(SH(HEADLINE, true).left_open_share))} a ${hsec(HEADLINE)} s, y el hombre comparable en las penetraciones sin ayudante el ${pct(num(SH(HEADLINE, false).left_open0_share))} y el ${pct(num(SH(HEADLINE, false).left_open_share))}. La figura sustituye a la primera versión de la semana 2, los puntos del hombre dejado coloreados por estar libre o no, que sin tasa base inducía a error (sección 8).`),
   h2("9.3 Lo que se corrigió tras mirar la primera versión"),
   p("Las figuras se miraron antes de darlas por buenas, y la primera versión tenía defectos que solo se ven mirándolas: en la figura 1, el bloque de texto y la etiqueta del balón quedaban tapados por las líneas de corriente y había un remolino espurio junto a la línea de fondo; en la figura 2 de entonces (los puntos del hombre libre, ya sustituida), el histograma inserto y el texto pisaban puntos de la pista, la leyenda tapaba puntos arriba a la derecha, y las líneas grises desde el origen del ayudante ensuciaban sin aportar nada que no estuviera ya en la figura 1. Se movió todo lo que no es dato a la franja inferior, se endureció la máscara del campo, se quitaron las líneas, y en el título de la figura 2 se retiró \"lejos del balón\", que el 55 % no sostiene. Una tercera pasada arregló el solape entre el texto de la franja y la clave de grosor."),
+  p(`La figura 1 redibujada el 29 de octubre se miró tres veces. La primera, con un umbral de 30 defensores, pintaba tasa dentro de la zona del triple de esquina por puro arrastre del suavizado (6 de los 24 puntos de la rejilla que caen en esa zona), contradiciendo el subtítulo; con ${RATE_MIN_WEIGHT} no se pinta ninguno. La leyenda del blanco pasó de "pocos empiezan ahí" a "pocos para dar una tasa", porque las líneas de corriente, con su propio umbral de 10, sí entran en zonas blancas. Y el "dos de cada tres" tecleado del subtítulo pasó a ser la cuota calculada. El texto de la franja va a 11 puntos, como en la figura 2; el cribado había señalado los 8 y 9 puntos de la versión anterior.`),
 ];
 
 const s10 = [
@@ -436,7 +483,7 @@ const s10 = [
   p("Antes de planificar se sondeó la segunda ayuda con un diseño que lleva su propio control: para cada uno de los tres defensores que no son ni el emparejado del balón ni el ayudante, su desplazamiento propio se proyecta hacia el hombre dejado y, como placebo, hacia los demás atacantes sin balón que no son su propio hombre. Si hubiera rotación, la proyección hacia el hombre dejado superaría a la del placebo. La sonda empezó como script de sesión; su diseño y sus cifras viven ahora en el paquete (scbasket.rotation, scripts/second_help.py) y en reports/second_help_*.csv, y esta memoria las lee de ahí en la sección 11. Lo que decidió: la segunda ayuda entendida como rotación de un tercer defensor no aparece contra el placebo, y el porcentaje de hombres dejados libres de la semana 1 no tenía tasa base (sección 8)."),
   source("sonda del 28 de octubre de 2026, reproducida en reports/second_help_*.csv el 28 y el 29 de octubre (fase A de tasks/todo.md); los intervalos de 1,5 y 2,0 s difieren en pocas centésimas de los de la sonda porque el paquete siembra cada celda del bootstrap por separado."),
   h2("10.4 Lo decidido"),
-  bullet([bold("Título: \"Nobody helps the helper\". "), run("Lo eligió Javier frente a la recomendación del planificador, que proponía mantener el anterior con este como subtítulo: la segunda ayuda que no llega pasa al frente. Tesis en una línea: la ayuda sopla desde el centro y nunca desde la esquina, y nadie ayuda al que ayuda; al hombre que deja le cubre el propio ayudante o nadie, medido contra un placebo.")]),
+  bullet([bold("Título: \"Nobody helps the helper\". "), run("Lo eligió Javier frente a la recomendación del planificador, que proponía mantener el anterior con este como subtítulo: la segunda ayuda que no llega pasa al frente. Tesis en una línea: la ayuda sopla desde el centro y nunca desde la esquina, y nadie ayuda al que ayuda; al hombre que deja le cubre el propio ayudante o nadie, medido contra un placebo. El 29 de octubre se retiró la primera mitad, que medía dónde están los defensores y no de dónde ayudan (sección 12.4).")]),
   bullet([bold("Repositorio público: este. "), run("Se etiqueta el estado actual como bounce-final y el README del rebote pasa a docs/bounce/; el paquete, la caché y los tests compartidos se quedan donde ya funcionan al clonar.")]),
   bullet([bold("Figura 2: quién cubre al hombre dejado. "), run("Los puntos se colorean según quién es su defensor más cercano y, debajo, la rotación frente al placebo con su intervalo y la tasa base en la misma frase.")]),
   bullet([bold("Cómo se trabaja. "), run("El plan por fases lo escribió Fable 5.1 como planificador, y cada tarea se ejecuta con el modelo de su etiqueta (Sonnet la mayoría, Haiku lo mecánico, Opus el motor de la página y la verificación final, Fable el guion visual de la página). A petición de Javier, una sola revisión adversarial, al cierre, y ninguna puerta que bloquee.")]),
@@ -514,21 +561,48 @@ const sSecond = [
   source("reports/second_help_closeouts.csv (n, closer_own_share, closer_other_share)."),
 ];
 
+const sCorner = [
+  h1("12. La esquina, con su tasa base (29 de octubre de 2026)", { pageBreakBefore: true }),
+  p(`La primera mitad de la tesis descansaba en que el ayudante casi nunca sale del lado de la esquina: el ${pct(N.fromCorner, 1)} de los ayudantes, entre el ${pct(Math.min(...cornerSide))} y el ${pct(Math.max(...cornerSide))} en las doce celdas de la sección 8.4. Esa cuota no tenía denominador, y un cribado del council sobre la figura 1 (46 sobre 100, no lista) lo señaló el mismo día: el naranja era la densidad bruta de los orígenes del ayudante, no una tasa por defensor. Esta sección pone esa tasa y la compara con la que predice dónde queda el balón respecto a cada defensor. Todo sale de reports/help_base_rate.csv, que escribe scripts/help_wind.py.`),
+  p("Implementación: scbasket.wind añade a cada vector la distancia desde donde empieza el defensor hasta donde está el jugador con balón al final del horizonte (target_dist) y la componente a lo largo de la pista del vector unitario hacia ese punto (target_bearing_x, negativa si el punto queda hacia el aro). scripts/help_wind.py añade helper_flags, helper_rate y base_rate, escribe el CSV y lleva la tasa por defensor a las doce celdas de sensibilidad y a cada partido; el script no corre si el ayudante leído de los vectores no es el de help_table. Los intervalos son del 95 % por bootstrap sobre penetraciones (una penetración remuestreada trae a sus cuatro defensores), con semilla fija. tests/test_help_wind.py construye un caso en que un grupo ayuda solo según su estrato y comprueba que la razón es 1 estandarizando y distinta de 1 sin estandarizar; la mutación que estandariza dentro de cada grupo hace fallar el test (1,0 contra 1,28), y se vio fallar antes de revertirla. Un test nuevo de tests/test_wind.py fija que un defensor por encima del balón que solo se hunde 4 pies puntúa 4 pies de ayuda."),
+  h2("12.1 Por defensor: dónde empiezan y cuántas veces son el ayudante"),
+  grid(["Distancia al centro (|y|)", "Defensores (cuota)", "Ayudantes (cuota)", "Tasa por defensor (IC 95 %)"],
+    yBands.map((r) => [bandName(r.group), `${r.n_defenders} (${pct(num(r.defender_share), 1)})`, `${r.n_helpers} (${pct(num(r.helper_share), 1)})`, rateCi(r)]),
+    [2826, 1900, 1900, 2400], { align: ["l", "r", "r", "r"] }),
+  source("reports/help_base_rate.csv (grouping y_band, standardised_by none), a 4 pies y 1,0 s."),
+  p(`De los ${thousands(vectors.length)} defensores sin balón, ${cornerBand.n_defenders} (el ${pct(num(cornerBand.defender_share), 1)}) empiezan a más de 18 pies del centro, y ${nCorner3 === 0 ? "ninguno" : nCorner3} en la zona del triple de esquina. De ahí salen ${cornerBand.n_helpers} ayudantes. Cada uno de esos defensores es el ayudante el ${rateCi(cornerBand)} de las veces, frente al ${pct(num(middleBand.rate), 1)} de los que empiezan en el centro, y el ${pct(num(base.helper_rate), 1)} de todos: la esquina está vacía, y con ${cornerBand.n_defenders} defensores no se puede decir si ayuda menos. En las ocho celdas de sensibilidad a 1,0 y 1,5 s, la tasa de la esquina menos la del centro va de ${sg(100 * Math.min(...cornerMinusMiddle), 1)} a ${sg(100 * Math.max(...cornerMinusMiddle), 1)} puntos; a 0,5 s la esquina tiene como mucho ${halfSecCorner} ayudante${halfSecCorner === 1 ? "" : "s"}. "Nadie ayuda desde la esquina" significa que nadie está en la esquina.`),
+  h2("12.2 Distancia u orientación"),
+  p(`Por zona, la tasa por defensor es más alta en el perímetro que dentro: ${pct(num(BR("zone0", "none", "top_3").rate))} en el triple frontal y ${pct(num(BR("zone0", "none", "wing_3").rate))} en el de ala, contra ${pct(num(BR("zone0", "none", "mid_range").rate))} en media distancia, ${pct(num(BR("zone0", "none", "paint_non_ra").rate))} en la pintura y ${pct(num(BR("zone0", "none", "restricted_area").rate))} en el área restringida. Se sospechó que podía ser mecánico: el ayudante es el que más se mueve hacia donde estará el balón, y un defensor interior ya estaría cerca de ese punto. Para comprobarlo, cada zona se compara con lo que predicen sus estratos: se suma, sobre sus defensores, la tasa media del estrato en que cae cada uno, y la razón es ayudantes observados entre esperados, 1 si la zona es el ayudante tanto como dicen sus estratos. Dos estratos: la distancia hasta el punto adonde va el balón (siete bandas) y la orientación de ese punto (cinco bandas de target_bearing_x).`),
+  grid(["Zona", "Defensores", "Tasa", "Razón bruta", "Por distancia", "Por orientación (IC 95 %)", "Ambas"],
+    ZONES.map((z) => [ZONE_NAME[z], BR("zone0", "none", z).n_defenders, pct(num(BR("zone0", "none", z).rate), 1), ratio(BR("zone0", "none", z)), ratio(BR("zone0", "target_dist", z)), ratioCi(BR("zone0", "bearing", z)), ratio(BR("zone0", "target_dist+bearing", z))]),
+    [1826, 1400, 900, 1000, 1100, 1900, 900], { align: ["l", "r", "r", "r", "r", "r", "r"] }),
+  source("reports/help_base_rate.csv (grouping zone0; standardised_by none, target_dist, bearing y target_dist+bearing)."),
+  p(`La distancia no lo explica: los defensores interiores no están más cerca del punto adonde va el balón (mediana de ${ft(targetDist("paint_non_ra"))} en la pintura y ${ft(targetDist("restricted_area"))} en el área restringida, contra ${ft(targetDist("top_3"))} en el triple frontal, de reports/help_vectors.csv), y con ella el triple frontal sigue en ${ratioCi(BR("zone0", "target_dist", "top_3"))}. La orientación sí. Un defensor para el que ese punto queda mayormente hacia el aro (target_bearing_x de ${bearingRows[0].group.replace(" to ", " a ").replace(/\./g, ",").replace(/-/g, "−")}) es el ayudante el ${rateCi(bearingRows[0])} de las veces; uno para el que queda mayormente hacia fuera (${bearingRows[bearingRows.length - 1].group.replace(" to ", " a ").replace(/\./g, ",").replace(/-/g, "−")}), el ${rateCi(bearingRows[bearingRows.length - 1])}. Controlando la orientación, el triple frontal queda en ${ratioCi(BR("zone0", "bearing", "top_3"))} y la pintura en ${ratioCi(BR("zone0", "bearing", "paint_non_ra"))}, y las bandas de |y| se aplanan (${yBands.slice(0, -1).map((r) => ratio(BR("y_band", "bearing", r.group))).join(" / ")}, del centro hacia fuera); el lado de la esquina queda en ${ratioCi(BR("y_band", "bearing", cornerBand.group))}, con ${cornerBand.n_defenders} defensores. Con otras particiones de la orientación (tres u ocho bandas, deciles) el veredicto no cambia, según una sonda de sesión registrada en tasks/todo.md. Queda el triple de ala, el área restringida baja (${BR("zone0", "none", "restricted_area").n_helpers} ayudante de ${BR("zone0", "none", "restricted_area").n_defenders}) y la zona lejana.`),
+  h2("12.3 El matiz del ayudante"),
+  p(`La consecuencia toca a la definición del ayudante (sección 6). Por encima del balón, cuando el punto adonde va queda más cerca de la línea del aro que el defensor, hundirse con la penetración ya es moverse hacia ese punto, y cuenta como movimiento de ayuda. El ${pct(num(base.helper_above_ball), 1)} de los ayudantes empieza ahí, y en la mediana la parte a lo largo de la pista es el ${pct(num(base.helper_along_court_share))} de su movimiento de ayuda. En las doce celdas de sensibilidad, los ayudantes por encima del balón van del ${pct(Math.min(...sens("helper_above_ball")))} al ${pct(Math.max(...sens("helper_above_ball")))}, y la parte a lo largo de la pista del ${pct(Math.min(...sens("helper_along_court_share")))} al ${pct(Math.max(...sens("helper_along_court_share")))}, las dos creciendo con el umbral: cuanto mayor el movimiento, más es hundirse. Los ${BR("zone0", "none", "far").n_helpers} ayudantes de la zona lejana se mueven una mediana de ${es(-farDx, 1)} pies hacia el aro en el segundo: son defensores que vuelven en transición.`),
+  p(`Parte del ${pct(N.shareHelped, 1)} de penetraciones con ayudante es, por tanto, el repliegue común de la defensa visto desde arriba del balón. La segunda ayuda (sección 11) no cambia, porque su placebo y su comparación con las penetraciones sin ayudante se hacen sobre la misma definición; pero el matiz viaja junto al ${pct(N.shareHelped, 1)} en el README y en la página. El docstring de scbasket.wind decía que un defensor que solo se hunde puntúa bajo, y la sección 6 de esta memoria lo repetía; las dos cosas están corregidas.`),
+  h2("12.4 Lo decidido"),
+  p("Javier aceptó el 29 de octubre las tres recomendaciones del planificador:"),
+  bullet([bold("La primera mitad de la tesis se retira como afirmación. "), run("La tesis queda en la segunda: nadie ayuda al que ayuda, que ya es el título (sección 10.4).")]),
+  bullet([bold("La figura 1 pasa a contexto descriptivo "), run("(sección 9.1): adónde va la defensa en el primer segundo, con la esquina como ocupación y la cuota de ayudantes por encima del balón, cada una con su n.")]),
+  bullet([bold("El ayudante conserva su definición. "), run("Redefinirlo, por ejemplo solo con el movimiento lateral, obligaría a rehacer la fase A a siete semanas del cierre; el matiz va al lado de la cifra.")]),
+];
+
 
 const s12 = [
-  h1("12. Plan y calendario", { pageBreakBefore: true }),
+  h1("13. Plan y calendario", { pageBreakBefore: true }),
   grid(["Fase", "Fechas", "Trabajo", "Estado"], [
     ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
-    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Cerrada el 29 de octubre: A1 a A4 el 28, A5 a A7 el 29, con la figura 2 aprobada por Javier. Queda abierta, antes de la fase B, la tasa base de la ayuda desde la esquina"],
-    ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en canvas sin CDN conducida desde la consola; memoria v0.4", "Pendiente"],
-    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público y el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.5", "Pendiente"],
-    ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.6", "Pendiente"],
+    ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Cerrada el 29 de octubre: A1 a A4 el 28, A5 a A7 el 29, con la figura 2 aprobada por Javier. El mismo día, antes de la fase B, la tasa base de la esquina, la primera mitad de la tesis retirada y la figura 1 redibujada (sección 12; memoria v0.4)"],
+    ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en canvas sin CDN conducida desde la consola; memoria v0.5", "Pendiente"],
+    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público y el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.6", "Pendiente"],
+    ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.7", "Pendiente"],
     ["E", "14 a 18 de diciembre", "Dispositivos reales, memoria v1.0, la verificación final con la única revisión adversarial, y el envío antes del 17", "Pendiente"],
   ], [1100, 1700, 3626, 2600]),
   p("Cada fase cierra con ruff y pytest en verde y una revisión con Javier. El detalle de cada tarea, con su criterio de aceptación y su modelo, está en tasks/todo.md."),
-  h2("12.1 Riesgos asumidos"),
+  h2("13.1 Riesgos asumidos"),
   bullet("La fase B tiene tres semanas a tiempo parcial para el canvas, la reproducción de las penetraciones y la conducción desde la consola, sin holgura dentro; la voz necesita a Javier en una ventana de siete días."),
-  bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, lo que separa las dos cosas en la tabla pero no en la imagen."),
+  bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, y eso no separa del todo las dos cosas: por encima del balón, hundirse cuenta como ayuda (sección 12.3)."),
   bullet("Todo depende de la tabla matchups del proveedor para saber quién es el emparejado del balón y a quién marcaba el ayudante. Donde falta, se usa el defensor más cercano para el primero y se deja vacío el segundo."),
   bullet("Diez partidos: las firmas por equipo son ilustración; el campo de la liga es el entregable."),
   bullet(`El marco de la penetración se define por el movimiento lateral neto del jugador con balón en el primer segundo. En penetraciones casi rectas ese signo es casi arbitrario, lo que difumina qué es "lado de la penetración" y qué "lado contrario" (y explica en parte que el hombre libre se reparta ${pct(N.leftFarSide)} contra ${pct(1 - N.leftFarSide)}); no afecta a "desde la esquina", que es simétrico. El campo direction del proveedor coincide con ese signo en ${pct(N.directionAgree)} de las penetraciones: dos de cada tres, así que ni valida ni sustituye al espejo sin más estudio.`),
@@ -536,18 +610,21 @@ const s12 = [
 ];
 
 const s13 = [
-  h1("13. Pendientes y decisiones abiertas"),
+  h1("14. Pendientes y decisiones abiertas"),
   numbered("Cerrado el 29 de octubre: range.bin, un fichero suelto de 100 bytes (el principio de un frame de tracking en JSON) en la raíz del repo y sin referencia alguna, se borró por decisión de Javier."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
+  numbered("La figura 1 redibujada el 29 de octubre espera la mirada de Javier."),
+  numbered(`El README y la página tienen que llevar el matiz del ayudante (sección 12.3) junto al ${pct(N.shareHelped, 1)}, y la esquina como ocupación, no como afirmación.`),
 ];
 
 const s14 = [
-  h1("14. Registro de versiones de este documento"),
+  h1("15. Registro de versiones de este documento"),
   grid(["Versión", "Fecha", "Cambios"], [
     ["0.1", "28 de octubre de 2026", "Creación. Competición, dato, antecedentes, ideación con las tres sondas, definiciones, implementación y resultados de la semana 1, las dos figuras de la semana 2, plan y pendientes."],
     ["0.2", "28 de octubre de 2026", "Título nuevo, \"Nobody helps the helper\". Sección 10 nueva: una sola entrada de baloncesto, el council (37 sobre 100) y la sonda de la segunda ayuda. Tasa base junto al porcentaje de hombres libres en las secciones 8 y 9. Plan por fases A a E en la sección 11. Pendientes depurados por la decisión de entrada única."],
     ["0.3", "29 de octubre de 2026", "Sección 11 nueva, \"La segunda ayuda: una ausencia medida\", leída de reports/second_help_*.csv: el diseño del placebo, la diferencia emparejada con su media, su intervalo, la mediana y la cuota de parejas, los signos por partido, la sensibilidad, quién está más cerca del hombre dejado, su cuota de libre con la tasa base, el pase y el X-out como límite. Figura 2 nueva (quién cubre al hombre que deja) en 9.2. Sección 10.3 reducida: sus cifras pasan a la 11 y vienen de los CSV. Tasa base y rangos de las secciones 8.3 y 8.4 leídos de help_by_game.csv y help_sensitivity.csv, no tecleados. Plan: A1 a A5 hechas. Secciones 11 a 13 anteriores renumeradas a 12 a 14."],
+    ["0.4", "29 de octubre de 2026", "Sección 12 nueva, \"La esquina, con su tasa base\", leída de reports/help_base_rate.csv: la tasa por defensor por banda de |y| y por zona, con su intervalo; la comparación con lo que predicen la distancia y la orientación del punto adonde va el balón; el matiz del ayudante (por encima del balón, hundirse cuenta como ayuda); y lo decidido: primera mitad de la tesis retirada, figura 1 descriptiva, ayudante sin redefinir. Corregidas la definición de la sección 6, la frase de la 8.4 sobre el título, la tesis de la 10.4 (con nota) y un riesgo de la 13.1. Figura 1 nueva en 9.1, con su tasa por defensor y su franja a 11 puntos; 9.3 cuenta las tres miradas. La tabla de la sección 8 lleva la tasa base de la esquina. Plan y pendientes al día; secciones 12 a 14 anteriores renumeradas a 13 a 15."],
   ], [1200, 2200, 5626]),
 ];
 
@@ -589,7 +666,7 @@ const doc = new Document({
       new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "777777" }),
     ] })] }) },
     children: [...cover, ...toc, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...s8, ...s9,
-               ...s10, ...sSecond, ...s12, ...s13, ...s14],
+               ...s10, ...sSecond, ...sCorner, ...s12, ...s13, ...s14],
   }],
 });
 

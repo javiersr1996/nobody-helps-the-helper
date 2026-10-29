@@ -502,7 +502,34 @@ sink scores 4 ft of help. 299 tests pass, ruff clean. Read back off the CSVs:
   only sinks "scores low"; that holds below the ball only, and is now corrected there. Above
   the ball the sink is help movement, so part of the 45.3 % with a helper is the defence's
   common retreat seen from above the ball. README and memoria need it next to the helper.
-Next: (3) is Javier's.
+**(3) ANSWERED 2026-10-29: Javier accepts the three recommendations.** The thesis's first
+half is retired as a claim; the thesis is the second half alone ("nobody helps the helper",
+D1). Figure 1 becomes descriptive context, titled on where the defence goes in the first
+second, with the corner as occupancy (share of off-ball defenders) and the share of helpers
+above the ball in its strip, each with its n. The helper keeps its definition; the
+above-the-ball qualifier travels next to the 45.3 %. Memoria: this goes in as v0.4, so B6,
+C4, D4 and E2 each shift one version later again (v0.5, v0.6, v0.7, v1.0).
+**(4) and (5) DONE 2026-10-29.** Figure 1 redrawn (1440 x 2360 px): title "Where the defence
+goes in the first second of a drive"; the orange is now the helper rate per defender (kernel
+mean of a 0/1 flag, same bandwidth), drawn where >= 80 defenders' kernel mass start; strip at
+11 pt with the corner as occupancy and the above-the-ball share, every number from
+`help_table` / `help_vectors` / `help_base_rate.csv`, and the script refuses to draw if the
+three disagree on the helpers. Looked at three times: at a mask of 30 the smoothing painted
+a rate on 6 of the 24 grid points inside `corner_3` (scratchpad `corner_mass.py`), none at
+80, which also keeps the rate's binomial SE near 3.5 points; the white is "too few for a
+rate" because the streamlines keep their own mask of 10; the typed "two in three" became the
+computed share. Figure 2 byte-identical. Bearing bands now labelled without commas ("-1 to
+-0.7"), because the memoria's CSV reader splits on commas. Memoria v0.4, 27 pages: new
+section 12 "La esquina, con su tasa base" (12.1 rate per defender by |y| band; 12.2 distance
+or bearing, with the inside defenders' median distance to the spot read from
+`help_vectors.csv`; 12.3 the helper qualifier; 12.4 the decision); corrected section 6 (the
+sink claim), 8.4 (the title sentence), 10.4 (note), 13.1 (a risk); 9.1 new figure and text,
+9.3 the three looks; the corner base rate in the section 8 table; plan, pending and version
+log. Four claims guarded in the build (it throws if the corner CI stops containing the middle
+rate, if distance explains top_3, if top_3 or paint by bearing stop containing 1, if the
+inside defenders become nearer the spot). Figure size now read from the PNG header. Read back
+from the PDF text by an independent script against the CSVs: 17 of 17 section-12 numbers.
+Open: Javier looks at figure 1; README and page carry the helper qualifier (C2, B3).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
