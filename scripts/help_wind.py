@@ -11,6 +11,8 @@ Writes to {out}:
   help_table.csv        one row per drive (the largest mover and the man he left)
   help_vectors.csv      one row per (drive, non-matchup defender), drive frame
   help_flow.csv         the flow field, one row per cell of the drive frame
+  help_field.csv        the kernel field (mean move, helper rate, kernel mass), one row per
+                        grid point of the drive frame: the wind map and the page read it
   help_sensitivity.csv  share with a helper and what he leaves, over HELP_FT x horizon
   help_by_game.csv      the headline numbers per game, never pooled away
   help_base_rate.csv    per off-ball defender: where they start and how often each is the
@@ -35,9 +37,11 @@ from scbasket.wind import (
     OPEN_FT,
     SENSITIVITY_HELP_FT,
     SENSITIVITY_HORIZON_S,
+    field_grid,
     flow_field,
     help_table,
     help_vectors,
+    kernel_field,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -237,9 +241,11 @@ def main() -> int:
         raise ValueError("the helper read off the vectors is not help_table's helper")
     flow = flow_field(vectors)
     rates = base_rate(vectors, HELP_FT)
+    field = kernel_field(vectors, helper_flags(vectors, HELP_FT).to_numpy(float), *field_grid())
     table.to_csv(args.out / "help_table.csv", index=False)
     vectors.to_csv(args.out / "help_vectors.csv", index=False)
     flow.to_csv(args.out / "help_flow.csv", index=False)
+    field.to_csv(args.out / "help_field.csv", index=False)
     rates.to_csv(args.out / "help_base_rate.csv", index=False)
 
     print(f"drives: {len(table)}; status: {table['status'].value_counts().to_dict()}")

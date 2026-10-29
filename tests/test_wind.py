@@ -25,6 +25,7 @@ from scbasket.wind import (
     flow_field,
     help_table,
     help_vectors,
+    kernel_field,
 )
 
 CACHE_DIR = REAL_DATASET_ROOT.parents[1] / "interim"
@@ -247,6 +248,58 @@ def test_flow_field_aggregates_cells_and_reports_consistency():
     assert a["x_center"] == pytest.approx(HOOP_X + 12.0) and a["y_center"] == pytest.approx(0.0)
     b = cell.loc[(2, 3)]
     assert b["n"] == 20 and b["consistency"] == pytest.approx(0.0)
+
+
+# ------------------------------------------------------------------ the kernel field
+
+
+def _kernel(origins, moves, helper=None, grid=None, **kw):
+    """The kernel field of vectors at drive-frame `origins` (x, y) moving by `moves` (dx, dy)."""
+    vectors = pd.DataFrame({
+        "origin_x": [o[0] for o in origins], "origin_y": [o[1] for o in origins],
+        "dx": [m[0] for m in moves], "dy": [m[1] for m in moves],
+    })
+    flag = np.zeros(len(vectors)) if helper is None else np.asarray(helper, float)
+    gx, gy = grid if grid is not None else (np.arange(-10.0, 11.0, 1.0), np.arange(-10.0, 11.0))
+    return kernel_field(vectors, flag, gx, gy, **kw).set_index(["x", "y"])
+
+
+def test_one_vector_gives_its_own_move_where_unmasked_and_weight_falls_with_distance():
+    # Off centre, and dx != dy in size and sign, so swapped columns or axes cannot pass.
+    field = _kernel([(HOOP_X + 3.0, -2.0)], [(-1.5, 0.5)], min_weight=0.2, bandwidth_ft=4.0)
+    at = lambda x, y: field.loc[(HOOP_X + x, y)]  # noqa: E731
+    assert at(3.0, -2.0)["weight"] == pytest.approx(1.0)
+    assert at(7.0, -2.0)["weight"] == pytest.approx(np.exp(-0.5))  # one bandwidth along
+    assert at(3.0, 2.0)["weight"] == pytest.approx(np.exp(-0.5))  # one bandwidth across
+    assert at(3.0, -2.0)["weight"] > at(5.0, -2.0)["weight"] > at(8.0, -2.0)["weight"]
+    unmasked = field[field["weight"] >= 0.2]
+    assert len(unmasked) > 1
+    assert unmasked["mean_dx"].to_numpy() == pytest.approx(-1.5)
+    assert unmasked["mean_dy"].to_numpy() == pytest.approx(0.5)
+    far = field[field["weight"] < 0.2]
+    assert len(far) > 0 and far["mean_dx"].isna().all() and far["mean_dy"].isna().all()
+    assert far["weight"].notna().all()  # the weight is kept where the mean is masked
+
+
+def test_a_cell_is_pulled_toward_the_nearer_vector():
+    # Two vectors with opposite, unequal moves; a cell nearer one reads mostly that one.
+    field = _kernel([(HOOP_X, -6.0), (HOOP_X, 6.0)], [(2.0, 0.0), (-1.0, 3.0)], min_weight=0.01)
+    near_a, near_b = field.loc[(HOOP_X, -5.0)], field.loc[(HOOP_X, 5.0)]
+    assert near_a["mean_dx"] > near_b["mean_dx"] and near_a["mean_dy"] < near_b["mean_dy"]
+    assert near_a["mean_dx"] > 0.5 and near_b["mean_dx"] < 0.0  # nearer A: toward +2; B: toward -1
+    mid = field.loc[(HOOP_X, 0.0)]  # equidistant: the plain average of the two moves
+    assert mid["mean_dx"] == pytest.approx(0.5) and mid["mean_dy"] == pytest.approx(1.5)
+
+
+def test_helper_rate_is_the_weighted_share_and_has_its_own_mask():
+    field = _kernel([(HOOP_X, -6.0), (HOOP_X, 6.0)], [(0.0, 0.0)] * 2, helper=[1, 0],
+                    min_weight=0.01, rate_min_weight=0.5)
+    assert field.loc[(HOOP_X, -6.0), "helper_rate"] == pytest.approx(
+        1.0 / (1.0 + np.exp(-0.5 * 12.0**2 / 4.0**2)))
+    assert field.loc[(HOOP_X, 6.0), "helper_rate"] < 0.05
+    # Mean displacement is drawn where the rate is not: the rate needs more mass.
+    thin = field[(field["weight"] >= 0.01) & (field["weight"] < 0.5)]
+    assert len(thin) > 0 and thin["helper_rate"].isna().all() and thin["mean_dx"].notna().all()
 
 
 # ------------------------------------------------------------------- the real dataset

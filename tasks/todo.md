@@ -261,7 +261,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       that comes before B1.
 
 #### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
-- [ ] B1 Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
+- [x] B1 (DONE 2026-10-29; see the record) Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
       `scbasket.wind.kernel_field(vectors, grid_ft, bandwidth_ft, min_weight)`; `help_wind.py`
       writes `reports/help_field.csv` (grid, mean dx, dy, kernel weight); `help_figures.py`
       reads it. Test: one vector gives a field that points its way, decays with distance and is
@@ -676,11 +676,25 @@ pass, 14 pending updated, version row; read back from the PDF by script against 
 values). 309 tests pass, ruff clean.
 **Javier approved the new figure 1, 2026-10-29** ("apruebo la figura 1"). Memoria 9.3, 14 and
 the version row say so. B1 (Sonnet) and B3 (Fable) were launched in parallel the same day.
+**B1 DONE 2026-10-29** (Sonnet agent, checked here). `scbasket.wind.kernel_field(vectors,
+helper, along, across, ...)` and `field_grid()`, with the constants (GRID_FT, BANDWIDTH_FT,
+MIN_WEIGHT, RATE_MIN_WEIGHT, the grid's extent) moved out of `help_figures.py`;
+`help_wind.py` writes `reports/help_field.csv` (957 cells: drive-frame x, y, kernel weight,
+mean_dx, mean_dy, helper_rate; NaN under each threshold, weight kept, so no consumer
+re-applies one); the wind map reads it. Three tests written first (one off-centre vector,
+two vectors pulling a cell, the rate's own mask); the agent's mutations (dx/dy swapped,
+weights reversed) failed 2 and 3 of them. Every other CSV help_wind.py rewrites is
+byte-identical; figures 1 and 2 byte-identical; the wind map differs in 3 of 3.4 M pixels
+(rows 879-882, cols 552-555, max channel diff 30, re-measured here), because the field now
+comes from the vectors in memory and not from their CSV re-read (last-digit float parse);
+rebuilt from the re-read vectors in a scratch dir it was byte-identical (agent's check).
+Kept the new PNG: it is what the committed code produces from a clean clone. Memoria 12.5
+and version row. 312 tests pass (agent's full run), ruff clean, `test_wind.py` 16 of 16 here.
 
 ### NEXT SESSION (left 2026-10-29)
 1. B3: Javier reads the storyboard in `tasks/wind_page.md` and accepts it or not; B4 does not
    start before.
-2. B1 (kernel field into `scbasket.wind`, `reports/help_field.csv`); the wind map, now
+2. After B3 is accepted, B4 (the page, Opus) reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences

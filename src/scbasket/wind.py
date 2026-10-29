@@ -63,6 +63,21 @@ CELL_X_FT = 8.0
 CELL_Y_FT = 10.0
 HALF_WIDTH_BIN_FT = 25.0  # the across bins run from -25 to +25 ft, 5 cells of CELL_Y_FT
 
+#: The kernel field: grid step, Gaussian bandwidth, and the least kernel mass (in vectors'
+#: worth) a cell needs before its mean displacement is kept, so the wind only blows where
+#: defenders stood. The grid runs from FIELD_ALONG_FT past the hoop line (negative: behind
+#: it) and across FIELD_ACROSS_FT, the drive frame's y.
+GRID_FT = 1.5
+BANDWIDTH_FT = 4.0
+MIN_WEIGHT = 10.0
+FIELD_ALONG_FT = (-3.0, 38.0)
+FIELD_ACROSS_FT = (-24.0, 24.0)
+#: The helper rate per defender is smoothed with the same kernel but kept only where
+#: RATE_MIN_WEIGHT defenders' worth of mass started. At 80 the rate's binomial standard error
+#: stays near 3.5 points, and the smoothing no longer bleeds into the corner-3 zone, where no
+#: defender starts (at 30 it did).
+RATE_MIN_WEIGHT = 80.0
+
 STATUSES = ("ok", "no_frame", "no_horizon", "no_handler")
 
 
@@ -281,3 +296,49 @@ def flow_field(
     out["y_center"] = -HALF_WIDTH_BIN_FT + (out["cell_y"] + 0.5) * cell_y_ft
     out["consistency"] = np.hypot(out["mean_dx"], out["mean_dy"]) / out["mean_length"]
     return out.reset_index(drop=True)
+
+
+def field_grid(grid_ft: float = GRID_FT) -> tuple[np.ndarray, np.ndarray]:
+    """The kernel field's axes: feet from the hoop line along the court, and y across it."""
+    along = np.arange(FIELD_ALONG_FT[0], FIELD_ALONG_FT[1] + grid_ft, grid_ft)
+    across = np.arange(FIELD_ACROSS_FT[0], FIELD_ACROSS_FT[1] + grid_ft, grid_ft)
+    return along, across
+
+
+def kernel_field(
+    vectors: pd.DataFrame,
+    helper: np.ndarray,
+    along: np.ndarray,
+    across: np.ndarray,
+    bandwidth_ft: float = BANDWIDTH_FT,
+    min_weight: float = MIN_WEIGHT,
+    rate_min_weight: float = RATE_MIN_WEIGHT,
+) -> pd.DataFrame:
+    """Gaussian-weighted mean displacement and helper rate on a grid of the drive frame.
+
+    The grid is `along` (feet from the hoop line, as `flow_field` bins x) by `across` (drive
+    frame y). One row per cell, along outer and across inner: its centre `x` (drive frame,
+    `HOOP_X` + along, like every origin in `vectors`) and `y`, the kernel mass `weight` (in
+    vectors' worth), `mean_dx`, `mean_dy`, and `helper_rate`, the kernel mean of the 0/1
+    `helper` flag, i.e. the share of the defenders starting nearby who are the helper. The
+    mass depends on positions only, so both share it. The means are NaN where `weight` is
+    under `min_weight` (the rate: `rate_min_weight`); `weight` is kept so nobody re-applies a
+    threshold.
+    """
+    gx, gy = np.meshgrid(along, across, indexing="ij")
+    px = vectors["origin_x"].to_numpy(float) - HOOP_X
+    py = vectors["origin_y"].to_numpy(float)
+    d2 = (gx.ravel()[:, None] - px[None, :]) ** 2 + (gy.ravel()[:, None] - py[None, :]) ** 2
+    w = np.exp(-0.5 * d2 / bandwidth_ft**2)
+    mass = w.sum(axis=1)
+    safe = np.maximum(mass, 1e-9)
+
+    def mean(values: np.ndarray, least: float) -> np.ndarray:
+        return np.where(mass < least, np.nan, w @ np.asarray(values, float) / safe)
+
+    return pd.DataFrame({
+        "x": HOOP_X + gx.ravel(), "y": gy.ravel(), "weight": mass,
+        "mean_dx": mean(vectors["dx"], min_weight),
+        "mean_dy": mean(vectors["dy"], min_weight),
+        "helper_rate": mean(helper, rate_min_weight),
+    })

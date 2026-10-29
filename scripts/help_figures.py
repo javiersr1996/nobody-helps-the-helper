@@ -2,10 +2,11 @@
 
 Usage: uv run --extra figures python scripts/help_figures.py [--reports DIR] [--out DIR]
 
-Needs `reports/help_table.csv` and `reports/help_vectors.csv`, which `scripts/help_wind.py`
-writes. Everything is drawn in the DRIVE FRAME and in shot-chart orientation: the attacked
-hoop at the bottom, the baseline under it, and the ball handler's lateral motion to the
-RIGHT, so left- and right-hand drives pool and "the corner side" is always bottom right.
+Needs `reports/help_table.csv`, `reports/help_vectors.csv` and `reports/help_field.csv`, which
+`scripts/help_wind.py` writes. Everything is drawn in the DRIVE FRAME and in shot-chart
+orientation: the attacked hoop at the bottom, the baseline under it, and the ball handler's
+lateral motion to the RIGHT, so left- and right-hand drives pool and "the corner side" is
+always bottom right.
 
   1. **Does anyone else move toward the man the helper left?** The first scene of
      `reports/wind_scenes.json` (`scripts/wind_scenes.py`, chosen by rule, not by look):
@@ -91,16 +92,8 @@ BACKBOARD_FROM_BASELINE_FT = 3.94
 BACKBOARD_HALF_WIDTH_FT = 2.95
 RIM_RADIUS_FT = 0.74
 
-#: The kernel field: grid step, Gaussian bandwidth, and the least kernel mass (in vectors'
-#: worth) a cell needs before it is drawn, so the wind only blows where defenders stood.
-GRID_FT = 1.5
-BANDWIDTH_FT = 4.0
-MIN_WEIGHT = 10.0
-#: Figure 1's orange: the helper rate per defender, kernel-smoothed like the field, drawn only
-#: where RATE_MIN_WEIGHT defenders' worth of kernel mass started, in these bands. At 80 the
-#: rate's binomial standard error stays near 3.5 points, under a band's width, and the
-#: smoothing no longer bleeds into the corner-3 zone, where no defender starts (at 30 it did).
-RATE_MIN_WEIGHT = 80.0
+#: The orange's bands: the helper rate per defender (`scbasket.wind.kernel_field`, which holds
+#: why the rate is drawn only where enough kernel mass started).
 RATE_LEVELS = (0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 1.0)
 RATE_ALPHA = 0.75
 #: Streamline width, points, for a mean displacement of zero and of WIDTH_FULL_FT.
@@ -159,19 +152,6 @@ def draw_court(ax, sides: bool = True) -> None:
     ax.set_xlim(-half - 1.5, half + 1.5)
     ax.set_ylim(baseline - (3.0 if sides else 0.5), top + 1.0)
     ax.axis("off")
-
-
-def kernel_field(px, py, u, v, grid_x, grid_y, min_weight=MIN_WEIGHT):
-    """Gaussian-weighted mean of (u, v) on the grid, masked where too few vectors are near."""
-    gx, gy = np.meshgrid(grid_x, grid_y)
-    d2 = (gx.ravel()[:, None] - px[None, :]) ** 2 + (gy.ravel()[:, None] - py[None, :]) ** 2
-    w = np.exp(-0.5 * d2 / BANDWIDTH_FT**2)
-    mass = w.sum(axis=1)
-    safe = np.maximum(mass, 1e-9)
-    mask = (mass < min_weight).reshape(gx.shape)
-    U = np.ma.array((w @ u / safe).reshape(gx.shape), mask=mask)
-    V = np.ma.array((w @ v / safe).reshape(gx.shape), mask=mask)
-    return gx, gy, U, V
 
 
 def width_of(displacement_ft) -> np.ndarray:
@@ -377,13 +357,13 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
     build(build(40.0, None), path)  # the first pass only measures the height it needs
 
 
-def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, numbers: dict,
-             path: Path) -> None:
-    px, py = to_plot(vectors["origin_x"], vectors["origin_y"])
-    u, v = vectors["dy"].to_numpy(float), vectors["dx"].to_numpy(float)  # lateral, along
-    grid_x = np.arange(-24.0, 24.0 + GRID_FT, GRID_FT)
-    grid_y = np.arange(-3.0, 38.0 + GRID_FT, GRID_FT)
-    gx, gy, U, V = kernel_field(px, py, u, v, grid_x, grid_y)
+def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, field: pd.DataFrame,
+             rates: pd.DataFrame, numbers: dict, path: Path) -> None:
+    # help_field.csv is in the drive frame, x outer and y inner; plot feet are (y, x - HOOP_X).
+    grid_x, grid_y = to_plot(np.sort(field["x"].unique()), np.sort(field["y"].unique()))
+    cells = lambda column: np.ma.masked_invalid(  # noqa: E731
+        field.pivot(index="x", columns="y", values=column).to_numpy())
+    U, V = cells("mean_dy"), cells("mean_dx")  # lateral, along
     magnitude = np.ma.filled(np.hypot(U, V), 0.0)
 
     # Which vector is the helper: help_table's (help_wind.py refuses to run if the vectors
@@ -396,8 +376,7 @@ def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, nu
     bearing = rates[rates["grouping"] == "bearing_band"]
     if int(flag.sum()) != int(by_y["n_helpers"].sum()) or len(flag) != by_y["n_defenders"].sum():
         raise ValueError("help_table, help_vectors and help_base_rate disagree: rerun help_wind.py")
-    # The kernel mean of a 0/1 flag is the share of the defenders starting nearby who are it.
-    _, _, rate, _ = kernel_field(px, py, flag, flag, grid_x, grid_y, RATE_MIN_WEIGHT)
+    rate = cells("helper_rate")  # the share of the defenders starting nearby who are the helper
     colours = plt.get_cmap("Oranges")(np.linspace(0.12, 0.85, len(RATE_LEVELS) - 1))
     corner, middle = by_y.iloc[-1], by_y.iloc[0]  # the |y| bands run from the middle out
     if not str(corner.name).startswith(f"{CORNER_Y_FT:g}-"):
@@ -430,7 +409,7 @@ def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, rates: pd.DataFrame, nu
             gap=0.1)
         ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT1_IN))
         draw_court(ax)
-        ax.contourf(gx, gy, rate, levels=RATE_LEVELS, colors=colours, alpha=RATE_ALPHA)
+        ax.contourf(grid_x, grid_y, rate, levels=RATE_LEVELS, colors=colours, alpha=RATE_ALPHA)
         ax.streamplot(grid_x, grid_y, U, V, density=1.2, color=INK,
                       linewidth=width_of(magnitude), arrowsize=0.9, arrowstyle="-|>", zorder=3)
         ax.annotate("", xy=end, xytext=start, zorder=5,
@@ -623,7 +602,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=Path("reports/figures"))
     args = parser.parse_args()
     for name, script in (("help_table.csv", "help_wind"), ("help_vectors.csv", "help_wind"),
-                         ("help_base_rate.csv", "help_wind"),
+                         ("help_base_rate.csv", "help_wind"), ("help_field.csv", "help_wind"),
                          ("second_help_drives.csv", "second_help"),
                          ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
@@ -636,6 +615,7 @@ def main() -> int:
     table = pd.read_csv(args.reports / "help_table.csv")
     vectors = pd.read_csv(args.reports / "help_vectors.csv")
     rates = pd.read_csv(args.reports / "help_base_rate.csv")
+    field = pd.read_csv(args.reports / "help_field.csv")
     second = pd.read_csv(args.reports / "second_help_drives.csv")
     summary = pd.read_csv(args.reports / "second_help_summary.csv")
     contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
@@ -651,7 +631,7 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     figure_1(scenes, pairs, args.out / "wind_figure_1_one_drive.png")
     figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
-    wind_map(table, vectors, rates, numbers, args.out / "wind_map_league.png")
+    wind_map(table, vectors, field, rates, numbers, args.out / "wind_map_league.png")
     print(f"wrote {args.out / 'wind_figure_1_one_drive.png'}, "
           f"{args.out / 'wind_figure_2_who_covers.png'} and {args.out / 'wind_map_league.png'}")
     return 0
