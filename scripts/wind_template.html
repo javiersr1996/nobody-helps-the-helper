@@ -359,15 +359,18 @@ const HAIRS = ["#15100d", "#241812", "#3a2719", "#5a3b24", "#86653f", "#b09062"]
 const HAIRLINES = [[1.745, 1.63], [1.77, 1.71], [1.735, 1.6]];
 const SOCK = "#f2efe8", SOLE = "#2a2a2a";
 /* The arena, drawn: the dark beyond the court, the hardwood, the painted key, the apron past
-   the lines, the lines, the stands and their seats, the light the crowd is seen in, the rim and
-   the net; the apron of wood past the lines (feet), the stands' rise and run. The crowd (B4b-2):
-   rows and seats per texture, the feet of stand one texture spans, the share of empty seats, the
-   shirts (no team's). */
+   the lines, the lines, the stands and their seats, the light the stands are seen in, the rim
+   and the net; the apron of wood past the lines, where the stands' first row starts past the
+   sidelines and past the apron at the ends (B4b-3: courtside, so the frame's upper corners show
+   people), the stands' rise and run (feet). The crowd (B4b-3): its rows, a seat's width, the
+   feet of stand one seats texture spans, the share of empty seats, how much higher or lower a
+   figure sits, a figure's body (width, height, the height of its centre over the slope) and head
+   (radius, height of its centre) in feet, the shirts (no team's). */
 const ARENA = {dark: "#15110e", wood: "#c4874f", paint: "#6e2330", apron: "#3a171c", line: "#f4ecdc",
                rim: "#e0622a", net: "#f2efe8", stands: "#1d1714", seat: "#2c2522", crowdLight: "#c8beb4",
                pad: "#1d2f5e", steel: "#3b2f29"};
-const APRON = 7, STANDS_H = 30, STANDS_RUN = 40;
-const CROWD = {rows: 16, seats: 28, span: 48, empty: 0.1,
+const APRON = 7, STANDS_SIDE = 3.5, STANDS_END = APRON + 2, STANDS_H = 30, STANDS_RUN = 40;
+const CROWD = {rows: 16, seat: 2, span: 48, empty: 0.1, sit: 0.3, body: [1.3, 1.7, 1.1], head: [0.38, 2.3],
                shirts: ["#d8d2c6", "#3b4a63", "#7a2f2f", "#2f5a46", "#b08c3c", "#5a4a6e", "#1f2226",
                         "#8c5a3a", "#456b8a", "#c46a3a", "#e8e4dc", "#4a4f57"]};
 /* Its light: a fill everywhere, a spot this high and this far up-court of the hoop with this
@@ -1072,45 +1075,62 @@ function woodTexture() {
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
-/** A crowd for the stands (B4b-2): CROWD.rows rows of seats a texture tall, CROWD.seats a texture
-    wide (one texture spans CROWD.span feet of stand), most seats taken; each spectator a shirt
-    from CROWD.shirts, a face and hair from the players' palettes, sitting a little higher or
-    lower (canvas, seeded: the same crowd on every load, and it never moves). */
-function crowdTexture() {
+/** The stands' surface (B4b-3): CROWD.rows rows of seat backs a texture tall, a seat every
+    CROWD.seat feet along a texture that spans CROWD.span feet (canvas). The people sit on it as
+    figures, crowdFigures. */
+function seatsTexture() {
   const c = document.createElement("canvas");
   c.width = 1024;
   c.height = 512;
-  const x = c.getContext("2d", SOFT), rnd = seeded(11), rowH = c.height / CROWD.rows, w = c.width / CROWD.seats;
+  const x = c.getContext("2d", SOFT), rowH = c.height / CROWD.rows, w = c.width * CROWD.seat / CROWD.span;
   x.fillStyle = ARENA.stands;
   x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = ARENA.seat;
   for (let row = 0; row < CROWD.rows; row++) {
-    const y0 = row * rowH;
-    x.fillStyle = ARENA.seat;                                 // the row of seat backs
-    x.fillRect(0, y0 + rowH * 0.74, c.width, rowH * 0.18);
-    for (let i = 0; i < CROWD.seats; i++) {
-      const cx = (i + 0.5 + (rnd() - 0.5) * 0.2) * w;
-      if (rnd() < CROWD.empty) continue;
-      const up = rowH * (rnd() - 0.5) * 0.12, shirt = CROWD.shirts[Math.floor(rnd() * CROWD.shirts.length)];
-      const skin = SKINS[Math.floor(rnd() * SKINS.length)], hair = HAIRS[Math.floor(rnd() * HAIRS.length)];
-      x.fillStyle = shirt;
-      x.beginPath();
-      x.roundRect(cx - w * 0.34, y0 + rowH * 0.46 + up, w * 0.68, rowH * 0.5, w * 0.16);
-      x.fill();
-      x.fillStyle = skin;
-      x.beginPath();
-      x.ellipse(cx, y0 + rowH * 0.3 + up, w * 0.16, rowH * 0.17, 0, 0, 2 * Math.PI);
-      x.fill();
-      x.fillStyle = hair;
-      x.beginPath();
-      x.ellipse(cx, y0 + rowH * 0.25 + up, w * 0.17, rowH * 0.13, 0, Math.PI, 2 * Math.PI);
-      x.fill();
-    }
+    for (let i = 0; i * w < c.width; i++) x.fillRect(i * w + w * 0.1, row * rowH + rowH * 0.5, w * 0.8, rowH * 0.4);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
+}
+/** The crowd (B4b-3): on the slopes of the two side stands and the far one, a seated figure (a
+    body and a head) on every seat of every row but the empty ones, its shirt and skin from the
+    palettes, dealt by a seeded generator: decoration, the same on every load, and it never moves.
+    Painted on the slope, the people of the side stands, which the broadcast camera sees nearly
+    edge-on, were streaks; as figures they read as people from any side. The stand behind the near
+    basket stays empty: its front rows would stand between the camera and the court. Two instanced
+    meshes; xa and ya are the stands' front edges, R and H their run and rise (feet). */
+function crowdFigures(xa, ya, R, H) {
+  const rnd = seeded(11), spots = [];
+  for (const [p, q, up] of [[[-xa, ya], [xa, ya], [0, 1]], [[-xa, -ya], [xa, -ya], [0, -1]],
+                             [[xa, -ya], [xa, ya], [1, 0]]]) {
+    const n = Math.floor(Math.hypot(q[0] - p[0], q[1] - p[1]) / CROWD.seat);
+    for (let row = 0; row < CROWD.rows; row++) {
+      const v = (row + 0.5) / CROWD.rows;
+      for (let i = 0; i < n; i++) {
+        const empty = rnd() < CROWD.empty, shirt = rnd(), skin = rnd(), sit = rnd();
+        if (empty) continue;
+        const u = (i + 0.5) / n;
+        spots.push({x: p[0] + (q[0] - p[0]) * u + up[0] * R * v, y: p[1] + (q[1] - p[1]) * u + up[1] * R * v,
+                    z: H * v + (sit - 0.5) * CROWD.sit, shirt: CROWD.shirts[Math.floor(shirt * CROWD.shirts.length)],
+                    skin: SKINS[Math.floor(skin * SKINS.length)]});
+      }
+    }
+  }
+  const [bw, bh, lift] = CROWD.body, [hr, hz] = CROWD.head;
+  const make = (geometry, z, colour) => {
+    const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshLambertMaterial(), spots.length);
+    const m = new THREE.Matrix4(), c = new THREE.Color();
+    spots.forEach((sp, k) => {
+      mesh.setMatrixAt(k, m.makeTranslation(V(sp.x, sp.y, sp.z + z)));
+      mesh.setColorAt(k, c.set(colour(sp)));
+    });
+    return mesh;
+  };
+  return [make(new THREE.BoxGeometry(bw, bh, bw), lift, sp => sp.shirt),
+          make(new THREE.IcosahedronGeometry(hr, 1), hz, sp => sp.skin)];
 }
 /** The ball's leather and seams (canvas, mapped as the sphere maps it). */
 function ballTexture() {
@@ -1197,9 +1217,9 @@ function buildArena() {
   lines.commit();
   arena.add(lines.mesh);
 
-  // the stands on four sides, a slope of crowd beyond the apron
+  // the stands on four sides, a slope of seats beyond the apron, and the crowd on them
   const crowd = fading(lit({color: ARENA.crowdLight, roughness: 1}));
-  const xa = -BASELINE + APRON + 5, ya = hw + APRON + 5, R = STANDS_RUN, H = STANDS_H;
+  const xa = -BASELINE + STANDS_END, ya = hw + STANDS_SIDE, R = STANDS_RUN, H = STANDS_H;
   for (const [corners, len] of [
     [[[-xa, ya, 0], [xa, ya, 0], [xa, ya + R, H], [-xa, ya + R, H]], 2 * xa],
     [[[xa, -ya, 0], [-xa, -ya, 0], [-xa, -ya - R, H], [xa, -ya - R, H]], 2 * xa],
@@ -1207,6 +1227,10 @@ function buildArena() {
     [[[-xa, -ya, 0], [-xa, ya, 0], [-xa - R, ya, H], [-xa - R, -ya, H]], 2 * ya]]) {
     const n = len / CROWD.span;
     arena.add(receive(quad(corners, [[0, 0], [n, 0], [n, 1], [0, 1]], crowd)));
+  }
+  for (const mesh of crowdFigures(xa, ya, R, H)) {
+    fading(mesh.material);
+    arena.add(mesh);
   }
   // the far basket and both stanchions, the net under each rim
   const pad = fading(lit({color: ARENA.pad, roughness: 0.8}));
@@ -1246,7 +1270,7 @@ function buildArena() {
   L.ball = receive(new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20), lit({roughness: 0.6})));
   // the canvases are painted by finishStage, once the GPU is compiling (a map's presence, not its
   // pixels, decides the program)
-  L.painted = [[wood.material, woodTexture], [crowd, crowdTexture], [L.ball.material, ballTexture]];
+  L.painted = [[wood.material, woodTexture], [crowd, seatsTexture], [L.ball.material, ballTexture]];
   scene3.add(L.ball);
   // B4b-2: the browser's own decoder where there is one; a plain loop otherwise (a mapped
   // Array.from took a tenth of the start-up)
