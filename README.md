@@ -36,6 +36,7 @@ The defender nearest to the man left is the helper himself in **59.9 %** of help
 
 ## Limits
 
+- Who guards whom is the provider's table, unvalidated: the open data has no video. Its handler defender is the nearest defender in **519 of 595** assigned drives. Keeping drives where two fields confirm that matchup and the helper is nearest to the man he leaves (**144 and 232** helped and unhelped), the contrast at 1.5 s is **-0.40 ft** (CI **-1.04 to +0.20**). Consistency, not validation.
 - The pass: a first pass follows in **110 of 258** helped drives; **31** of them (**28.2 %**) go to the man left. A random teammate would give 25 %, so at this n it cannot be told apart.
 - The rotation after the pass (the X-out) cannot be judged: n = **18** closeouts land on the man left. Nothing is claimed.
 - The drive frame mirrors drives by the ball handler's lateral motion. On near-straight drives that sign is close to arbitrary: the provider's own direction label agrees with it on **67 %** of left-labelled and **72 %** of right-labelled drives.
@@ -66,6 +67,7 @@ uv run python scripts/fetch_data.py          # ~730 MB, needs git-lfs
 uv run python scripts/build_frame_cache.py
 uv run python scripts/help_wind.py
 uv run python scripts/second_help.py
+uv run python scripts/matchup_check.py
 uv run python scripts/wind_scenes.py
 ```
 

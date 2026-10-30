@@ -113,6 +113,14 @@ def _y_band(df: pd.DataFrame, col: str) -> object:
     return one(df, grouping="y_band", standardised_by="none", group="18-inf")[col]
 
 
+def _s2_contrast(df: pd.DataFrame) -> pd.Series:
+    """The contrast row of the corroborated subset S2 at the headline horizon."""
+    rows = df[(df["subset"] == "S2") & (df["series"] == "contrast")
+              & (df["horizon_s"].round(2) == 1.52)]
+    assert len(rows) == 1
+    return rows.iloc[0]
+
+
 SOURCES: tuple[Source, ...] = (
     # How often there is a helper (help_table.csv: resolved drives, has_helper).
     Source("A helper appears in ", "help_table.csv",
@@ -189,6 +197,16 @@ SOURCES: tuple[Source, ...] = (
     # The X-out (second_help_closeouts.csv, helped, receiver is the man left).
     Source("n = ", "second_help_closeouts.csv",
            lambda d: int(one(d, helped=True, receiver_is_left=True)["n"]), plain),
+    # The provider's matchups (matchup_coherence.csv, second_help_matchup_check.csv: S2, 1.5 s).
+    Source("is the nearest defender in ", "matchup_coherence.csv",
+           lambda d: one(d, metric="assigned defender is the nearest"),
+           lambda r: f"{r['n']} of {r['of']}"),
+    Source("man he leaves (", "second_help_matchup_check.csv",
+           lambda d: _s2_contrast(d)["n_drives"], lambda v: str(v).replace("/", " and ")),
+    Source("the contrast at 1.5 s is ", "second_help_matchup_check.csv",
+           lambda d: _s2_contrast(d)["mean"], ft),
+    Source("the contrast at 1.5 s is **-0.40 ft** (CI ", "second_help_matchup_check.csv",
+           lambda d: (_s2_contrast(d)["ci_low"], _s2_contrast(d)["ci_high"]), span),
     # The mirror (help_table.csv: provider_direction against the un-mirrored lateral sign).
     Source("agrees with it on ", "help_table.csv",
            lambda d: direction_agreement(d, "left"), pct0),

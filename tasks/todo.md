@@ -842,6 +842,20 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    the drive and its tags, the rise, the controls, the tracked/drawn note), C5 (read the README
    on GitHub), D1 (read `tasks/video_script_wind.md` aloud once: it must land at 55-62 s).
    Then D2 (`scripts/wind_video.py`).
+8. DONE 2026-10-30: probe of the provider's `matchups` (never checked against video; an error
+   would push the paired difference toward the claimed absence). Reading fixed before the
+   run: HOLDS if every corroborated subset's helped-minus-unhelped CI contains zero and the
+   helped mean stays <= 0; FAILS if a contrast CI lies above zero or the helped mean rises
+   monotonically with corroboration. Result: HOLDS at 1.0, 1.5 and 2.0 s. At 1.5 s contrasts
+   S0 -0.16 [-0.65, +0.32], S1 -0.09, S2 -0.40 [-1.04, +0.20] (144/232), S3 0.00
+   [-0.68, +0.65] (122/167); helped means -0.68, -0.63, -0.84, -0.55. Coherence: handler's
+   defender assigned in 595 of 618, nearest in 519 of 595, equal to `ballhandlerDefId` in 533
+   of 595, none assigned twice; helper nearest to the man left in 190 of 258 (the session
+   probe said 70 % of 280: it counted drives with no man left). Limit: consistency, not
+   validation; S3 rules out only a contrast above +0.65 ft. Files: `scripts/matchup_check.py`
+   (asserts its S0 rows equal `second_help_summary/contrast.csv`), `reports/matchup_coherence.csv`,
+   `reports/second_help_matchup_check.csv`, `tests/test_matchup_check.py`, README Limits
+   bullet, memoria 11.9 (v0.6).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
