@@ -23,8 +23,8 @@ mirrored to be positive, printed 1.000 and was reported as a validation; really 
 **How to apply:** before trusting a 100 %, name what would have made it 0 %; if nothing could,
 the quantity is being compared with itself.
 
-## A data limit decides the label, not the picture
-**Why:** "the bundle has no pose" became "players as pucks"; the user: "no engancha nada, las
-fichas deben ser jugadores de baloncesto". Honest and unwatchable is still a failed hook.
-**How to apply:** draw the domain (players, arena); state next to it what is tracked and what
-is drawn. Keep the limit where it bites: no measure taken from what is drawn.
+## Two runs at different times are not two targets
+**Why:** the URL's start-up failing where an earlier local run had passed was written up as
+"same bytes, so it is the network"; run in turn, the local file failed and the URL passed.
+**How to apply:** compare A and B interleaved in one sitting (A B A B), fresh browser each, and
+read the spread before the difference; time a page change against its old version the same way.

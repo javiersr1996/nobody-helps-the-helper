@@ -891,7 +891,7 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    hook is the drive in 3D.
 3. DONE 2026-10-30: README C2 (the corner as occupancy and the above-the-ball qualifier
    sit next to the 45.3 %; nothing says where help comes from).
-4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
+4. Memoria v0.8 is built and committed (45 pages) and not yet shared; each step updates it.
 5. B6 and C4 are done (memoria v0.6, section 13 "La página" and section 14 "El repositorio
    público y el README"). Phases B and C are ahead of their windows.
 6. C1b PUBLISHED 2026-10-30 on Javier's "ok": public repo
@@ -929,7 +929,8 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    before the first frame. Recommended first cut: the camera fit, whose bisection runs 22
    halvings (far below a pixel) for ~45 look-at positions per frame, then 101 more per frame;
    B5's framing rows (bottom room 6.0 %) guard the result. Not started: it changes the
-   published page.
+   published page. These commits were left LOCAL (main ahead of origin): pushing publishes,
+   so ask Javier first.
 7. Waiting for Javier: B7 (he opened the local page today; checklist given in chat: start-up,
    the drive and its tags, the rise, the controls, the tracked/drawn note), C5 (read the README
    on GitHub), D1 (read `tasks/video_script_wind.md` aloud once: it must land at 55-62 s).

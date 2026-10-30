@@ -51,3 +51,11 @@ passed pooled and held in three games of five, five rebounds of 285.
 **How to apply:** split by the unit you generalise across (the game, never the shot). Now a
 standing rule of both entries' plans (per-game splits always reported), so it left the live
 file to make room under the 30-line cap.
+
+## Archived 2026-10-30: a data limit decides the label, not the picture
+**Why:** "the bundle has no pose" became "players as pucks"; the user: "no engancha nada, las
+fichas deben ser jugadores de baloncesto". Honest and unwatchable is still a failed hook.
+**How to apply:** draw the domain (players, arena); state next to it what is tracked and what
+is drawn. Keep the limit where it bites: no measure taken from what is drawn. Now standing in
+the page (its tracked/drawn note) and in the project memory, so it left the live file to make
+room under the 30-line cap for the A/B timing lesson.
