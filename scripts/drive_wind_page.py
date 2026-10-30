@@ -423,6 +423,12 @@ def ui(pg) -> dict:
     return pg.evaluate("__ui()")
 
 
+def snap(pg) -> tuple[dict, dict]:
+    """state() and __ui() read in ONE evaluate, so no animation frame can land between them."""
+    s, u = pg.evaluate("[wind.state(), __ui()]")
+    return s, u
+
+
 def vis(pg, sel: str) -> bool:
     return pg.evaluate("(s) => __vis(document.querySelector(s))", sel)
 
@@ -1001,9 +1007,10 @@ def check_scenes(D: Data, browser, target: str) -> None:
     go_broadcast(pg)
     pg.evaluate("wind.pause()")
     before = state(pg)["scene"]
-    pg.evaluate("wind.next()")
-    s = state(pg)
-    bad = expect_ui(D, s, ui(pg))
+    # Call and read in one evaluate: the page's own frames re-sync the scrubber within one tick, so
+    # a separate read would see a healed page (or, worse, one a few frames on) either way.
+    s, u = pg.evaluate("(wind.next(), [wind.state(), __ui()])")
+    bad = expect_ui(D, s, u)
     R.check(
         "next() in broadcast: next scene, t restarts, playing, label table holds",
         s["scene"] == (before + 1) % SCENES_N
@@ -1136,7 +1143,7 @@ def check_camera(D: Data, browser, target: str) -> None:
         out["r"] == [False] * 6 and out["same"] and out["ui"],
         json.dumps(out),
     )
-    bad = expect_ui(D, state(pg), ui(pg))
+    bad = expect_ui(D, *snap(pg))
     R.check(
         "rising: label table (all three buttons and scrubber disabled, caption)",
         not bad,
@@ -1146,7 +1153,7 @@ def check_camera(D: Data, browser, target: str) -> None:
     settle(pg)
     R.check(
         "flight(0) after flight(0.5): back to broadcast with the label table",
-        not expect_ui(D, state(pg), ui(pg)),
+        not expect_ui(D, *snap(pg)),
     )
     ctx.close()
 
