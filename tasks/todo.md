@@ -259,6 +259,63 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       **DONE 2026-10-29**: ruff clean, 295 passed; Javier approved figure 2 v4 (7ff6827).
       Phase A is closed; the corner base rate (section "OPEN 2026-10-29" below) is new work
       that comes before B1.
+- [ ] A8 Help kinds: near help and long help by the last [sonnet]. Why: a coach separates
+      NEAR help (the off-ball defender nearest the ball moves toward the handler; a stunt if he
+      recovers to his man, committed if not) from LONG help (the handler beats his defender and
+      the LAST defender, the off-ball defender farthest from the ball, jumps into the drive's
+      path; the question is who rotates to the last's attacker). The published "helper" pools
+      them, so an absence expected after a stunt says nothing about long help. The scratchpad
+      probe (`help_types.py`) found: of 280 helpers 52 % nearest, 12 % last, 36 % other; 37 %
+      recover; its long-help-by-the-last rule (beaten and the last moves >= 4 ft toward the
+      handler in 1.0 s) had n = 14-33 and caught partial sinks (the last was still nearest his
+      own man at 1.5 s in 75-86 %); the reference is not centred on zero (+0.96 to +1.25 ft at
+      1.5 s), so the reading is against the reference.
+      Code: `src/scbasket/help_kinds.py` (sibling of `wind.py` and `rotation.py`, reusing their
+      functions), `scripts/help_kinds.py` -> `reports/help_kinds.csv` (one row per resolved
+      drive) and `reports/help_kinds_summary.csv` (tidy: measure, kind, variant, horizon, n,
+      mean, ci_low, ci_high, median, share_pos, nearest-to-the-man shares), `tests/test_help_kinds.py`
+      (synthetic scenes, one test shown to fail on a mutation), memoria section 13.
+      Definitions (module constants, reported with a sensitivity). All at the drive's start
+      frame r0 unless said; horizons 1.0, 1.5, 2.0 s; headline 1.5 s.
+      - Off-ball defenders: the four who are not the handler's matchup (`matchup_with_fallback`).
+      - NEAREST: off-ball defender nearest the ball at r0. LAST: off-ball defender farthest from
+        the ball at r0. Each one's man: his RAW provider matchup at r0 (no fallback; drop and
+        count when missing).
+      - BEATEN (primary, geometric): at some frame in [r0, r0 + 1.5 s] the handler is closer to
+        the hoop than the handler's defender. Sensitivity: provider `drives.blowby`.
+      - LONG help by the last (primary): BEATEN and, at some frame within 1.5 s, the last is in
+        the drive's path: within 6 ft of the handler AND closer to the hoop than the handler.
+        Sensitivities: radius 5 and 8 ft; BEATEN by `blowby`; and the probe's movement rule (last
+        moves >= 4 ft toward the handler in 1.0 s).
+      - LONG reference: not BEATEN and the last moves less than 2 ft (stays home).
+      - NEAR help: the NEAREST moves >= 2 ft toward the handler (help-movement projection)
+        within 1.0 s. STUNT if at 2.0 s his distance to his man is <= his distance at r0 + 1 ft
+        (recovered); COMMITTED otherwise; undefined (counted, excluded) if the 2.0 s window or
+        his man is missing. NEAR reference: the NEAREST moves less than 1 ft toward the handler.
+      - Published helper class (the 280 helpers in `reports/help_table.csv`): LAST / NEAREST /
+        OTHER, and recovered / committed by the same 2.0 s rule.
+      Measures: for each kind K in {LONG (the last), NEAR-STUNT, NEAR-COMMITTED} with helper H
+      (the last or the nearest) and his man M: the same paired difference as `second_help.py`
+      (the other three defenders, not the handler's matchup and not H, toward M vs the placebo);
+      who is nearest to M at the horizon (H, the handler's defender, one of the other three);
+      against its reference series, with the contrast K minus reference and its CI (same
+      bootstrap: unit, resamples, seed). Plus the published helpers split by class
+      (last/nearest/other) and by recovered/committed, each with its contrast against the
+      published unhelped series. Counts of everything, including drops.
+      Pre-registered readings (applied as written, before running):
+      - LONG: ROTATION if the contrast LONG minus reference at 1.5 s has a CI above zero (the
+        others move toward the last's man more than when he stays home): then the thesis is
+        narrowed to near help. NOBODY HELPS THE LAST if that CI contains zero or lies below it,
+        with n >= 40 LONG drives. INCONCLUSIVE if n < 40, or if the CI spans more than 1 ft on
+        both sides of zero.
+      - NEAR-COMMITTED: the absence holds for committed near help if the contrast COMMITTED
+        minus NEAR reference at 1.5 s has a CI containing zero or below; ROTATION if above zero;
+        same n >= 40 and width rule.
+      - PUBLISHED COMMITTED helpers vs the published unhelped series at 1.5 s: same three-way
+        reading.
+      State each verdict; for LONG also say whether the sensitivities agree.
+      Accept: ruff + pytest exit 0; the readings applied as written; memoria section in the same
+      commit as the results.
 
 #### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
 - [x] B1 (DONE 2026-10-29; see the record) Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
