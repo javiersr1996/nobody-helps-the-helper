@@ -340,7 +340,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       with one typed number, one broken `seek` and a perspective camera left on in `plan`; it
       must fail all three (recorded here), then reverted.
       Accept: exit 0 on the built page, exit 1 on each mutation.
-- [ ] B6 Memoria v0.4 [sonnet]: section 14 "La página" (what the storyboard decided, what the
+- [x] B6 (DONE 2026-10-30) Memoria v0.4 [sonnet]: section 14 "La página" (what the storyboard decided, what the
       console check asserts, the mutations it fails on), index and version row; rebuild, PDF,
       look. Accept: as A6.
 - [ ] B7 Phase close [haiku]: ruff + pytest exit 0; Javier opens the page on his own machine.
@@ -795,6 +795,15 @@ scenes at both widths, frame median 16.7 ms, playing in 0.47-0.67 s; main's c9e1
 fails exactly the two framing rows, bottom room 18.7-36.9 % (so the rule can fail). Memoria
 v0.4 amended before sharing (section 13 paragraph on B4b, phase B row, version row "29 y 30
 de octubre"; 32 pages, the new sentences read back from the PDF). ruff and pytest green.
+**B6 DONE 2026-10-30.** Memoria v0.5: new section 13 "La página" (13.1 what the storyboard
+decided, 13.2 construction and the players, 13.3 what the console check asserts, 13.4 the
+mutations it fails on, with its non-coverage), the four page paragraphs moved out of the Plan
+section (kept there: D8 and GitHub Pages, with a pointer); Plan, Pendientes and Registro
+renumbered 14, 15, 16, index and cross-references fixed, version row 0.5, phase B row updated.
+35 pages (section 13 is pages 29-31). Read back from the built PDF: title in the index and
+the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 ms, 0,47 a
+0,67 s, 6,0 %, 18, 315 a 1203, 513 a 2207, 0,31 ft, 18,7 % and 36,9 %, 136, 101, 0,1 ft,
+0,01 ft, 10 %, 1440, 390, ANGLE Intel Arc D3D11, c9e1cfe) found in the text.
 
 ### NEXT SESSION (left 2026-10-30)
 1. Two merged worktrees remain under `.claude/worktrees/` (agent-a22b51f6d4661edd3, merged
@@ -806,8 +815,8 @@ de octubre"; 32 pages, the new sentences read back from the PDF). ruff and pytes
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
    next to the 45.3 %; nothing says where help comes from.
 4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
-5. Next in the plan: B6 (memoria section "La página"), then B7 (Javier opens the page on his
-   own machine). Phase B is ahead of its 9-29 Nov window.
+5. B6 is done (memoria v0.5, section 13 "La página"); next in the plan is B7 (Javier opens the
+   page on his own machine). Phase B is ahead of its 9-29 Nov window.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
