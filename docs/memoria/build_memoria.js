@@ -22,7 +22,7 @@ const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
 const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.5";
+const VERSION = "0.6";
 const DATE = "30 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
@@ -309,8 +309,9 @@ const SECTIONS = [
   "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)",
   "10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)",
   "11. La segunda ayuda: una ausencia medida", "12. La esquina, con su tasa base (29 de octubre de 2026)",
-  "13. La página (29 y 30 de octubre de 2026)", "14. Plan y calendario",
-  "15. Pendientes y decisiones abiertas", "16. Registro de versiones de este documento",
+  "13. La página (29 y 30 de octubre de 2026)",
+  "14. El repositorio público y el README (30 de octubre de 2026)", "15. Plan y calendario",
+  "16. Pendientes y decisiones abiertas", "17. Registro de versiones de este documento",
 ];
 const toc = [
   h1("Índice"),
@@ -642,20 +643,34 @@ const sPage = [
   p("Lo que la comprobación no cubre, dicho junto a lo que cubre: un número escrito a mano en la página sin su atributo data-src no lo ve, porque solo recorre los elementos que declaran su fuente; y el reloj de la reproducción con la pestaña oculta tampoco. Y comprueba que la página es fiel a sus ficheros y a su guion, no que el hallazgo sea cierto ni que enganche: eso lo juzgó Javier mirándola, y que la abra en su propia máquina (B7) sigue pendiente."),
 ]
 
+const sRepo = [
+  h1("14. El repositorio público y el README (30 de octubre de 2026)", { pageBreakBefore: true }),
+  p("Decidido (decisión D2): este repositorio es la entrada. El estado final de la entrada del rebote queda marcado con la etiqueta bounce-final, sobre el commit 635ea4d, y su README se movió a docs/bounce/ con sus enlaces corregidos. No se borró nada: los guiones, los tests y los CSV del rebote siguen en el repositorio y siguen en verde."),
+  h2("14.1 Qué dice el README nuevo y qué deja fuera"),
+  p("El README (890 palabras contadas por el comprobador, con un límite de 1000, y exactamente dos imágenes) cuenta solo la segunda ayuda: la primera mitad de la tesis se retiró el 29 de octubre (sección 12). Junto al 45,3 % lleva los dos matices: la esquina es ocupación (1,8 %) y hundirse por encima del balón cuenta como ayuda (el 66 % de los ayudantes arranca por encima del balón). Ninguna frase dice de dónde viene la ayuda ni que un defensor eligiera."),
+  p("Deja fuera, a propósito, el error de 4 a 5 pies de las posiciones extrapoladas: ningún CSV lo lleva y en el README toda cifra sale de un CSV. Vive solo en esta memoria (riesgos, sección 15.1)."),
+  h2("14.2 Cómo se vigila"),
+  p("scripts/check_readme.py comprueba tres cosas: que el README no pase de 1000 palabras, que tenga exactamente dos imágenes y que cada cifra en negrita (29 hoy) se recalcule desde la columna del CSV de la que sale, y falle si no la encuentra. Para saber si podía fallar se probó con una copia en la que \"45,3 %\" pasó a \"46,3 %\": el comprobador imprimió un FAIL (README 46,3 %, CSV 45,3 %), 30 aprobadas y 1 fallada, y salió con código 1. Con el README real da 31 comprobaciones aprobadas (29 cifras, las palabras y las imágenes) y 0 falladas."),
+  h2("14.3 El clon limpio"),
+  p("Se clonó el repositorio en una carpeta nueva, sin el conjunto de datos, y se ejecutó lo que el README manda ejecutar: uv sync --extra dev, uv run pytest (288 pasan, 21 se saltan por necesitar el dato), scripts/help_figures.py, scripts/wind_html.py y esta misma memoria, con código de salida 0 en las cinco. Las figuras salieron idénticas byte a byte (no aparecen en git status); la página solo difirió en el identificador del commit que lleva incrustado, y el docx solo en la tabla del registro de versiones y en las marcas de tiempo."),
+  h2("14.4 Lo que falta"),
+  p("C1b, publicar la página en GitHub Pages, espera a Javier: crear el repositorio público y subirlo es publicar hacia fuera, y lo confirma él en ese momento. Hasta entonces el enlace a la página en el README es el fichero local. Tampoco ha leído aún el README (C5)."),
+];
+
 const s12 = [
-  h1("14. Plan y calendario", { pageBreakBefore: true }),
+  h1("15. Plan y calendario", { pageBreakBefore: true }),
   grid(["Fase", "Fechas", "Trabajo", "Estado"], [
     ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
     ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Cerrada el 29 de octubre: A1 a A4 el 28, A5 a A7 el 29, con la figura 2 aprobada por Javier. El mismo día, antes de la fase B, la tasa base de la esquina, la primera mitad de la tesis retirada y la figura 1 redibujada (sección 12; memoria v0.4)"],
     ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en 3D (WebGL con three.js dentro del HTML, sin CDN) que abre con la penetración y sube a vista cenital para la medida, conducida desde la consola; memoria v0.5", "En curso, adelantada: B1 a B5 hechas entre el 29 y el 30 de octubre, con el arranque rehecho con jugadores (B4b) y aprobado por Javier; la sección de la página en esta memoria (B6, sección 13) hecha el 30 de octubre; queda que Javier la abra en su máquina (B7)"],
-    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público; la página publicada en GitHub Pages y enlazada desde el README; el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.6", "C1 y C2 hechas el 30 de octubre, antes de su ventana: el README anterior archivado en docs/bounce con la etiqueta bounce-final, y el README nuevo de 876 palabras con dos figuras y un comprobador (scripts/check_readme.py) que recalcula desde los CSV sus 31 cifras en negrita. C1b (GitHub Pages) espera a Javier"],
+    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público; la página publicada en GitHub Pages y enlazada desde el README; el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.6", "C1 a C4 hechas el 30 de octubre, antes de su ventana: el README anterior archivado en docs/bounce con la etiqueta bounce-final, el README nuevo de 890 palabras con dos figuras y un comprobador (scripts/check_readme.py) que recalcula desde los CSV sus 29 cifras en negrita, el clon limpio y la sección 14 de esta memoria. C1b (GitHub Pages) y C5 (que Javier lea el README) esperan a Javier"],
     ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.7", "Pendiente"],
     ["E", "14 a 18 de diciembre", "Dispositivos reales, memoria v1.0, la verificación final con la única revisión adversarial, y el envío antes del 17", "Pendiente"],
   ], [1100, 1700, 3626, 2600]),
   p("Cada fase cierra con ruff y pytest en verde y una revisión con Javier. El detalle de cada tarea, con su criterio de aceptación y su modelo, está en tasks/todo.md."),
   p("Decidido el 29 de octubre (Javier, decisión D8): la página abre con la penetración de la regla en 3D, con una cámara parecida a la de la retransmisión, y la cámara sube a la vista cenital para la medida; el vídeo la graba desde la propia página. El 3D no entra en el README: GitHub solo muestra imágenes, las bases permiten dos figuras, y la perspectiva deforma justo lo que se mide (pies sobre el suelo hacia un punto: un pie cerca de la cámara no se ve igual que uno al fondo), así que solo en la vista cenital el lector puede juzgar \"hacia\" a ojo. Por eso ninguna medida se enseña en la vista en perspectiva, y la comprobación desde la consola lo exige. Límites que viajan con la decisión: el tracking no trae cuerpos, así que de cada jugador solo se mide su posición en el suelo (al principio se dibujaron fichas; véase la sección 13); la altura del balón arrastra la anomalía del eje vertical (sección 4); y ya existe un visor 3D de este mismo bundle, así que el 3D puntúa en comunicación si enseña al ayudante y al hombre que deja, y en originalidad nada."),
   p("Decidido el mismo día (Javier): la página se publica en GitHub Pages, gratis y desde el mismo repositorio público, y el README enlaza a esa dirección. GitHub enseña un HTML guardado en el repositorio como código fuente, así que un enlace al fichero mostraría el código y no la página. Hoy el repositorio no tiene remoto; crearlo en GitHub y subirlo es publicar hacia fuera, y Javier lo confirma en ese momento (tarea C1b). La publicación se da por buena cuando la dirección responde, sirve el mismo fichero que está en el repositorio y la comprobación desde la consola pasa contra ella, no contra la copia local."),
-  h2("14.1 Riesgos asumidos"),
+  h2("15.1 Riesgos asumidos"),
   bullet("La fase B tiene tres semanas a tiempo parcial para la escena 3D, la reproducción de las penetraciones y la conducción desde la consola, sin holgura dentro; el 3D (WebGL) cuesta más que el canvas 2D que había en el plan, sin horas medidas; la voz necesita a Javier en una ventana de siete días."),
   bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, y eso no separa del todo las dos cosas: por encima del balón, hundirse cuenta como ayuda (sección 12.3)."),
   bullet("Todo depende de la tabla matchups del proveedor para saber quién es el emparejado del balón y a quién marcaba el ayudante. Donde falta, se usa el defensor más cercano para el primero y se deja vacío el segundo."),
@@ -665,7 +680,7 @@ const s12 = [
 ];
 
 const s13 = [
-  h1("15. Pendientes y decisiones abiertas"),
+  h1("16. Pendientes y decisiones abiertas"),
   numbered("Cerrado el 29 de octubre: range.bin, un fichero suelto de 100 bytes (el principio de un frame de tracking en JSON) en la raíz del repo y sin referencia alguna, se borró por decisión de Javier."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
@@ -674,13 +689,14 @@ const s13 = [
 ];
 
 const s14 = [
-  h1("16. Registro de versiones de este documento"),
+  h1("17. Registro de versiones de este documento"),
   grid(["Versión", "Fecha", "Cambios"], [
     ["0.1", "28 de octubre de 2026", "Creación. Competición, dato, antecedentes, ideación con las tres sondas, definiciones, implementación y resultados de la semana 1, las dos figuras de la semana 2, plan y pendientes."],
     ["0.2", "28 de octubre de 2026", "Título nuevo, \"Nobody helps the helper\". Sección 10 nueva: una sola entrada de baloncesto, el council (37 sobre 100) y la sonda de la segunda ayuda. Tasa base junto al porcentaje de hombres libres en las secciones 8 y 9. Plan por fases A a E en la sección 11. Pendientes depurados por la decisión de entrada única."],
     ["0.3", "29 de octubre de 2026", "Sección 11 nueva, \"La segunda ayuda: una ausencia medida\", leída de reports/second_help_*.csv: el diseño del placebo, la diferencia emparejada con su media, su intervalo, la mediana y la cuota de parejas, los signos por partido, la sensibilidad, quién está más cerca del hombre dejado, su cuota de libre con la tasa base, el pase y el X-out como límite. Figura 2 nueva (quién cubre al hombre que deja) en 9.2. Sección 10.3 reducida: sus cifras pasan a la 11 y vienen de los CSV. Tasa base y rangos de las secciones 8.3 y 8.4 leídos de help_by_game.csv y help_sensitivity.csv, no tecleados. Plan: A1 a A5 hechas. Secciones 11 a 13 anteriores renumeradas a 12 a 14."],
     ["0.4", "29 y 30 de octubre de 2026", "Sección 12 nueva, \"La esquina, con su tasa base\", leída de reports/help_base_rate.csv: la tasa por defensor por banda de |y| y por zona, con su intervalo; la comparación con lo que predicen la distancia y la orientación del punto adonde va el balón; el matiz del ayudante (por encima del balón, hundirse cuenta como ayuda); y lo decidido: primera mitad de la tesis retirada, figura 1 descriptiva, ayudante sin redefinir. Corregidas la definición de la sección 6, la frase de la 8.4 sobre el título, la tesis de la 10.4 (con nota) y un riesgo de la 13.1. El mapa de viento, redibujado con la tasa por defensor y su franja a 11 puntos, sale del README tras un cribado de 37 sobre 100 y pasa a 12.5; la figura 1 nueva (9.1) es una penetración elegida por regla (scripts/wind_scenes.py, B2 adelantada) que enseña la medida con su percentil y la tira de todas las penetraciones con ayudante; 9.3 cuenta las miradas y los dos cribados (37 y 48 sobre 100), y cómo se rehízo la figura 1 para que se lea sola, probada con una lectura en frío antes y después, y aprobada por Javier. El campo kernel del mapa de viento pasa al paquete y a reports/help_field.csv (12.5). Guion de la página aprobado, página construida y probada desde la consola; el arranque se rehace con jugadores 3D (sección 13). Plan: la página abre con la penetración en 3D y sube a vista cenital para la medida (decisión D8, sección 13), y se publica en GitHub Pages en la fase C. La tabla de la sección 8 lleva la tasa base de la esquina. Plan y pendientes al día; secciones 12 a 14 anteriores renumeradas a 13 a 15. El 30 de octubre, antes de compartirla: el arranque con jugadores, cerrado (B4b, sección 13), con sus cuatro arreglos, la pasada del encuadre y el público, y la regla del margen inferior medida contra la página anterior."],
     ["0.5", "30 de octubre de 2026", "Sección 13 nueva, \"La página\": lo que decidió el guion, cómo se construyó y se rehízo el arranque (movido desde el plan), lo que comprueba la consola (184 comprobaciones en la GPU, con sus tiempos y el margen inferior) y las versiones de la página estropeadas a propósito que la hacen fallar, con lo que no cubre. Plan, pendientes y registro pasan a las secciones 14, 15 y 16; el plan conserva la decisión D8 y la publicación en GitHub Pages, con un puntero a la 13. El 30 de octubre, además, el README de la entrada (876 palabras, dos figuras, 31 cifras en negrita recalculadas desde los CSV por scripts/check_readme.py) sustituye al del rebote, archivado en docs/bounce; la dirección de la página en el README sigue siendo el fichero local hasta C1b."],
+    ["0.6", "30 de octubre de 2026", "Sección 14 nueva, \"El repositorio público y el README\": la decisión D2 (este repositorio es la entrada, etiqueta bounce-final, README del rebote en docs/bounce), lo que dice y lo que deja fuera el README nuevo, cómo lo vigila scripts/check_readme.py con su prueba de fallo, el resultado del clon limpio y lo que espera a Javier (C1b). Plan, pendientes y registro pasan a las secciones 15, 16 y 17; la fila de la fase C del plan se pone al día (890 palabras, 29 cifras en negrita)."],
   ], [1200, 2200, 5626]),
 ];
 
@@ -722,7 +738,7 @@ const doc = new Document({
       new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "777777" }),
     ] })] }) },
     children: [...cover, ...toc, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...s8, ...s9,
-               ...s9b, ...s10, ...sSecond, ...sCorner, ...sPage, ...s12, ...s13, ...s14],
+               ...s9b, ...s10, ...sSecond, ...sCorner, ...sPage, ...sRepo, ...s12, ...s13, ...s14],
   }],
 });
 

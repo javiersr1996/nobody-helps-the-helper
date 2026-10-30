@@ -384,7 +384,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       scripts/help_figures.py`, the page build, the memoria build, all from the committed CSVs
       and no dataset. Accept: the five commands exit 0 in the clone and the README's "Run it"
       block is the list actually run.
-- [ ] C4 Memoria v0.5 [sonnet]: section 15 "El repositorio público y el README" (decision D2,
+- [x] C4 (DONE 2026-10-30: memoria v0.6, new section 14 "El repositorio público y el README" (one page, p. 32 of 36), Plan/Pendientes/Registro renumbered 15/16/17 with 14.1 -> 15.1, phase C row and version row updated; read back with pdftotext: titles in index and body, 890 words, 29 bold numbers, 288 passed/21 skipped, 45,3 to 46,3 mutation; page looked at) Memoria [sonnet]: section "El repositorio público y el README" (decision D2,
       what moved, the clean-clone result), index and version row; rebuild, PDF, look.
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
@@ -821,8 +821,10 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
 3. DONE 2026-10-30: README C2 (the corner as occupancy and the above-the-ball qualifier
    sit next to the 45.3 %; nothing says where help comes from).
 4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
-5. B6 is done (memoria v0.5, section 13 "La página"); next in the plan is B7 (Javier opens the
-   page on his own machine). Phase B is ahead of its 9-29 Nov window.
+5. B6 and C4 are done (memoria v0.6, section 13 "La página" and section 14 "El repositorio
+   público y el README"). Next: B7 and C5 (Javier opens the page and reads the README), C1b
+   (GitHub Pages, with Javier), then phase D (the video script, D1). Phases B and C are ahead
+   of their windows.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
