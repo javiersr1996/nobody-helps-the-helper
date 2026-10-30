@@ -351,7 +351,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       corrected; update the `pyproject.toml` description; every rebound script, test and CSV
       stays (open-source value, tests stay green); `range.bin` per D5. Accept: `uv run pytest`
       green after the move; every link in `docs/bounce/README.md` resolves (`ls` each path).
-- [ ] C1b The page on GitHub Pages [haiku, with Javier] (added 2026-10-29 on Javier's word):
+- [ ] C1b (PUBLISHED 2026-10-30; acceptance open, the start-up over the network: see NEXT SESSION 6) The page on GitHub Pages [haiku, with Javier] (added 2026-10-29 on Javier's word):
       GitHub shows an HTML file in a repo as source, so a link to `reports/*.html` would show
       code, not the 3D page; the README links to a served page instead. Needs the public repo
       on GitHub: today no remote is configured (`git remote -v` empty, 2026-10-29); creating it
@@ -389,7 +389,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
 #### Phase D, 7 Dec to 13 Dec: the video
-- [ ] D1 `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
+- [ ] D1 (WRITTEN 2026-10-30: 158 spoken words, about 61 s at 2.6 words a second, the start base rates spoken in scene 2; waits for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
       the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
@@ -822,9 +822,26 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    sit next to the 45.3 %; nothing says where help comes from).
 4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
 5. B6 and C4 are done (memoria v0.6, section 13 "La página" and section 14 "El repositorio
-   público y el README"). Next: B7 and C5 (Javier opens the page and reads the README), C1b
-   (GitHub Pages, with Javier), then phase D (the video script, D1). Phases B and C are ahead
-   of their windows.
+   público y el README"). Phases B and C are ahead of their windows.
+6. C1b PUBLISHED 2026-10-30 on Javier's "ok": public repo
+   https://github.com/javiersr1996/nobody-helps-the-helper (main and tag bounce-final pushed;
+   history scanned first: no secret patterns, no `data/`, largest blob 3.0 MB), Pages by
+   `.github/workflows/pages.yml` (copies the committed page to `index.html`, no rebuild),
+   https://javiersr1996.github.io/nobody-helps-the-helper/ answers 200, served sha256 equals
+   the committed file; README links there. B5 against the URL: its `next()` row failed twice
+   with identical values; the cause was the DRIVER (state and scrubber read in two round trips
+   while the page plays), fixed in 8fe2146 (one evaluate; proven to fail on a page forced to
+   desync). OPEN, the acceptance is not met: the start-up rows over the network, first frame
+   0.97-1.18 s, then 0.57 s, then 1.15-1.52 s against the storyboard's 1.0 s (local
+   0.47-0.67 s); 182 of 184 on the last run. Same bytes (877 KB gzipped), so it is the network;
+   NOT yet measured how much is download vs parse vs compile. Next: measure that split (a
+   Playwright trace or the Performance API on the URL), then decide with Javier: cut bytes, or
+   paint the first frame before the heavy work, or state the target as local-only. Do not move
+   the 1.0 s.
+7. Waiting for Javier: B7 (he opened the local page today; checklist given in chat: start-up,
+   the drive and its tags, the rise, the controls, the tracked/drawn note), C5 (read the README
+   on GitHub), D1 (read `tasks/video_script_wind.md` aloud once: it must land at 55-62 s).
+   Then D2 (`scripts/wind_video.py`).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
