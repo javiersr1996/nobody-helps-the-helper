@@ -4,7 +4,7 @@ Ten SkillCorner basketball games, tracked positions, one question about drives. 
 
 On a drive, one defender sometimes steps toward where the ball is going. Call him the helper. The claim: with a helper, the other three defenders do not move toward the man he leaves any more than they do without one. It is a measured absence against a placebo, not a counter-rotation, and it says nothing about why anyone moved.
 
-The page: [reports/nobody_helps_the_helper.html](reports/nobody_helps_the_helper.html) <!-- C1b: replace with the GitHub Pages URL -->. It opens on one drive in 3D and rises to a top-down view where every measure is drawn. The tracking gives only floor positions; the player bodies and the camera are drawn.
+The page: [javiersr1996.github.io/nobody-helps-the-helper](https://javiersr1996.github.io/nobody-helps-the-helper/). It opens on one drive in 3D and rises to a top-down view where every measure is drawn. The tracking gives only floor positions; the player bodies and the camera are drawn.
 
 ## How it is measured
 
