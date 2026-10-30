@@ -346,7 +346,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] B7 Phase close [haiku]: ruff + pytest exit 0; Javier opens the page on his own machine.
 
 #### Phase C, 30 Nov to 6 Dec: the public repo and the README
-- [ ] C1 Execute decision D2 [haiku] (default: this repo is the entry): tag HEAD `bounce-final`
+- [x] C1 (DONE 2026-10-30: tag bounce-final on 635ea4d, commit 7fbf8f8; readme field of pyproject repointed until C2) Execute decision D2 [haiku] (default: this repo is the entry): tag HEAD `bounce-final`
       first; move `README.md` to `docs/bounce/README.md` with its figure, page and video links
       corrected; update the `pyproject.toml` description; every rebound script, test and CSV
       stays (open-source value, tests stay green); `range.bin` per D5. Accept: `uv run pytest`
@@ -362,7 +362,13 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       a public repo. Accept: `curl -I` on the Pages URL returns 200; the served file hashes
       equal to the committed page; B5's driver, pointed at the URL instead of the local file,
       exits 0 (so `drive_wind_page.py` takes a path or a URL); C2's README links to that URL.
-- [ ] C2 `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
+- [x] C2 (DONE 2026-10-30: README 876 words by the checker, 2 images, 31 bold numbers each
+      mapped to a CSV and recomputed; mutation run: "45.3 %" changed to "46.3 %" in a copy
+      gives FAIL, README '46.3 %' against CSV '45.3 %', exit 1. `readme` of pyproject back to
+      README.md. Thesis is only the second help since 2026-10-29: the corner is occupancy
+      (1.8 %) and 66 % of helpers start above the ball, next to the 45.3 %. Left out for lack
+      of a CSV: the 4 to 5 ft error of extrapolated positions (typed in the memoria only).
+      Page link is the local file with a `C1b` comment until GitHub Pages) `README.md` of the entry [sonnet], <= 1000 words, 2 figures: the thesis; the first
       help (corner side 2.5 %, 0-4 % in all twelve cells); the man left with its base rate in
       the same sentence (58.5 % against 72.6 % is the 1.0 s pair; per B3, C2 quotes the 1.5 s
       pair from `second_help_summary.csv`, 58.3 % against 75.9 % today, like both figures and
@@ -812,8 +818,8 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
-3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
-   next to the 45.3 %; nothing says where help comes from.
+3. DONE 2026-10-30: README C2 (the corner as occupancy and the above-the-ball qualifier
+   sit next to the 45.3 %; nothing says where help comes from).
 4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
 5. B6 is done (memoria v0.5, section 13 "La página"); next in the plan is B7 (Javier opens the
    page on his own machine). Phase B is ahead of its 9-29 Nov window.
