@@ -27,7 +27,10 @@ from wind_scenes import (  # noqa: E402
 
 SCENES = ROOT / "reports" / "wind_scenes.json"
 HELP_TABLE = ROOT / "reports" / "help_table.csv"
-PAIRS = ROOT / "reports" / "second_help_pairs.csv"
+KINDS = ROOT / "reports" / "help_kinds.csv"
+SUMMARY = ROOT / "reports" / "help_kinds_summary.csv"
+PAIRS = ROOT / "reports" / "near_committed_pairs.csv"
+DRIVES = ROOT / "reports" / "near_committed_drives.csv"
 
 
 def _frames(n: int = 200, undetected: int | None = None, gap_at: int | None = None,
@@ -86,28 +89,44 @@ def shipped() -> dict:
     return json.loads(SCENES.read_text(encoding="utf-8"))
 
 
+def _near_row(drive_id: str) -> pd.Series:
+    """The row `check_scene` is held to, by a second route: the published `help_table.csv` row
+    with `help_kinds.csv`'s nearest, his raw man and `near_move`, and the man's clearance at
+    0 and 1.0 s from `near_committed_drives.csv` (rotation's, not `near_committed_table`'s)."""
+    row = pd.read_csv(HELP_TABLE).set_index("drive_id").loc[drive_id].copy()
+    kind = pd.read_csv(KINDS).set_index("drive_id").loc[drive_id]
+    drive = pd.read_csv(DRIVES).set_index("drive_id").loc[drive_id]
+    row["helper_def_slot"], row["left_slot"] = kind["near_slot"], kind["near_man"]
+    row["helper_help_move"], row["has_helper"] = kind["near_move"], kind["near_committed"]
+    row["left_nearest0"], row["left_nearest1"] = drive["left_clear_0"], drive["left_clear_25"]
+    return row
+
+
 @pytest.mark.data
 @requires_real_dataset
-def test_each_scene_reproduces_the_published_help_table(shipped):
-    table = pd.read_csv(HELP_TABLE).set_index("drive_id")
+def test_each_scene_is_a_published_committed_near_help_in_its_roles(shipped):
+    kinds = pd.read_csv(KINDS).set_index("drive_id")
+    drives = pd.read_csv(DRIVES).set_index("drive_id")
     assert shipped["scenes"]
     for scene in shipped["scenes"]:
-        row = table.loc[scene["drive_id"]]
+        kind, drive = kinds.loc[scene["drive_id"]], drives.loc[scene["drive_id"]]
         xy = np.asarray(scene["xy"])
         roles = scene["roles"]
         assert xy.shape == (SCENE_FRAMES, 10, 2)
-        assert scene["helper_help_move"] == pytest.approx(row["helper_help_move"], abs=0.01)
-        assert bool(row["has_helper"])
-        check_scene(scene, row)  # recomputed from the arrays the page would draw
+        assert bool(kind["near_committed"]) and bool(drive["helped"])
+        assert roles["helper"] == 5 + kind["near_slot"] and roles["left"] == kind["near_man"]
+        off = (roles["handler_def"] - 5, kind["near_slot"])
+        assert sorted(roles["others"]) == [5 + x for x in range(5) if x not in off]
+        assert scene["helper_help_move"] == pytest.approx(kind["near_move"], abs=0.01)
+        check_scene(scene, _near_row(scene["drive_id"]))  # from the arrays the page would draw
         clear = np.asarray(scene["left_clearance"])
-        assert clear[0] == pytest.approx(row["left_nearest0"], abs=0.01)
-        assert clear[25] == pytest.approx(row["left_nearest1"], abs=0.01)
-        assert row["left_slot"] == roles["left"]
+        for t in (0, 25, 38):
+            assert clear[t] == pytest.approx(drive[f"left_clear_{t}"], abs=0.01)
 
 
 @pytest.mark.data
 @requires_real_dataset
-def test_per_frame_projections_equal_second_help_pairs_at_25_38_50(shipped):
+def test_per_frame_projections_equal_near_committed_pairs_at_25_38_50(shipped):
     pairs = pd.read_csv(PAIRS)
     for scene in shipped["scenes"]:
         mine = pairs[pairs["drive_id"] == scene["drive_id"]]
@@ -121,8 +140,12 @@ def test_per_frame_projections_equal_second_help_pairs_at_25_38_50(shipped):
 
 @pytest.mark.data
 @requires_real_dataset
-def test_the_percentile_places_the_scene_among_all_helped_drives(shipped):
+def test_the_percentile_places_the_scene_among_all_committed_near_helps(shipped):
     distribution = paired_means(pd.read_csv(PAIRS))
+    summary = pd.read_csv(SUMMARY)
+    n = summary[(summary["measure"] == "paired_diff") & (summary["kind"] == "near_committed")
+                & (summary["horizon"] == 1.52)]["n"]
+    assert len(distribution) == int(n.iloc[0])  # the n of the thesis, 159 when written
     for scene in shipped["scenes"]:
         mine = distribution.loc[scene["drive_id"]]
         assert scene["paired_mean_1_5s"] == pytest.approx(mine, abs=0.01)
@@ -135,15 +158,27 @@ def test_the_percentile_places_the_scene_among_all_helped_drives(shipped):
 @pytest.mark.data
 @requires_real_dataset
 def test_a_scene_that_disagrees_with_the_table_is_refused(shipped):
-    row = pd.read_csv(HELP_TABLE).set_index("drive_id").loc[shipped["scenes"][0]["drive_id"]]
+    row = _near_row(shipped["scenes"][0]["drive_id"])
     scene = copy.deepcopy(shipped["scenes"][0])
     check_scene(scene, row)  # the untouched scene passes: the refusal below is not a default
-    helper = scene["roles"]["helper"]
-    handler = np.asarray(scene["xy"])[25, scene["roles"]["handler"]]
+    helper, handler = scene["roles"]["helper"], scene["roles"]["handler"]
     xy = np.asarray(scene["xy"])
-    away = handler - xy[25, helper]
-    xy[25, helper] += 0.5 * away / np.linalg.norm(away)  # 0.5 ft toward the handler at 1.0 s
+    for t in range(1, 26):  # 0.5 ft toward the handler on every frame of the first second
+        away = xy[t, handler] - xy[t, helper]
+        xy[t, helper] += 0.5 * away / np.linalg.norm(away)
     scene["xy"] = xy.tolist()
     assert 0.5 > TOLERANCE_FT
     with pytest.raises(ValueError, match="helper_help_move"):
+        check_scene(scene, row)
+
+
+@pytest.mark.data
+@requires_real_dataset
+def test_a_scene_whose_helper_is_back_with_his_man_is_refused(shipped):
+    row = _near_row(shipped["scenes"][0]["drive_id"])
+    scene = copy.deepcopy(shipped["scenes"][0])
+    xy = np.asarray(scene["xy"])
+    xy[50, scene["roles"]["helper"]] = xy[50, scene["roles"]["left"]]  # on his man at 2.0 s
+    scene["xy"] = xy.tolist()
+    with pytest.raises(ValueError, match="back with his man"):
         check_scene(scene, row)

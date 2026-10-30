@@ -12,8 +12,9 @@ Every number on the page arrives in the payload below, and every value in the pa
 off a `reports/*.csv`, off `reports/wind_scenes.json` or off a frozen constant in `scbasket`
 (lesson 1). The template types none of them. Before writing, the build refuses on the guards of
 the storyboard's section 1, so the page cannot quote a table that disagrees with the scenes it
-draws: the 252 per-drive means are recomputed from `second_help_pairs.csv` with the same
-function `wind_scenes.py` used, each scene's bars and nearest defender at 1.5 s are held to the
+draws: the per-drive means of the committed near helps (the scenes' population since
+2026-10-30) are recomputed from `near_committed_pairs.csv` (`scripts/help_kinds.py`) with the
+same function `wind_scenes.py` used, each scene's bars and nearest defender at 1.5 s are held to the
 CSV rows of its drive, and each sentence that states a result is held to the rows behind it.
 
 three.js is vendored at one pinned release in `vendor/three/` with its MIT licence and inlined
@@ -79,8 +80,8 @@ TOLERANCE_FT = 0.01
 #: Every file the page is built from, with the script that writes it.
 SOURCES = {
     "wind_scenes.json": "wind_scenes",
-    "second_help_pairs.csv": "second_help",
-    "second_help_drives.csv": "second_help",
+    "near_committed_pairs.csv": "help_kinds",
+    "near_committed_drives.csv": "help_kinds",
     "second_help_summary.csv": "second_help",
     "second_help_contrast.csv": "second_help",
     "second_help_contrast_sensitivity.csv": "second_help",
@@ -145,10 +146,10 @@ def nearest(xy: np.ndarray, roles: dict) -> tuple[str, float]:
 def check_scenes(scenes: dict, pairs: pd.DataFrame, drives: pd.DataFrame) -> pd.Series:
     """Section 1's guards on the four scenes; returns the per-drive means of the strip.
 
-    The strip is recomputed from `second_help_pairs.csv` with `wind_scenes.paired_means`, the
+    The strip is recomputed from `near_committed_pairs.csv` with `wind_scenes.paired_means`, the
     function that placed each scene, so its n, median and every percentile must equal the
     JSON's. Each scene's three bars at the headline frame must equal the CSV's rows for its
-    drive, and its nearest defender at 1.5 s must be the one `second_help_drives.csv` names.
+    drive, and its nearest defender at 1.5 s must be the one `near_committed_drives.csv` names.
     """
     t = scenes["headline_frame"]
     if t != HEADLINE_HORIZON:
@@ -168,30 +169,30 @@ def check_scenes(scenes: dict, pairs: pd.DataFrame, drives: pd.DataFrame) -> pd.
                 raise Refused(f"{name}: the strip's {key} is {placed[key]:.4f}, the JSON's "
                               f"{stored[key]:.4f}: rerun scripts/wind_scenes.py")
         if name not in means.index or abs(means[name] - scene["paired_mean_1_5s"]) > TOLERANCE_FT:
-            raise Refused(f"{name}: its paired mean in second_help_pairs.csv does not equal "
+            raise Refused(f"{name}: its paired mean in near_committed_pairs.csv does not equal "
                           f"the scene's {scene['paired_mean_1_5s']:+.3f}")
         for i, slot in enumerate(roles["others"]):
             key = (name, slot - N_SIDE)
             if key not in at_t.index:
-                raise Refused(f"{name}: no second_help_pairs.csv row for def_slot {key[1]}")
+                raise Refused(f"{name}: no near_committed_pairs.csv row for def_slot {key[1]}")
             row = at_t.loc[key]
             for column in ("to_left", "placebo"):
                 if abs(scene[column][i][t] - row[column]) > TOLERANCE_FT:
                     raise Refused(f"{name}: defender {i + 1}'s {column} at frame {t} is "
                                   f"{scene[column][i][t]:+.3f} in the scene and "
-                                  f"{row[column]:+.3f} in second_help_pairs.csv")
+                                  f"{row[column]:+.3f} in near_committed_pairs.csv")
         if name not in by_id.index:
-            raise Refused(f"{name}: not in second_help_drives.csv")
+            raise Refused(f"{name}: not in near_committed_drives.csv")
         drive = by_id.loc[name]
         who, dist = nearest(np.asarray(scene["xy"][t], float), roles)
         if who != drive[f"nearest_who_{t}"]:
             raise Refused(f"{name}: the page would name {who} nearest at frame {t}, "
-                          f"second_help_drives.csv names {drive[f'nearest_who_{t}']}")
+                          f"near_committed_drives.csv names {drive[f'nearest_who_{t}']}")
         for value, column in ((dist, f"nearest_dist_{t}"),
                               (scene["left_clearance"][t], f"left_clear_{t}")):
             if abs(value - drive[column]) > TOLERANCE_FT:
                 raise Refused(f"{name}: clearance {value:.3f} ft at frame {t}, "
-                              f"second_help_drives.csv {column} {drive[column]:.3f}")
+                              f"near_committed_drives.csv {column} {drive[column]:.3f}")
     return means
 
 
@@ -226,8 +227,8 @@ def payload(reports: Path) -> dict:
         if not (reports / name).exists():
             raise SystemExit(f"no {reports / name}; run scripts/{SOURCES[name]}.py first")
     scenes = json.loads((reports / "wind_scenes.json").read_text(encoding="utf-8"))
-    pairs = read(reports, "second_help_pairs.csv")
-    drives = read(reports, "second_help_drives.csv")
+    pairs = read(reports, "near_committed_pairs.csv")
+    drives = read(reports, "near_committed_drives.csv")
     summary = read(reports, "second_help_summary.csv")
     contrast = read(reports, "second_help_contrast.csv")
     sweep = read(reports, "second_help_contrast_sensitivity.csv")

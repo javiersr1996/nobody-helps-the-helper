@@ -14,8 +14,9 @@ always bottom right.
      in a key, only the measure's cast in colour (the helper, the man he left, the three
      other defenders, the ball handler). Under the court, each of the three's movement
      toward the man left and toward the placebo, their difference and its mean, and where
-     that mean sits among all helped drives, so one drive is never sold as typical. The
-     claim itself is figure 2's.
+     that mean sits among all committed near helps (`near_committed_pairs.csv`, the scope
+     since 2026-10-30: the helper is the defender nearest the ball), so one drive is never
+     sold as typical. The claim itself is figure 2's.
 
   0. **The wind map** (not one of the README's two since 2026-10-29; the memoria and the
      page keep it). The mean displacement, over the first second of every drive, of the
@@ -192,8 +193,8 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
     if (len(per_drive) != among["n_helped"]
             or abs(per_drive[scene["drive_id"]] - mean_diff) > 0.01
             or abs(per_drive.median() - among["median"]) > 0.01):
-        raise ValueError("second_help_pairs.csv and wind_scenes.json disagree on the helped "
-                         "drives at the headline horizon: rerun second_help.py, wind_scenes.py")
+        raise ValueError("near_committed_pairs.csv and wind_scenes.json disagree on the helped "
+                         "drives at the headline horizon: rerun help_kinds.py, wind_scenes.py")
     seconds = t / scenes["fps"]
     window = (scenes["n_frames"] - 1) / scenes["fps"]
     clear = scene["clearance_ft"][f"{seconds:.1f}s"]
@@ -322,7 +323,8 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
                      fontsize=TEXT_PT - 1, handlelength=1.2, borderaxespad=0)
         used[0] += 0.6 + chart_h + 0.55
 
-        put(f"That mean, for each of the {len(per_drive)} drives with a helper. Left of 0, "
+        put(f"That mean, for each of the {len(per_drive)} drives where the defender nearest the "
+            f"ball helps and is not back with his man 2{nb}s later. Left of 0, "
             f"the three moved less toward the man he left than toward the other attackers.",
             gap=0.05)
         strip_h = 1.1
@@ -346,7 +348,7 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
             strip.spines[spine].set_visible(False)
         used[0] += 0.45 + strip_h + 0.55
 
-        put(f"Chosen by rule, not by look: the first drive with a helper, in the first game, "
+        put(f"Chosen by rule, not by look: the first such drive, in the first game, "
             f"with all ten players detected for its whole {window:.0f}{nb}s window. Figure 2 "
             f"has the result, over all drives and against drives with no helper.", gap=0.1)
         if out is not None:
@@ -607,7 +609,7 @@ def main() -> int:
                          ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
                          ("second_help_contrast_sensitivity.csv", "second_help"),
-                         ("second_help_pairs.csv", "second_help"),
+                         ("near_committed_pairs.csv", "help_kinds"),
                          ("wind_scenes.json", "wind_scenes")):
         if not (args.reports / name).exists():
             print(f"no {args.reports / name}; run scripts/{script}.py first", file=sys.stderr)
@@ -621,7 +623,7 @@ def main() -> int:
     contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
     sweep = pd.read_csv(args.reports / "second_help_contrast_sensitivity.csv")
     scenes = json.loads((args.reports / "wind_scenes.json").read_text(encoding="utf-8"))
-    pairs = pd.read_csv(args.reports / "second_help_pairs.csv")
+    pairs = pd.read_csv(args.reports / "near_committed_pairs.csv")
     numbers = headline(table)
     print("numbers printed on the figures (from help_table.csv):")
     for key, value in numbers.items():

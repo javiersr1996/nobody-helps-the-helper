@@ -1,4 +1,4 @@
-"""Four helped drives, as tracking, for the page to replay on a court (B2).
+"""Four committed near helps, as tracking, for the page to replay on a court (B2, 11a).
 
 Usage: uv run python scripts/wind_scenes.py [--root DIR] [--cache DIR] [--pairs FILE]
                                             [--out FILE] [--games N]
@@ -7,29 +7,39 @@ Sibling of `scripts/court_scenes.py`, for the wind. Every other artefact of the 
 a drive to numbers; the page needs one drive itself: the ten players and the ball for two
 seconds, in the DRIVE FRAME (the attacking frame mirrored in y by `help_table`'s `flip`, so the
 handler's lateral motion goes to +y; x is never mirrored), with the helper, the man he left and
-the three other defenders named by slot. Nothing is modelled here. The per-frame projections
-use exactly the conventions of `scbasket.rotation` (`_projection`, the three others, the
-placebo targets), so at frames 25, 38 and 50 they equal `reports/second_help_pairs.csv`.
+the three other defenders named by slot. Since 2026-10-30 (the thesis scoped to the near help
+that commits, `scbasket.help_kinds`) the roles are those of that analysis: the helper is the
+off-ball defender NEAREST the ball, the man left his raw provider matchup at the start, the
+three others the remaining off-ball defenders (`help_kinds.kind_help_table`). Nothing is
+modelled here. The per-frame projections use exactly the conventions of `scbasket.rotation`
+(`_projection`, the three others, the placebo targets), so at frames 25, 38 and 50 they equal
+`reports/near_committed_pairs.csv` (`scripts/help_kinds.py`).
 
 The choice is a rule, not a search: games in `dataset.game_ids` order, and in each the first
-helped drive (`help_table`'s `has_helper`, in the game's `drives` order) whose man left has a
-provider matchup and whose 2 s window (frames 0 to 50 from `startFrame`) is contiguous inside
-one chance with the ten players DETECTED on every frame. The first `--games` games that have
-one are taken. Nothing looks at how good a drive is to watch, and the per-game counts of each
-condition are printed so a rule that finds fewer than asked is visible, not relaxed.
+helped drive (in the game's `drives` order) whose man left has a provider matchup and whose
+2 s window (frames 0 to 50 from `startFrame`) is contiguous inside one chance with the ten
+players DETECTED on every frame. "Helped" is `help_kinds`' `near_committed` (the nearest
+moves >= 2 ft toward the handler within 1.0 s and is not back with his man at 2.0 s); until
+2026-10-30 it was `help_table`'s `has_helper`, the pooled largest mover. The other conditions
+are unchanged. The first `--games` games that have one are taken. Nothing looks at how good a
+drive is to watch, and the per-game counts of each condition (over the game's committed near
+helps) are printed so a rule that finds fewer than asked is visible, not relaxed.
 
 One drive is never presented as typical: each scene carries its 1.5 s paired mean (the three
 others' `to_left` minus `placebo`, frame 38) and where that value sits among the same value
-of every helped drive in `second_help_pairs.csv`.
+of every committed near help in `near_committed_pairs.csv` (the key keeps its old name,
+`paired_mean_1_5s_among_helped`).
 
 What it deliberately does NOT write: any player id, name or number. Slots 0-4 are the
 attacking team and 5-9 the defending one, and a slot is not a person. The ruling the entry is
 built under holds: "helper", "man left" and "covers" name measured vectors and distances,
 never decisions.
 
-Every scene is checked against `help_table` before it is written (`check_scene`): the helper's
-movement at 1.0 s and the man left's clearance at 0 and 1.0 s are recomputed from the scene's
-own arrays and must equal the table within TOLERANCE_FT, or the script raises ValueError.
+Every scene is checked against its table row before it is written (`check_scene`): the
+helper's movement within 1.0 s (`help_kinds`' `near_move`) and the man left's clearance at 0
+and 1.0 s are recomputed from the scene's own arrays and must equal the row within
+TOLERANCE_FT, and the helper must not be back with his man at 2.0 s, or the script raises
+ValueError.
 
 Writes {out} (default `reports/wind_scenes.json`), which the page inlines.
 """
@@ -46,6 +56,13 @@ import pandas as pd
 
 from scbasket.court import HOOP_X
 from scbasket.frames import N_SIDE, GameFrames, get_or_build
+from scbasket.help_kinds import (
+    MOVE_FRAMES,
+    OUTCOME_FRAMES,
+    RECOVER_FT,
+    drive_kinds,
+    kind_help_table,
+)
 from scbasket.io import Dataset
 from scbasket.rotation import HEADLINE_HORIZON, _projection, _window_end
 from scbasket.wind import FPS, HELP_FT, HORIZON_FRAMES, _row_of, help_table
@@ -74,9 +91,10 @@ def _round(values: np.ndarray) -> list:
 def drive_conditions(frames: GameFrames, row: pd.Series, r0: int) -> dict[str, bool]:
     """Which conditions of the rule one drive of `help_table` meets, each on its own.
 
-    `helped`: a resolved drive with a helper (4 ft in 1.0 s). `left`: the man he left has a
-    provider matchup. `window`: frames 0 to SCENE_LAST from `startFrame` are contiguous and in
-    one chance. `detected`: all ten players are detected on every one of them.
+    `helped`: a resolved drive whose `has_helper` is set (in `near_committed_table`, a
+    committed near help). `left`: the man he left has a provider matchup. `window`: frames 0
+    to SCENE_LAST from `startFrame` are contiguous and in one chance. `detected`: all ten
+    players are detected on every one of them.
     """
     ok = row["status"] == "ok" and r0 >= 0
     window = bool(ok and _window_end(frames, r0, SCENE_LAST) - r0 >= SCENE_LAST)
@@ -108,10 +126,32 @@ def first_qualifying(frames: GameFrames, table: pd.DataFrame) -> tuple[pd.Series
     return chosen, counts
 
 
+def near_committed_table(frames: GameFrames, drives: pd.DataFrame,
+                         table: pd.DataFrame) -> pd.DataFrame:
+    """`help_table` rows of one game's committed near helps, in that analysis' roles.
+
+    `help_kinds.kind_help_table` makes the nearest the helper, his raw man the man left and his
+    `near_move` the `helper_help_move`. It leaves `left_nearest0` / `left_nearest1` as the
+    pooled helper's man's; `check_scene` reads them, so they are recomputed here for this man,
+    as `wind` computes them (his nearest defender at 0 and 1.0 s).
+    """
+    kinds = drive_kinds(frames, drives, table)
+    near = kind_help_table(frames, table, kinds, "near_committed", "near_committed", "near")
+    xy = frames.xy.astype(np.float64)
+    rows = [_row_of(frames.frame_idx, int(sf)) for sf in near["start_frame"]]
+    for column, dt in (("left_nearest0", 0), ("left_nearest1", HORIZON_FRAMES)):
+        near[column] = [float(np.linalg.norm(xy[r + dt, N_SIDE:] - xy[r + dt, int(m)],
+                                             axis=1).min())
+                        for r, m in zip(rows, near["left_slot"], strict=True)]
+    return near
+
+
 def helper_move(xy: np.ndarray, helper: int, handler: int) -> float:
-    """`wind`'s help movement from a scene's own arrays: the helper's displacement over
-    HORIZON_FRAMES projected on the unit vector to where the handler is then. Feet."""
-    return _projection(xy[0, helper], xy[HORIZON_FRAMES, helper], xy[HORIZON_FRAMES, handler])
+    """`help_kinds`' near-help movement from a scene's own arrays: the helper's displacement
+    from frame 0 projected on the unit vector to where the handler is at the same frame, at
+    its best frame of 1 to MOVE_FRAMES (`near_move`). Feet."""
+    return max(_projection(xy[0, helper], xy[t, helper], xy[t, handler])
+               for t in range(1, MOVE_FRAMES + 1))
 
 
 def clearance(xy: np.ndarray, left: int) -> np.ndarray:
@@ -174,12 +214,14 @@ def build_scene(frames: GameFrames, row: pd.Series) -> dict:
 
 
 def check_scene(scene: dict, row: pd.Series) -> None:
-    """Refuse a scene that disagrees with `help_table`; ValueError names what differs.
+    """Refuse a scene that disagrees with its table row; ValueError names what differs.
 
-    The helper's movement at 1.0 s and the man left's clearance at 0 and 1.0 s are recomputed
-    from the scene's own `xy` (what the page would draw) and compared with the table's
-    `helper_help_move`, `left_nearest0` and `left_nearest1`; the stored scalars and the
-    handler's position at 1.0 s are held to the same table.
+    The helper's movement within 1.0 s and the man left's clearance at 0 and 1.0 s are
+    recomputed from the scene's own `xy` (what the page would draw) and compared with the
+    row's `helper_help_move`, `left_nearest0` and `left_nearest1` (`near_committed_table`);
+    the stored scalars and the handler's position at 1.0 s are held to the same row. The
+    helper must also be committed in the scene: back within his 0 s distance to his man plus
+    RECOVER_FT at 2.0 s is a stunt (`help_kinds`' rule), and is refused.
     """
     xy = np.asarray(scene["xy"], dtype=float)
     roles = scene["roles"]
@@ -196,19 +238,25 @@ def check_scene(scene: dict, row: pd.Series) -> None:
     }
     bad = [f"{name}: scene {got:.3f} vs table {want:.3f}"
            for name, (got, want) in claims.items() if abs(got - want) > TOLERANCE_FT]
+    start, end = (float(np.linalg.norm(xy[t, roles["helper"]] - xy[t, roles["left"]]))
+                  for t in (0, OUTCOME_FRAMES))
+    if end <= start + RECOVER_FT:
+        bad.append(f"helper back with his man at 2.0 s: {end:.3f} ft, {start:.3f} at 0 s")
     if bad:
         raise ValueError(f"scene {scene['drive_id']} disagrees with help_table: " + "; ".join(bad))
 
 
 def paired_means(pairs: pd.DataFrame, horizon: int = HEADLINE_HORIZON) -> pd.Series:
     """Per helped drive, the mean over the three others of `to_left - placebo` at `horizon`
-    (the unit of the headline), from `second_help_pairs.csv`."""
+    (the unit of the headline), from a pairs file (`near_committed_pairs.csv`, or
+    `second_help_pairs.csv`, which has the same columns)."""
     p = pairs[pairs["helped"] & (pairs["horizon"] == horizon)].dropna(subset=["placebo"])
     return (p["to_left"] - p["placebo"]).groupby(p["drive_id"]).mean()
 
 
 def place_in(value: float, distribution: pd.Series) -> dict:
-    """Where one drive's paired mean sits among all helped drives: the share at or below it."""
+    """Where one drive's paired mean sits among the helped drives of `distribution`: the share
+    at or below it."""
     return {"n_helped": int(len(distribution)),
             "median": float(distribution.median()),
             "percentile": float(100 * (distribution <= value).mean())}
@@ -218,7 +266,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", type=Path, default=Path("data/raw/opendata-basketball"))
     parser.add_argument("--cache", type=Path, default=Path("data/interim"))
-    parser.add_argument("--pairs", type=Path, default=Path("reports/second_help_pairs.csv"))
+    parser.add_argument("--pairs", type=Path, default=Path("reports/near_committed_pairs.csv"))
     parser.add_argument("--out", type=Path, default=Path("reports/wind_scenes.json"))
     parser.add_argument("--games", type=int, default=4, help="games, one drive each")
     args = parser.parse_args()
@@ -230,8 +278,9 @@ def main() -> int:
         if len(scenes) == args.games:
             break
         frames = get_or_build(dataset, game, args.cache)
-        table = help_table(frames, dataset.events(game)["drives"])  # in process, not the CSV
-        row, counts = first_qualifying(frames, table)
+        drives = dataset.events(game)["drives"]
+        table = help_table(frames, drives)  # in process, not the CSV
+        row, counts = first_qualifying(frames, near_committed_table(frames, drives, table))
         selection.append({"game": int(game), "drives": int(len(table)), **counts,
                           "chosen": None if row is None else row["drive_id"]})
         print(f"  {game}: " + ", ".join(f"{k} {v}" for k, v in counts.items())

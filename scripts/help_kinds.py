@@ -17,6 +17,11 @@ Writes to {out}:
   help_kinds_summary.csv  tidy: measure (count | paired_diff | contrast), kind, variant, horizon,
                           n, n_ref, mean, ci_low, ci_high, median, share_pos, nearest_* shares,
                           reading
+  near_committed_pairs.csv, near_committed_drives.csv
+                          the NEAR-COMMITTED analysis as `rotation_table` returns it (`helped`:
+                          committed; the rest: the near reference), with the columns of
+                          `second_help_pairs.csv` / `second_help_drives.csv`; the page's scenes
+                          (`wind_scenes.py`), figure 1 and the page are held to them
 """
 
 from __future__ import annotations
@@ -158,6 +163,9 @@ def main() -> int:
         out = pd.concat(run[name][1], ignore_index=True)
         primary = name in ("long", "near_stunt", "near_committed")
         rows += kind_rows(name, "primary" if primary else "sensitivity", pairs, out)
+        if name == "near_committed":
+            pairs.to_csv(args.out / "near_committed_pairs.csv", index=False)
+            out.to_csv(args.out / "near_committed_drives.csv", index=False)
 
     pairs = pd.concat(pub[0], ignore_index=True)
     out = pd.concat(pub[1], ignore_index=True)

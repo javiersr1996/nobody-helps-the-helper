@@ -990,6 +990,40 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       helper = the nearest, man left = his raw matchup), regenerate `wind_scenes.json`, figure
       1 (percentile among the 159), the page; B5 on the real GPU. Javier sees the new hook on
       his phone BEFORE it is pushed.
+      DONE 2026-10-30 (local commit, NOT pushed; Javier's look first). Rule unchanged (games in
+      `game_ids` order, the first drive per game meeting helped / man left / 2 s window in one
+      chance / ten detected). Adapted, and only this: "helped" is `near_committed` and the roles
+      come from `help_kinds.kind_help_table` (helper = nearest, man left = his raw matchup at
+      r0, others = the other off-ball defenders); the per-game counts are over the game's
+      committed near helps (`selection.drives` is still the game's total). `check_scene` now
+      recomputes the helper's movement as `near_move` (best frame of 1..25, not frame 25), takes
+      the man left's clearance at 0 / 1.0 s recomputed for HIS man (`kind_help_table` leaves the
+      pooled helper's), and refuses a scene whose helper is back with his man at 2.0 s (test
+      shown failing with the check neutralised). New `reports/near_committed_pairs.csv` /
+      `near_committed_drives.csv` (`help_kinds.py`, the near-committed analysis, same columns
+      as `second_help_*`; `help_kinds.csv` and the summary byte-identical): the percentile
+      distribution, figure 1, `wind_html.py`'s scene guards and strip, and B5's scene rows read
+      them. Picked: `drive-114243-1-4` (114243), `drive-114234-1-11` (114234),
+      `drive-114169-1-8` (114169), `drive-114099-1-2` (114099), all `shotNearBasket`; the
+      earlier committed near helps in each game fail only `detected` (13, 22, 31, 36 undetected
+      frames, checked by a second route). Scene 0: nearest moves 7.78 ft, man left 1.58 / 9.09 /
+      8.72 ft at 0 / 1.0 / 1.5 s, paired mean -1.21 ft, percentile 39 of 159 (median -0.33);
+      it is also the pooled helper. Figure 1 redrawn, design untouched; two caption phrases
+      changed because they became false ("drives with a helper" -> the near-committed
+      definition; "the first drive with a helper" -> "the first such drive"). Page built (strip
+      159). B5 on the Intel Arc (D3D11): 184/184, first paint 0.74 / 0.53 / 0.80 s; no row was
+      tied to the old scene 0; the same B5 on the old committed page fails 76 rows (strip n
+      252 vs 159, old percentile 23.0). Preview MP4s (storyboard 7 recipe, 137 frames, 5.48 s
+      by ffprobe) at 390x844 (dpr 2) and 1920x1080 in the session scratchpad. ruff 0, pytest
+      342 passed. Memoria v1.0 (9.1 and its asserts, version row; PDF 47 pages read back).
+      NOW FALSE, for b and c: template 2249 ("toward where the ball is at 1.0 s"; it is the
+      nearest's best step toward the handler), 2255 / 2263 ("drives with a helper", n 159),
+      2257 ("the first drive with a helper"), 2265 ("the result over all of them": below is
+      pooled), 2269; README 11 (helper = 4 ft mover), 15 (figure 1's "the helper"); figure 1's
+      last sentence (`help_figures.py` 353, figure 2 still pooled); memoria 9.1 "La afirmación
+      es de la figura 2, que las promedia todas" (`build_memoria.js` 474); storyboard
+      `wind_page.md` 61, 165, 296-310, 352, 712 (old scene 0, pull-up, 252);
+      `video_script_wind.md` 19-20 (old scene ids in Pending).
    b. Figure 2 on committed near help against the near reference ("stays home").
    c. Page text, README (`check_readme.py`), memoria; the script's numbers then grep in the
       README. Push after Javier's look.

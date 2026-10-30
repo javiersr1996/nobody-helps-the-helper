@@ -7,7 +7,7 @@ Run (needs the `page` extra and one browser download)::
 
 The default target is `reports/nobody_helps_the_helper.html`; C1b points the same driver at
 the published GitHub Pages URL. The expected values come from `tasks/wind_page.md` and the
-files it names (`reports/wind_scenes.json`, `reports/second_help_*.csv`, `reports/help_*.csv`),
+files it names (`reports/wind_scenes.json`, `reports/near_committed_*.csv`, `reports/second_help_*.csv`, `reports/help_*.csv`),
 read here, never typed; the page's own source is not read. One line per check, exit 0 if every
 check passes and 1 otherwise.
 
@@ -233,8 +233,8 @@ class Data:
         self.fps = self.js["fps"]
         self.headline = self.js["headline_frame"]
         self.hoop_x = self.js["hoop_x"]
-        self.drives = pd.read_csv(REPORTS / "second_help_drives.csv").set_index("drive_id")
-        self.pairs = pd.read_csv(REPORTS / "second_help_pairs.csv")
+        self.drives = pd.read_csv(REPORTS / "near_committed_drives.csv").set_index("drive_id")
+        self.pairs = pd.read_csv(REPORTS / "near_committed_pairs.csv")
         self._csv: dict[str, pd.DataFrame] = {}
 
     def csv(self, name: str) -> pd.DataFrame:
@@ -932,10 +932,10 @@ def check_scenes(D: Data, browser, target: str) -> None:
                 and abs(vals[f"d{j + 1}"] - (tl - pl)) <= 0.011,
                 f"{vals[f't{j + 1}']:.3f}/{vals[f'p{j + 1}']:.3f} vs {tl:.3f}/{pl:.3f}",
             )
-            R.check(f"{tag}: second_help_pairs.csv has the row for bar {j + 1}", len(pr) == 1)
+            R.check(f"{tag}: near_committed_pairs.csv has the row for bar {j + 1}", len(pr) == 1)
             if len(pr) == 1:
                 R.check(
-                    f"{tag}: bar {j + 1} equals second_help_pairs.csv (horizon 38, def_slot {slot})",
+                    f"{tag}: bar {j + 1} equals near_committed_pairs.csv (horizon 38, def_slot {slot})",
                     abs(vals[f"t{j + 1}"] - pr.to_left.iloc[0]) <= 0.01
                     and abs(vals[f"p{j + 1}"] - pr.placebo.iloc[0]) <= 0.01,
                 )
@@ -946,7 +946,7 @@ def check_scenes(D: Data, browser, target: str) -> None:
         )
         who, dist = D.nearest_defender(i, D.headline)
         R.check(
-            f"{tag}: tile equals second_help_drives.csv nearest_who_38 / nearest_dist_38 (and the page's rule)",
+            f"{tag}: tile equals near_committed_drives.csv nearest_who_38 / nearest_dist_38 (and the page's rule)",
             vals["who"] == row["nearest_who_38"] == who
             and abs(vals["dist"] - row["nearest_dist_38"]) <= 0.01
             and abs(dist - row["nearest_dist_38"]) <= 0.01
@@ -960,7 +960,7 @@ def check_scenes(D: Data, browser, target: str) -> None:
             100.0 * float((means <= mine).sum()) / len(means)
         )  # the JSON counts the drive itself
         R.check(
-            f"{tag}: strip n, median, percentile equal the JSON and the 252 means recomputed from the CSV",
+            f"{tag}: strip n, median, percentile equal the JSON and the committed near helps' means recomputed from the CSV",
             vals["n"] == am["n_helped"] == len(means)
             and abs(vals["med"] - am["median"]) <= 1e-6
             and abs(float(means.median()) - am["median"]) <= 1e-6

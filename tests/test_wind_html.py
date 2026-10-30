@@ -102,7 +102,7 @@ def test_the_counted_sentences_are_counted_from_their_csv(built):
 
 
 def test_the_strip_is_every_helped_drive_and_places_each_scene_as_the_json_does(built):
-    means = paired_means(pd.read_csv(REPORTS / "second_help_pairs.csv"))
+    means = paired_means(pd.read_csv(REPORTS / "near_committed_pairs.csv"))
     assert built["strip"]["means"] == pytest.approx(means.tolist())
     for scene in built["scenes"]["scenes"]:
         among = scene["paired_mean_1_5s_among_helped"]
@@ -111,31 +111,31 @@ def test_the_strip_is_every_helped_drive_and_places_each_scene_as_the_json_does(
 
 
 def _bar(reports: Path) -> None:
-    pairs = pd.read_csv(reports / "second_help_pairs.csv")
+    pairs = pd.read_csv(reports / "near_committed_pairs.csv")
     scene = _scene0()
     hit = ((pairs["drive_id"] == scene["drive_id"]) & (pairs["horizon"] == 38)
            & (pairs["def_slot"] == scene["roles"]["others"][0] - 5))
     pairs.loc[hit, ["to_left", "placebo"]] += 0.5  # both: the drive's mean, so the strip, holds
-    pairs.to_csv(reports / "second_help_pairs.csv", index=False)
+    pairs.to_csv(reports / "near_committed_pairs.csv", index=False)
 
 
 def _strip(reports: Path) -> None:
-    pairs = pd.read_csv(reports / "second_help_pairs.csv")
+    pairs = pd.read_csv(reports / "near_committed_pairs.csv")
     other = pairs[pairs["helped"] & (pairs["horizon"] == 38)
                   & (pairs["drive_id"] != _scene0()["drive_id"])]["drive_id"].iloc[0]
-    pairs[pairs["drive_id"] != other].to_csv(reports / "second_help_pairs.csv", index=False)
+    pairs[pairs["drive_id"] != other].to_csv(reports / "near_committed_pairs.csv", index=False)
 
 
 def _nearest(reports: Path) -> None:
-    drives = pd.read_csv(reports / "second_help_drives.csv")
+    drives = pd.read_csv(reports / "near_committed_drives.csv")
     drives.loc[drives["drive_id"] == _scene0()["drive_id"], "nearest_who_38"] = "third"
-    drives.to_csv(reports / "second_help_drives.csv", index=False)
+    drives.to_csv(reports / "near_committed_drives.csv", index=False)
 
 
 def _clearance(reports: Path) -> None:
-    drives = pd.read_csv(reports / "second_help_drives.csv")
+    drives = pd.read_csv(reports / "near_committed_drives.csv")
     drives.loc[drives["drive_id"] == _scene0()["drive_id"], "left_clear_38"] += 0.1
-    drives.to_csv(reports / "second_help_drives.csv", index=False)
+    drives.to_csv(reports / "near_committed_drives.csv", index=False)
 
 
 def _contrast(reports: Path) -> None:
