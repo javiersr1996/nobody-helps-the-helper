@@ -423,7 +423,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       corrected; update the `pyproject.toml` description; every rebound script, test and CSV
       stays (open-source value, tests stay green); `range.bin` per D5. Accept: `uv run pytest`
       green after the move; every link in `docs/bounce/README.md` resolves (`ls` each path).
-- [ ] C1b (PUBLISHED 2026-10-30; acceptance open, the start-up over the network: see NEXT SESSION 6) The page on GitHub Pages [haiku, with Javier] (added 2026-10-29 on Javier's word):
+- [x] C1b (PUBLISHED 2026-10-30; ACCEPTED the same day: Pages serves the committed blob, sha256 a7436a0b... on both; B5 against the URL 184/184 twice; README links there. The start-up row fails at times on BOTH targets, a page matter: NEXT SESSION 6) The page on GitHub Pages [haiku, with Javier] (added 2026-10-29 on Javier's word):
       GitHub shows an HTML file in a repo as source, so a link to `reports/*.html` would show
       code, not the 3D page; the README links to a served page instead. Needs the public repo
       on GitHub: today no remote is configured (`git remote -v` empty, 2026-10-29); creating it
@@ -884,9 +884,8 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
 0,01 ft, 10 %, 1440, 390, ANGLE Intel Arc D3D11, c9e1cfe) found in the text.
 
 ### NEXT SESSION (left 2026-10-30)
-1. Two merged worktrees remain under `.claude/worktrees/` (agent-a22b51f6d4661edd3, merged
-   905ed37; agent-ada1dd0fe1ae15475, merged 2026-10-30, locked): remove them and their
-   branches once Javier says so.
+1. GONE (found 2026-10-30): `git worktree list` shows only main, `.claude/worktrees/` does not
+   exist and no branch but main is left. Nothing to remove.
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
@@ -903,13 +902,34 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    the committed file; README links there. B5 against the URL: its `next()` row failed twice
    with identical values; the cause was the DRIVER (state and scrubber read in two round trips
    while the page plays), fixed in 8fe2146 (one evaluate; proven to fail on a page forced to
-   desync). OPEN, the acceptance is not met: the start-up rows over the network, first frame
-   0.97-1.18 s, then 0.57 s, then 1.15-1.52 s against the storyboard's 1.0 s (local
-   0.47-0.67 s); 182 of 184 on the last run. Same bytes (877 KB gzipped), so it is the network;
-   NOT yet measured how much is download vs parse vs compile. Next: measure that split (a
-   Playwright trace or the Performance API on the URL), then decide with Javier: cut bytes, or
-   paint the first frame before the heavy work, or state the target as local-only. Do not move
-   the 1.0 s.
+   desync). Start-up over the network: first frame 0.97-1.18 s, then 0.57 s, then 1.15-1.52 s
+   against the storyboard's 1.0 s (local 0.47-0.67 s); "same bytes, so it is the network".
+   MEASURED 2026-10-30, and that inference was WRONG (it compared runs made at different
+   times). B5 four times in a row, alternating: URL 184/184 twice (first paint 0.47-0.58 s),
+   local file 183/184 twice, failing only the first-paint row on its FIRST cold load (1.09,
+   1.12 s; the other two 0.53-0.72 s). The failure follows the run, not the target. C1b's
+   acceptance is therefore met as written (see C1b). `scripts/startup_split.py` (new; the two
+   targets in turn, fresh browser each, B5's args and init script) in 12 loads: the download
+   ends 49-246 ms after navigation on the URL (first byte 25-202 ms), 27-47 ms on the file;
+   untraced first paint 0.72-0.82 s URL, 0.50-0.72 s file. The rest is the main thread, and it
+   never waits: first draw minus parser end (71, 98, 107, 95 ms) is the `warm.then` callback's
+   own CPU (65, 91, 99, 87 ms), so the shaders are compiled before the script ends. Four
+   traced loads (shares only, the trace slows the page): three.js compile+run 36-49 ms; the
+   page script runs 343-486 of the 564-804 ms to first draw; by start-up call, placeCamera
+   (the broadcast camera fit, `shotOf`) 91-145, the first draw in `warm.then` 65-99,
+   finishStage 61-87, sizeStage (forced layout) 42-73, buildStage 49-54, warmUp 42-63 ms.
+   NOT measured: what makes one cold load slow (it is not the network; the machine was on AC,
+   high-performance plan, CPU idle). Scratchpad probes on the way, not in the repo: 16 untraced
+   loads over file, a local HTTP server, the URL and the URL with `--no-proxy-server` gave no
+   network penalty either (one load over 1.0 s, a file:// one at 1.23 s); one traced URL load
+   waited 2.8 s between fetchStart and DNS, never seen untraced (8 loads), so not counted.
+   Memoria v0.8 (15.4 corrected, 17 and the phase C row updated; read back from the PDF).
+   DECISION FOR JAVIER (the 1.0 s stays): of the three options, local-only is refuted (it fails
+   locally) and cutting bytes buys at most the download; what is left is less main-thread work
+   before the first frame. Recommended first cut: the camera fit, whose bisection runs 22
+   halvings (far below a pixel) for ~45 look-at positions per frame, then 101 more per frame;
+   B5's framing rows (bottom room 6.0 %) guard the result. Not started: it changes the
+   published page.
 7. Waiting for Javier: B7 (he opened the local page today; checklist given in chat: start-up,
    the drive and its tags, the rise, the controls, the tracked/drawn note), C5 (read the README
    on GitHub), D1 (read `tasks/video_script_wind.md` aloud once: it must land at 55-62 s).
