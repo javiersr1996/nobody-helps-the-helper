@@ -83,6 +83,24 @@ def test_the_payload_rows_are_the_csv_rows(built):
     assert built["table"]["status"] == table["status"].value_counts().to_dict()
 
 
+def test_the_near_rows_are_the_csv_rows(built):
+    kinds = pd.read_csv(REPORTS / "help_kinds_summary.csv")
+    primary = kinds[kinds["variant"] == "primary"]
+    assert len(built["near"]["rows"]) == 6
+    for row in built["near"]["rows"]:
+        want = primary[(primary["measure"] == "paired_diff") & (primary["kind"] == row["kind"])
+                       & np.isclose(primary["horizon"], row["horizon"])]
+        assert len(want) == 1
+        for column in ("n", "mean", "ci_high", "nearest_helper"):
+            assert row[column] == pytest.approx(want.iloc[0][column], abs=1e-12)
+    for row in built["near"]["contrast"]:
+        want = primary[(primary["measure"] == "contrast") & (primary["kind"] == "near_committed")
+                       & np.isclose(primary["horizon"], row["horizon"])]
+        assert row["mean"] == pytest.approx(want.iloc[0]["mean"], abs=1e-12)
+        assert row["frames"] == round(row["horizon"] * 25)
+    assert built["near"]["counts"] == {"resolved": 618, "long": 7}
+
+
 def test_the_counted_sentences_are_counted_from_their_csv(built):
     """The robustness, per-game and provider sentences are counts the build makes: recounted
     here by a second route so a wrong filter in the build cannot agree with itself."""
@@ -144,6 +162,26 @@ def _contrast(reports: Path) -> None:
     contrast.to_csv(reports / "second_help_contrast.csv", index=False)
 
 
+def _near_contrast(reports: Path) -> None:
+    kinds = pd.read_csv(reports / "help_kinds_summary.csv")
+    kinds.loc[(kinds["measure"] == "contrast") & (kinds["kind"] == "near_committed")
+              & (kinds["variant"] == "primary") & (kinds["horizon"] == 1.0), "ci_high"] = 0.01
+    kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _near_reference(reports: Path) -> None:
+    kinds = pd.read_csv(reports / "help_kinds_summary.csv")
+    kinds.loc[(kinds["measure"] == "paired_diff") & (kinds["kind"] == "near_committed_ref")
+              & (kinds["variant"] == "primary") & (kinds["horizon"] == 2.0), "ci_high"] = -0.01
+    kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _near_reading(reports: Path) -> None:
+    kinds = pd.read_csv(reports / "help_kinds_summary.csv")
+    kinds["reading"] = kinds["reading"].replace("ABSENCE", "INCONCLUSIVE")
+    kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
 def _corner(reports: Path) -> None:
     rates = pd.read_csv(reports / "help_base_rate.csv")
     rates.loc[(rates["grouping"] == "y_band") & (rates["group"] == "18-inf"), "rate_high"] = 0.05
@@ -168,6 +206,9 @@ def _not_finite(reports: Path) -> None:
     (_nearest, "would name"),
     (_clearance, "left_clear_38"),
     (_contrast, "every interval contains 0"),
+    (_near_contrast, "every interval is below 0"),
+    (_near_reference, "sits on the placebo"),
+    (_near_reading, "pre-registered reading"),
     (_corner, "too few to say"),
     (_field, "MIN_WEIGHT"),
     (_not_finite, "left_clear_when_got_it"),

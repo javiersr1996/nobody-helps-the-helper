@@ -25,5 +25,5 @@ def test_changed_bold_number_fails(tmp_path: Path) -> None:
     copy.write_text(text.replace("**45.3 %**", "**46.3 %**"), encoding="utf-8")
     failed = [(name, detail) for ok, name, detail in run(copy) if not ok]
     assert len(failed) == 1
-    assert "A helper appears in" in failed[0][0]
+    assert "appears in" in failed[0][0]
     assert "46.3 %" in failed[0][1] and "45.3 %" in failed[0][1]

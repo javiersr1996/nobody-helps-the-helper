@@ -58,7 +58,7 @@ in the payload, as the old page does (`D.court.geometry`).
 | File | What the page takes from it |
 |---|---|
 | `reports/wind_scenes.json` | `hoop_x`, `fps`, `headline_frame`, `help_ft`, `selection[]` (`game`, `drives`, `all`, `chosen`), and per scene: `game`, `drive_id`, `end_type`, `roles` (`handler`, `handler_def`, `helper`, `left`, `others[3]`, `placebo_targets[3][]`), `xy[51][10][2]`, `ball[51][3]` (x, y, z in feet), `left_clearance[51]`, `to_left[3][51]`, `placebo[3][51]`, `helper_help_move`, `clearance_ft` (`0.0s`, `1.0s`, `1.5s`), `paired_mean_1_5s`, `paired_mean_1_5s_among_helped` (`n_helped`, `median`, `percentile`) |
-| `reports/second_help_pairs.csv` | the 252 per-drive means at horizon 38 (helped, mean over `def_slot` of `to_left - placebo`, NaN placebo dropped), recomputed by importing `scripts/wind_scenes.paired_means`; the build refuses if their n, median or any scene's percentile differ from the JSON's `paired_mean_1_5s_among_helped` |
+| `reports/second_help_pairs.csv` | the 252 per-drive means at horizon 38 (helped, mean over `def_slot` of `to_left - placebo`, NaN placebo dropped), recomputed by importing `scripts/wind_scenes.paired_means`; the build refuses if their n, median or any scene's percentile differ from the JSON's `paired_mean_1_5s_among_helped` | **[SUPERSEDED 2026-10-30: the strip is the 159 committed near helps, `near_committed_pairs.csv`, written by `help_kinds.py`; 252 and `second_help_pairs.csv` are the pooled helper.]**
 | `reports/second_help_drives.csv` | per scene drive_id: `nearest_who_38`, `nearest_dist_38`, `left_clear_38` (the console check reads these against what the page computes live) |
 | `reports/second_help_summary.csv` | rows `horizon == 38`, `helped` True and False: `n_drives`, `n_pairs`, `mean_diff`, `ci_low`, `ci_high`, `median_diff`, `share_diff_positive`, `share_mover_left`, `share_mover_placebo`, `nearest_helper`, `nearest_handler_def`, `nearest_third`, `nearest_dist_median`, `left_open_share`, `left_open0_share`; the `horizon == 25` and `50` rows for the sensitivity details |
 | `reports/second_help_contrast.csv` | all three rows: `horizon_s`, `contrast_mean`, `contrast_ci_low`, `contrast_ci_high`, `n_helped`, `n_no_helper` |
@@ -162,7 +162,7 @@ not data.
   at (x, y) with no height and no shadow. Decision and reasons:
   - Measured height, not flat: a drive reads as a drive by its dribble, and the four scenes
     dribble (z between 1.3 and 4.3 ft over frames 0..38 in scenes 2 to 4); in scene 1 the
-    pull-up is already in the air at the freeze (z = 10.06 ft at frame 38), which gives the
+    pull-up is already in the air at the freeze (z = 10.06 ft at frame 38), which gives the **[SUPERSEDED 2026-10-30: the scenes are now `drive-114243-1-4`, `-114234-1-11`, `-114169-1-8`, `-114099-1-2`, all `shotNearBasket`; the pull-up is not on the page.]**
     hook a natural last image. A ball sliding on the floor reads as a puck and makes the
     handler look like he is kicking it.
   - Nothing is measured from z: the known defect of this bundle is in the ball's vertical
@@ -293,6 +293,12 @@ drawn when it comes near the viewport. The page is under 8 MB.
 
 ## 3. The first five seconds (the hook, D8)
 
+> **[SUPERSEDED 2026-10-30, kept as the record of the first storyboard.]** Scene 0 is now
+> `drive-114243-1-4` (a shot near the basket, helper = the defender nearest the ball, 7.78 ft
+> toward the handler; the man he left 1.58 / 9.09 / 8.72 ft from the nearest defender at 0 / 1.0 /
+> 1.5 s; `wind_scenes.json`). The pull-up, the 5.46 ft and the 1.79 / 2.65 / 9.29 ft below belong
+> to the old scene 0.
+
 Scene 0 is `drive-114243-1-1` (game 114243, a pull-up; helper 5.46 ft; the man he left 1.79 ft
 from the nearest defender at 0 s, 2.65 at 1.0 s, 9.29 at 1.5 s; all from `wind_scenes.json`),
 the same drive as figure 1. With motion allowed, on load and with no click (wall time from the
@@ -349,7 +355,7 @@ under 900 px. This section is figure 1 live.
   toward a target: his own movement along the line from his start to where the target is then
   (negative: away). The whole defence sinks with a drive, so the test is the difference against
   the other attackers off the ball, his own man excepted (the placebo)."
-- **The strip (SVG, static):** the 252 per-drive means at 1.5 s from `second_help_pairs.csv`
+- **The strip (SVG, static):** the 252 per-drive means at 1.5 s from `second_help_pairs.csv` **[SUPERSEDED 2026-10-30: 159 per-drive means, `near_committed_pairs.csv`.]**
   (recomputed by the build, section 1), as a histogram with a "drives" axis, this drive's mean
   marked in purple with "this drive {paired_mean_1_5s}, percentile {percentile}" and the median
   dashed with "median {median}" (both from `paired_mean_1_5s_among_helped`). Labelled "at
@@ -709,7 +715,7 @@ allowed, captures frame by frame and never waits on the page's clock:
   HTML. No second renderer for the stage.
 - Positions and panel values at fractional t are linear interpolations between adjacent
   frames; the scrubber steps by frame; B5 and the video use frame-aligned t.
-- The payload carries the whole JSON (57 KB) and the per-drive means (252 floats), the
+- The payload carries the whole JSON (57 KB) and the per-drive means (252 floats), the **[SUPERSEDED 2026-10-30: 159 per-drive means.]**
   field (957 rows), the summary rows and the scalars; the build asserts every scalar it injects
   is finite and refuses on the guards of section 1.
 

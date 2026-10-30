@@ -30,19 +30,21 @@ always bottom right.
      the whole defence sinking with the drive as well as the help, and the strip says so.
 
   2. **Who covers the man he left.** Where the attacker the helper was guarding stands at the
-     headline horizon (1.5 s), one dot per helped drive, coloured and shaped by which
-     defender is nearest to him: the helper, the ball handler's defender, or a third. Under
-     the court, the three other defenders' rotation toward him against the placebo, and the
-     share nearest and the open share with its base rate.
+     headline horizon (1.5 s), one dot per committed near help (the defender nearest the
+     ball moves 2 ft or more toward the handler and is not back with his man at 2 s),
+     coloured and shaped by which defender is nearest to him: the helper, the ball handler's
+     defender, or a third. Under the court, the three other defenders' rotation toward him
+     against the placebo, for the committed near helps and for the reference (the nearest
+     stays home), their contrast, and the pooled every-helper contrast as context.
 
 Every number printed on either figure is computed here from the CSVs, never typed. On the
 wind map and figure 2 nothing is drawn inside the court but the court, the data and the
 ball's median path: numbers, keys and legends live in a strip under it, where no streamline
 can cross them. Figure 1 draws one drive, sparse enough to name its players where they stand.
 
-Needs `reports/help_base_rate.csv` from the same script, the `second_help_*.csv` drives,
-summary, contrast and contrast_sensitivity, which `scripts/second_help.py` writes, and
-`reports/wind_scenes.json`.
+Needs `reports/help_base_rate.csv` from the same script, `second_help_contrast.csv` from
+`scripts/second_help.py`, `help_kinds_summary.csv` and `near_committed_*.csv` from
+`scripts/help_kinds.py`, and `reports/wind_scenes.json`.
 
 Writes {out}/wind_figure_1_one_drive.png, {out}/wind_figure_2_who_covers.png and
 {out}/wind_map_league.png.
@@ -61,6 +63,8 @@ import numpy as np
 import pandas as pd
 
 from scbasket.court import CORNER_LINE_Y_FT, FIBA, HOOP_X, THREE_RADIUS_FT
+from scbasket.frames import FPS
+from scbasket.help_kinds import NEAR_STAY_FT
 from scbasket.rotation import HEADLINE_HORIZON
 from scbasket.wind import HELP_FT, HORIZON_S
 
@@ -350,7 +354,8 @@ def figure_1(scenes: dict, pairs: pd.DataFrame, path: Path) -> None:
 
         put(f"Chosen by rule, not by look: the first such drive, in the first game, "
             f"with all ten players detected for its whole {window:.0f}{nb}s window. Figure 2 "
-            f"has the result, over all drives and against drives with no helper.", gap=0.1)
+            f"has the result, over all of them and against drives where the nearest "
+            f"defender stays home.", gap=0.1)
         if out is not None:
             fig.savefig(out, dpi=200)
         plt.close(fig)
@@ -475,25 +480,46 @@ def wind_map(table: pd.DataFrame, vectors: pd.DataFrame, field: pd.DataFrame,
     build(build(40.0, None), path)  # the first pass only measures the height it needs
 
 
-def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFrame,
-             sweep: pd.DataFrame, path: Path) -> None:
-    def cell(horizon: int, helped: bool) -> pd.Series:
-        return summary[(summary["horizon"] == horizon) & (summary["helped"] == helped)].iloc[0]
+def figure_2(drives: pd.DataFrame, kinds: pd.DataFrame, pooled: pd.DataFrame, path: Path) -> None:
+    """Committed near help against the near reference, from `help_kinds_summary.csv` (the
+    numbers) and `near_committed_drives.csv` (the dots). `pooled` is `second_help_contrast.csv`,
+    the earlier every-helper result, printed as context."""
+    primary = kinds[kinds["variant"] == "primary"]
 
-    contrast = {h: contrasts[contrasts["horizon"] == h].iloc[0] for h in CHART_HORIZONS}
-    for h, c in contrast.items():  # the figure says "no more than with no helper": fail if not
-        if c["contrast_ci_low"] > 0:
-            raise ValueError(f"helped minus no-helper is above 0 at {h} frames "
-                             f"(95% CI low {c['contrast_ci_low']:+.2f}): the claim does not hold")
+    def cell(frames: int, committed: bool) -> pd.Series:
+        kind = "near_committed" if committed else "near_committed_ref"
+        got = primary[(primary["measure"] == "paired_diff") & (primary["kind"] == kind)
+                      & np.isclose(primary["horizon"], frames / FPS)]
+        return got.iloc[0]
+
+    def count(kind: str, variant: str) -> int:
+        got = kinds[(kinds["measure"] == "count") & (kinds["kind"] == kind)
+                    & (kinds["variant"] == variant)]
+        return int(got["n"].iloc[0])
+
+    contrast = {h: primary[(primary["measure"] == "contrast")
+                           & (primary["kind"] == "near_committed")
+                           & np.isclose(primary["horizon"], h / FPS)].iloc[0]
+                for h in CHART_HORIZONS}
+    for h, c in contrast.items():  # the figure says "less than when he stays home": fail if not
+        if not c["ci_high"] < 0:
+            raise ValueError(f"committed minus reference is not below 0 at {h} frames "
+                             f"(95% CI {c['ci_low']:+.2f} to {c['ci_high']:+.2f}): the claim "
+                             "does not hold")
+    for h in CHART_HORIZONS:  # and "the reference sits on 0": fail if its interval excludes 0
+        r = cell(h, False)
+        if not r["ci_low"] <= 0 <= r["ci_high"]:
+            raise ValueError(f"the reference excludes 0 at {h} frames: 'sits on 0' is false")
+    if contrast[HEADLINE_HORIZON]["reading"] != "ABSENCE":
+        raise ValueError("the pre-registered reading at the headline horizon is not ABSENCE")
 
     head, base = cell(HEADLINE_HORIZON, True), cell(HEADLINE_HORIZON, False)
-    seconds = f"{head['horizon_s']:.1f} s"
-    dots = drives[drives["helped"]].dropna(subset=[f"left_x_{HEADLINE_HORIZON}",
-                                                   f"nearest_who_{HEADLINE_HORIZON}"])
-    n_cut = int(drives["helped"].sum()) - len(dots)
-    contain = int(((sweep["contrast_ci_low"] <= 0) & (sweep["contrast_ci_high"] >= 0)).sum())
-    above = int((sweep["contrast_ci_low"] > 0).sum())
-    thresholds = ", ".join(f"{t:.0f}" for t in sorted(sweep["help_ft"].unique()))
+    seconds = f"{HEADLINE_HORIZON / FPS:.1f} s"
+    committed = drives[drives["helped"]]
+    dots = committed.dropna(subset=[f"left_x_{HEADLINE_HORIZON}",
+                                    f"nearest_who_{HEADLINE_HORIZON}"])
+    n_cut = len(committed) - len(dots)
+    pooled_head = pooled[pooled["horizon"] == HEADLINE_HORIZON].iloc[0]
     pct = lambda v: f"{100 * v:.0f}%"  # noqa: E731
 
     def build(height: float, out: Path | None) -> float:
@@ -513,8 +539,10 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFram
                     tall / height]
 
         put("Nobody else moves toward the man the helper left", gap=0.06, weight="bold")
-        put(f"{seconds} into the drive, with a helper the three other defenders move toward him "
-            f"no more than they do when there is no helper.", gap=0.1)
+        put(f"{seconds} into the drive, when the defender nearest the ball helps and is not "
+            f"back with his man, the three other defenders move toward the man he left less "
+            f"than toward the other attackers, and less than when the nearest stays home.",
+            gap=0.1)
         ax = fig.add_axes(frac(0.1, used[0], FIG2_WIDTH_IN - 0.2, COURT_IN))
         draw_court(ax)
         for z, (who, (color, marker, _)) in enumerate(WHO_STYLE.items()):
@@ -525,17 +553,17 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFram
                        linewidth=0.5, zorder=4 + z)
         used[0] += COURT_IN + 0.1
 
-        shares = {"helper": (f"{pct(head['nearest_helper'])} (with no helper, his own "
-                             f"defender: {pct(base['nearest_helper'])})"),
+        shares = {"helper": (f"{pct(head['nearest_helper'])} (when the nearest stays home, his "
+                             f"own defender: {pct(base['nearest_helper'])})"),
                   "handler_def": f"{pct(head['nearest_handler_def'])} "
                                  f"({pct(base['nearest_handler_def'])})",
                   "third": f"{pct(head['nearest_third'])} ({pct(base['nearest_third'])})"}
         key = fig.legend(
             handles=[Line2D([], [], marker=m, linestyle="none", markersize=8, color=c,
                             label=f"{n} {shares[who]}") for who, (c, m, n) in WHO_STYLE.items()],
-            title=f"Nearest defender at {seconds}, median {head['nearest_dist_median']:.1f} ft "
-                  f"away (no helper: {base['nearest_dist_median']:.1f} ft)\n"
-                  f"{len(dots)} of {len(dots) + n_cut} helped drives; {n_cut} end sooner",
+            title=f"Nearest defender to the man he left at {seconds}\n"
+                  f"{len(dots)} near helps that commit"
+                  + (f" of {len(committed)}; {n_cut} end sooner" if n_cut else ""),
             loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
                                               1 - used[0] / height),
             frameon=False, fontsize=TEXT_PT, title_fontsize=TEXT_PT, handletextpad=0.3,
@@ -545,25 +573,27 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFram
         put("Rotation toward him minus toward the placebo: mean over drives, 95% CI.",
             gap=0.04)
         fig.legend(handles=[Line2D([], [], marker="o", color=c, markersize=8, linewidth=1.6,
-                                   label=n) for c, n in ((INK, "helped drives"),
-                                                         (GREY, "drives with no helper"))],
+                                   label=n) for c, n in ((INK, "the nearest helps and does "
+                                                               "not go back"),
+                                                         (GREY, "reference: the nearest "
+                                                                "stays home"))],
                    loc="upper left", bbox_to_anchor=(MARGIN_IN / FIG2_WIDTH_IN - 0.01,
                                                      1 - used[0] / height),
-                   ncol=2, frameon=False, fontsize=TEXT_PT, handletextpad=0.3,
-                   columnspacing=1.4, borderaxespad=0)
-        used[0] += 0.4
+                   ncol=1, frameon=False, fontsize=TEXT_PT, handletextpad=0.3,
+                   labelspacing=0.3, borderaxespad=0)
+        used[0] += 0.75
         chart_h = 1.4
         chart = fig.add_axes(frac(0.85, used[0] + 0.3, 3.5, chart_h))
         rows = np.arange(len(CHART_HORIZONS))
-        for helped, color, shift in ((True, INK, -0.16), (False, GREY, 0.16)):
-            cells = [cell(h, helped) for h in CHART_HORIZONS]
-            mean = np.array([c["mean_diff"] for c in cells])
+        for is_committed, color, shift in ((True, INK, -0.16), (False, GREY, 0.16)):
+            cells = [cell(h, is_committed) for h in CHART_HORIZONS]
+            mean = np.array([c["mean"] for c in cells])
             low, high = (np.array([c["ci_low"] for c in cells]),
                          np.array([c["ci_high"] for c in cells]))
             chart.errorbar(mean, rows + shift, xerr=[mean - low, high - mean], fmt="o",
                            color=color, markersize=8, capsize=4, linewidth=1.8)
         chart.axvline(0, color=COURT, linewidth=1.0)
-        chart.set_yticks(rows, [f"{cell(h, True)['horizon_s']:.1f} s" for h in CHART_HORIZONS])
+        chart.set_yticks(rows, [f"{h / FPS:.1f} s" for h in CHART_HORIZONS])
         chart.set_ylim(len(CHART_HORIZONS) - 0.5, -0.5)
         chart.tick_params(labelsize=TEXT_PT, length=3)
         chart.set_xlabel("feet", fontsize=TEXT_PT, labelpad=2)
@@ -575,21 +605,26 @@ def figure_2(drives: pd.DataFrame, summary: pd.DataFrame, contrasts: pd.DataFram
                        color=INK, ha="left", va="bottom")
         for row, h in zip(rows, CHART_HORIZONS, strict=True):
             c = cell(h, True)
-            for x, value in zip(columns, (f"{c['mean_diff']:+.2f}", f"{c['median_diff']:+.2f}",
-                                          pct(c["share_diff_positive"])), strict=True):
+            for x, value in zip(columns, (f"{c['mean']:+.2f}", f"{c['median']:+.2f}",
+                                          pct(c["share_pos"])), strict=True):
                 chart.text(1.0 + x, row, value, transform=chart.get_yaxis_transform(),
                            fontsize=TEXT_PT, color=INK, ha="left", va="center")
         used[0] += 0.3 + chart_h + 0.5
-        put("A pair = one drive and one of the three others. Median near 0: the typical pair "
-            "moves as toward the placebo, and the mean is pulled by the tails. Grey is below 0 "
-            "too, so the baseline is the grey series, not 0.", gap=0.1)
-        put("Helped minus no helper, mean (95% CI): " + "; ".join(
-            f"{cell(h, True)['horizon_s']:.1f} s {c['contrast_mean']:+.2f} "
-            f"({c['contrast_ci_low']:+.2f} to {c['contrast_ci_high']:+.2f})"
-            for h, c in contrast.items()) + ". Every interval contains 0: no more rotation "
-            "than with no helper.", gap=0.1)
-        put(f"Helper threshold {thresholds} ft x three horizons: {contain} of {len(sweep)} "
-            f"of these intervals contain 0, and {above or 'none'} lie above it.", gap=0.1)
+        put(f"A pair = one drive and one of the three others; the columns are for the black "
+            f"series. The grey series, the reference ({count('flag', 'near_ref')} drives where "
+            f"the nearest moves less than {NEAR_STAY_FT:.0f} ft toward the handler), sits on 0: "
+            f"its intervals hold 0 at every horizon. The black one is below it.", gap=0.1)
+        put("Commits minus stays home, mean (95% CI): " + "; ".join(
+            f"{h / FPS:.1f} s {c['mean']:+.2f} ({c['ci_low']:+.2f} to {c['ci_high']:+.2f})"
+            for h, c in contrast.items()) + f". Every interval is below 0, only just at "
+            f"{CHART_HORIZONS[0] / FPS:.1f} s and {HEADLINE_HORIZON / FPS:.1f} s. The reading "
+            f"fixed before the run, {contrast[HEADLINE_HORIZON]['reading']}, holds.", gap=0.1)
+        put(f"Over every helper, the earlier definition (4 ft or more toward where the ball "
+            f"ends up), the same contrast at {seconds} is {pooled_head['contrast_mean']:+.2f} "
+            f"({pooled_head['contrast_ci_low']:+.2f} to {pooled_head['contrast_ci_high']:+.2f}):"
+            f" also no extra rotation, a wider interval holding 0. Long help by the farthest "
+            f"defender is not tested: {count('flag', 'long')} of "
+            f"{count('drives', 'resolved')} resolved drives qualify.", gap=0.1)
         if out is not None:
             fig.savefig(out, dpi=200)
         plt.close(fig)
@@ -605,10 +640,9 @@ def main() -> int:
     args = parser.parse_args()
     for name, script in (("help_table.csv", "help_wind"), ("help_vectors.csv", "help_wind"),
                          ("help_base_rate.csv", "help_wind"), ("help_field.csv", "help_wind"),
-                         ("second_help_drives.csv", "second_help"),
-                         ("second_help_summary.csv", "second_help"),
                          ("second_help_contrast.csv", "second_help"),
-                         ("second_help_contrast_sensitivity.csv", "second_help"),
+                         ("help_kinds_summary.csv", "help_kinds"),
+                         ("near_committed_drives.csv", "help_kinds"),
                          ("near_committed_pairs.csv", "help_kinds"),
                          ("wind_scenes.json", "wind_scenes")):
         if not (args.reports / name).exists():
@@ -618,10 +652,9 @@ def main() -> int:
     vectors = pd.read_csv(args.reports / "help_vectors.csv")
     rates = pd.read_csv(args.reports / "help_base_rate.csv")
     field = pd.read_csv(args.reports / "help_field.csv")
-    second = pd.read_csv(args.reports / "second_help_drives.csv")
-    summary = pd.read_csv(args.reports / "second_help_summary.csv")
-    contrasts = pd.read_csv(args.reports / "second_help_contrast.csv")
-    sweep = pd.read_csv(args.reports / "second_help_contrast_sensitivity.csv")
+    pooled = pd.read_csv(args.reports / "second_help_contrast.csv")
+    kinds = pd.read_csv(args.reports / "help_kinds_summary.csv")
+    near_drives = pd.read_csv(args.reports / "near_committed_drives.csv")
     scenes = json.loads((args.reports / "wind_scenes.json").read_text(encoding="utf-8"))
     pairs = pd.read_csv(args.reports / "near_committed_pairs.csv")
     numbers = headline(table)
@@ -632,7 +665,7 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     figure_1(scenes, pairs, args.out / "wind_figure_1_one_drive.png")
-    figure_2(second, summary, contrasts, sweep, args.out / "wind_figure_2_who_covers.png")
+    figure_2(near_drives, kinds, pooled, args.out / "wind_figure_2_who_covers.png")
     wind_map(table, vectors, field, rates, numbers, args.out / "wind_map_league.png")
     print(f"wrote {args.out / 'wind_figure_1_one_drive.png'}, "
           f"{args.out / 'wind_figure_2_who_covers.png'} and {args.out / 'wind_map_league.png'}")

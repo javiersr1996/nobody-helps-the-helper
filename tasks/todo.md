@@ -461,7 +461,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
 #### Phase D, 7 Dec to 13 Dec: the video
-- [ ] D1 (REWRITTEN 2026-10-30 to the near-committed scope: 151 words by `wc -w`, about 62 s spoken with its numbers; waits for the new drive (item 11a) and then for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
+- [ ] D1 (REWRITTEN 2026-10-30 twice, last to the owner's approved narrative: 139 words by `wc -w`, per scene 13, 17, 9, 22, 50, 28; the drive and figure 2 are done (item 11); waits for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
       the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
@@ -1024,9 +1024,36 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       es de la figura 2, que las promedia todas" (`build_memoria.js` 474); storyboard
       `wind_page.md` 61, 165, 296-310, 352, 712 (old scene 0, pull-up, 252);
       `video_script_wind.md` 19-20 (old scene ids in Pending).
-   b. Figure 2 on committed near help against the near reference ("stays home").
-   c. Page text, README (`check_readme.py`), memoria; the script's numbers then grep in the
-      README. Push after Javier's look.
+   b. DONE 2026-10-30 (local commit, NOT pushed): figure 2 on committed near help against the
+      near reference, same design; data from `help_kinds_summary.csv` and
+      `near_committed_drives.csv` (`second_help_contrast.csv` only for the pooled context line).
+      At 1.5 s: committed -0.66 [-1.14, -0.20] (n 159), reference -0.03 [-0.41, +0.33] (n 199),
+      contrast -0.63 [-1.25, -0.03] (reading ABSENCE; 1.0 s -0.40 [-0.80, -0.01], 2.0 s -0.89
+      [-1.67, -0.13]); nearest to the man left: helper 51 % (reference 70 %), handler's defender
+      31 % (15 %), a third 18 % (15 %). The figure refuses to draw if a contrast CI reaches 0,
+      the reference's excludes 0, or the reading is not ABSENCE. It carries next to the claim:
+      the CI top at 1.5 s is only 0.03 ft from zero, the pooled contrast (-0.16 [-0.65, +0.32])
+      and the long-help count (7 of 618). Dropped as no longer in any near CSV: the median
+      distance to the nearest defender and the threshold sweep. Figure 1's last line fixed.
+   c. DONE 2026-10-30 (local commit, NOT pushed). Page: the measure section reads
+      `help_kinds_summary.csv` (committed in black, reference in grey, contrast, details table),
+      the build refuses on the three guards above (tests spoil each source and fail), the
+      pooled helper's contrast, open share, robustness, pass and closeouts sit in a block
+      "Context: the pooled helper", long help is a stated limit (7 of 618). B5 on the Intel Arc:
+      184/184 (70 s, alone); a copy with the reference's 1.5 s mean changed in the payload fails
+      the injected-number row naming the CSV cell (the check can fail). README rewritten to the
+      scope: 950 words, `check_readme.py` exit 0 (35 passed: 33 bold numbers, words, images),
+      pooled result and long help as qualifier and limit; `SOURCES` rewritten, the test's
+      tamper anchor updated. Also fixed: `wind_page.md` lines 61, 165, 296-310, 352, 712 marked
+      superseded, memoria 9.1 / 9.2 / 14 / 15.1 / 15.2. MEMORIA VERSIONING: the previous row
+      said 1.0, reserved for the final version (E2); it is 0.10 now and this step is 0.11
+      (47 pages, PDF exported with LibreOffice and read back: version row, 9.2 numbers, 8.7 ft,
+      950 words). ruff 0, pytest 346 passed.
+      VIDEO SCRIPT (narrative approved by the owner, same commit): six scenes rewritten, 139
+      words by `wc -w` (per scene 13, 17, 9, 22, 50, 28; limit 160); "one of them heads his way"
+      checked against scene 0 (defender 2 toward the man left +12.0 ft at 1.5 s); the 8.7 ft is
+      the man left's clearance at 1.5 s in `near_committed_drives.csv` (8.72), now one sentence
+      in the README; every spoken number greps in the README. Javier reads it aloud (D1).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

@@ -54,8 +54,9 @@ from wind_scenes import paired_means, place_in
 
 from scbasket.court import FIBA
 from scbasket.frames import N_SIDE
+from scbasket.help_kinds import NEAR_STAY_FT, NEAR_STEP_FT, OUTCOME_FRAMES
 from scbasket.rotation import HEADLINE_HORIZON, NEAREST_WHO, ROTATION_HORIZONS
-from scbasket.wind import MIN_WEIGHT, OPEN_FT, RATE_MIN_WEIGHT
+from scbasket.wind import HELP_FT, MIN_WEIGHT, OPEN_FT, RATE_MIN_WEIGHT
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path(__file__).with_name("wind_template.html")
@@ -82,6 +83,7 @@ SOURCES = {
     "wind_scenes.json": "wind_scenes",
     "near_committed_pairs.csv": "help_kinds",
     "near_committed_drives.csv": "help_kinds",
+    "help_kinds_summary.csv": "help_kinds",
     "second_help_summary.csv": "second_help",
     "second_help_contrast.csv": "second_help",
     "second_help_contrast_sensitivity.csv": "second_help",
@@ -221,6 +223,45 @@ def check_finite(value, where: str = "payload") -> None:
         raise Refused(f"{where} is missing")
 
 
+def near_payload(summary: pd.DataFrame) -> dict:
+    """The headline's rows of `help_kinds_summary.csv`: committed near help, its reference (the
+    nearest stays home), and their contrast, at the three horizons. Refuse unless the sentences
+    the page writes over them are true: every contrast interval below 0, the reference's
+    intervals holding 0, the pre-registered reading ABSENCE."""
+    primary = summary[summary["variant"] == "primary"]
+    cols = ["horizon", "n", "mean", "ci_low", "ci_high", "median", "share_pos",
+            "nearest_helper", "nearest_handler_def", "nearest_third"]
+    rows = []
+    for kind in ("near_committed", "near_committed_ref"):
+        got = primary[(primary["measure"] == "paired_diff") & (primary["kind"] == kind)]
+        for row in records(got[cols]):
+            frames = round(row["horizon"] * 25)
+            rows.append({"kind": kind, "frames": frames, **row})
+    contrast = primary[(primary["measure"] == "contrast") & (primary["kind"] == "near_committed")]
+    out = [{"frames": round(r["horizon"] * 25), **r}
+           for r in records(contrast[["horizon", "n", "n_ref", "mean", "ci_low", "ci_high"]])]
+    if sorted(r["frames"] for r in out) != sorted(ROTATION_HORIZONS):
+        raise Refused(f"help_kinds_summary.csv contrast horizons {[r['horizon'] for r in out]}")
+    for r in out:
+        if not r["ci_high"] < 0:
+            raise Refused(f"near-committed contrast at {r['horizon']} s is ({r['ci_low']:+.2f} to "
+                          f"{r['ci_high']:+.2f}): 'every interval is below 0' would be false")
+    for r in rows:
+        if r["kind"] == "near_committed_ref" and not r["ci_low"] <= 0 <= r["ci_high"]:
+            raise Refused(f"the reference at {r['horizon']} s excludes 0: 'sits on the placebo' "
+                          "would be false")
+    reading = contrast[contrast["horizon"] == 1.52]["reading"].tolist()
+    if reading != ["ABSENCE"]:
+        raise Refused(f"the pre-registered reading at 1.5 s is {reading}, not ['ABSENCE']")
+    count = summary[summary["measure"] == "count"]
+    counts = {}
+    for name, kind, variant in (("resolved", "drives", "resolved"), ("long", "flag", "long")):
+        got = count[(count["kind"] == kind) & (count["variant"] == variant)]
+        counts[name] = int(one(got, f"help_kinds_summary.csv count {kind} {variant}")["n"])
+    return {"rows": rows, "contrast": out, "reading": reading[0], "counts": counts,
+            "step_ft": NEAR_STEP_FT, "stay_ft": NEAR_STAY_FT, "outcome_s": OUTCOME_FRAMES / 25}
+
+
 def payload(reports: Path) -> dict:
     """Everything the page shows, gathered from the reports and the frozen constants."""
     for name in SOURCES:
@@ -229,6 +270,7 @@ def payload(reports: Path) -> dict:
     scenes = json.loads((reports / "wind_scenes.json").read_text(encoding="utf-8"))
     pairs = read(reports, "near_committed_pairs.csv")
     drives = read(reports, "near_committed_drives.csv")
+    near_all = read(reports, "help_kinds_summary.csv")
     summary = read(reports, "second_help_summary.csv")
     contrast = read(reports, "second_help_contrast.csv")
     sweep = read(reports, "second_help_contrast_sensitivity.csv")
@@ -252,6 +294,7 @@ def payload(reports: Path) -> dict:
                           "would be false")
     if sorted(contrast["horizon"]) != sorted(ROTATION_HORIZONS):
         raise Refused(f"second_help_contrast.csv horizons {sorted(contrast['horizon'])}")
+    near = near_payload(near_all)
     contain = (sweep["contrast_ci_low"] <= 0) & (sweep["contrast_ci_high"] >= 0)
     below = sweep[sweep["contrast_ci_high"] < 0]
 
@@ -283,11 +326,13 @@ def payload(reports: Path) -> dict:
         "record": [{"sha": sha, "subject": subject} for sha, subject in freeze_commits()[:1]],
         "court": {"geometry": asdict(FIBA)},
         "open_ft": OPEN_FT,
+        "pooled_help_ft": HELP_FT,
         "strip": {"means": [float(v) for v in means.to_numpy()]},
         "drives": records(drives[drives["drive_id"].isin(
             [s["drive_id"] for s in scenes["scenes"]])][
             ["drive_id", f"nearest_who_{HEADLINE_HORIZON}", f"nearest_dist_{HEADLINE_HORIZON}",
              f"left_clear_{HEADLINE_HORIZON}"]]),
+        "near": near,
         "summary": records(summary),
         "contrast": records(contrast),
         "sweep": {"n": len(sweep), "contain": int(contain.sum()),

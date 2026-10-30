@@ -15,56 +15,50 @@ back to his man; nobody covers the man he leaves. Long help by the last defender
 shares); it is in git history.
 
 **Pending before D2 (the picture, not the words):**
-- None of the page's four drives is a committed near help (checked 2026-10-30 against
-  `reports/help_kinds.csv`): the hook, scene 0 (`drive-114243-1-1`), has a helper of class
-  `other` and its nearest defender stunts; scene 3 (`drive-114099-1-7`) is a nearest helper
-  who recovers. Scenes 1, 2, 3 and the plan view need a drive picked by the same rule among the
-  159 committed near helps, which changes the page and figure 1.
-- Figure 2 shows the pooled helper's numbers, not these.
-- The README still carries the pooled numbers; its rewrite must carry every number below, or
-  the check against it fails.
+- Done 2026-10-30: the page's four drives were re-picked among the 159 committed near helps
+  (scene 0 is `drive-114243-1-4`) and figure 1 redrawn; figure 2 now shows committed near help
+  against the near reference; the README carries every number below.
+- Scene 3 needs a mark on the man left at t_h: the page's highlight if it has one, else a ring
+  added by D2.
+- Scene 2 needs `clockOf(s).centre` (the centre of the slow-down around the helper's move) read
+  from the page.
 
 ---
 
-**[0:00-0:08] Scene 1, the hook: one drive in 3D.** On screen: the page in `broadcast`, the rule's
-drive (a committed near help, see Pending), `wind.view("broadcast")`, then
-`wind.seek(hookTime(k / 25))` for t = 0 to 1.52, the slow-motion run; no numbers, no caption
-text on the slide.
+**[0:00-0:06] Scene 1, the rule.** On screen: the page in `broadcast`, scene 0 at t = 0
+(`wind.view("broadcast")`, `wind.seek(0)`), held: the drive about to start.
 
-> Ten basketball games, tracked. One drive. Watch the defender nearest the ball step toward the
-> driver, and the man he leaves.
+> Coaches teach one rule on defence: when a teammate helps, help the helper.
 
-**[0:08-0:20] Scene 2, the near help that stays.** On screen: the freeze at t = 1.52
-(`wind.seek(1.52)`, broadcast), held, then the opening of the rise, `wind.flight(p)` for
-p = 0 to 0.4. Still no numbers drawn.
+**[0:06-0:15] Scene 2, the help.** On screen: `wind.seek(hookTime(k / 25))`, the slow-motion run
+from t = 0 to the help step t_h (the centre of the page's slow-down around the helper's move,
+`clockOf(s).centre`).
 
-> He moves at least two feet toward the driver within a second and, two seconds in, is not back
-> with his man: 159 of 618 drives.
+> One drive, tracked. The defender nearest the ball steps in to stop it, and leaves his man.
 
-**[0:20-0:27] Scene 3, the camera rises to the measure.** On screen: `wind.flight(p)` for
-p = 0.4 to 1, landing in `plan` (`wind.flight(1)`, the measure shown at once): the top-down
-view, hoop at the bottom, ten trails, the three bars. Then cut to figure 1 whole.
+**[0:15-0:21] Scene 3, the cliffhanger.** On screen: frozen at t_h, the man left marked (the
+page's own highlight if it has one, else a ring added by D2), one second of silence after the
+line.
 
-> From above: how far does each of the other three defenders move toward the man he leaves?
+> Three teammates are left. Does anyone cover his man?
 
-**[0:27-0:35] Scene 4, the measure against the placebo.** On screen: figure 1 stays, the bars
-and the placebo side visible; or the page in `plan` at t = 1.52.
+**[0:21-0:31] Scene 4, one drive's answer.** On screen: play on from t_h to 1.52, then
+`wind.flight(p)` for p = 0 to 1, landing in `plan` with the bars.
 
-> Against a placebo: the same movement toward the other attackers who are not his own man.
-> The measure is the difference.
+> One of them heads his way. A second and a half later, his man is still 8.7 feet from the
+> nearest defender.
 
-**[0:35-0:51] Scene 5, the result: a measured absence.** On screen: figure 2 whole (see
-Pending), held to the end of the line.
+**[0:31-0:52] Scene 5, the result.** On screen: figure 2 whole, held to the end of the line.
 
-> Against drives where the nearest defender stays home, that difference falls by 0.63 feet, and
-> its whole interval sits below zero. One of the three ends up nearest the man left in 18
-> percent of drives, against 15.
+> Is that the rule? In ten games, 159 drives out of 618 look like this. We measure each move
+> toward the man left against moves toward the other attackers, a placebo. Compared with drives
+> where the nearest defender stays home, that falls by 0.63 feet, the whole interval below zero.
 
-**[0:51-1:01] Scene 6, the limit, close.** On screen: the page in `plan` at the freeze
-(`wind.view("plan")`, `wind.seek(1.52)`), or the title slide again.
+**[0:52-1:01] Scene 6, the limit, close.** On screen: the page in `plan` at 1.52
+(`wind.view("plan")`, `wind.seek(1.52)`), or the title slide.
 
-> Long help, by the defender farthest from the ball, is taught with a rotation; ten games hold
-> seven of them, too few to test. Nobody helps the helper.
+> Long help, by the defender farthest from the ball, is taught with a rotation; we found seven,
+> too few to test. On near help, nobody helps the helper.
 
 ---
 
@@ -76,18 +70,20 @@ Spoken word count, computed from the quoted lines (lines starting with `>`):
 grep '^>' tasks/video_script_wind.md | sed 's/^> *//' | wc -w
 ```
 
-Output: see the record in `tasks/todo.md` (D1). Numbers count as one word there but take three
+Output 2026-10-30 (narrative of the owner's approval): **139** words; per scene 13, 17, 9, 22, 50, 28
+(limit 160). Record in `tasks/todo.md` (item 11, D1). Numbers count as one word there but take three
 to five spoken (159, 618, 0.63), so the spoken length is read off Javier's pass, not the count.
 
-Numbers spoken, with their source (all at the 1.5 s headline, horizon 1.52 s = 38 frames):
+Numbers spoken, with their source (all at the 1.5 s headline, horizon 1.52 s = 38 frames; the
+README line is the one `grep -n` finds, checked by `scripts/check_readme.py`):
 
 | Spoken | Source |
 |---|---|
 | ten games | `README.md` line 3 ("Ten SkillCorner basketball games") |
-| two feet, within a second | `src/scbasket/help_kinds.py`: `NEAR_STEP_FT = 2.0` over `MOVE_FRAMES = 25` |
-| two seconds in, not back with his man | `OUTCOME_FRAMES = 50`; committed if his distance to his man then exceeds the start's by more than `RECOVER_FT = 1.0` |
-| 159 of 618 | `reports/help_kinds_summary.csv`: `count,flag,near_committed` 159; `count,drives,resolved` 618 |
-| stays home | near reference: the nearest moves less than `NEAR_STAY_FT = 1.0` toward the handler (n = 199) |
-| 0.63 feet, whole interval below zero | `contrast,near_committed,primary,1.52`: -0.6345 [-1.2476, -0.0346] |
-| 18 percent, against 15 | `nearest_third` of `paired_diff,near_committed,primary,1.52` 0.1824 and of `near_committed_ref` 0.1508 |
-| seven | `count,flag,long` 7 |
+| three teammates | the three other defenders (`README.md` "the other three defenders") |
+| 8.7 feet | `README.md` line 13 ("**8.7 ft**"), `near_committed_drives.csv`: `left_clear_38` of `drive-114243-1-4` (scene 0) |
+| a second and a half | the headline horizon, 1.52 s (`README.md` "At 1.5 s") |
+| 159 out of 618 | `README.md` line 11 ("**159 of 618**"), `help_kinds_summary.csv`: `count,flag,near_committed` 159; `count,drives,resolved` 618 |
+| stays home | `README.md` line 13: the nearest moves less than 1 ft toward the handler (n = 199) |
+| 0.63 feet, whole interval below zero | `README.md` line 21 ("**-0.63 ft** (CI **-1.25 to -0.03**)"), `contrast,near_committed,primary,1.52` |
+| seven | `README.md` line 35 ("**7**"), `count,flag,long` 7 |

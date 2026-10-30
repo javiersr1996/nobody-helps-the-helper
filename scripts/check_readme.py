@@ -18,6 +18,7 @@ Three checks, one line each, exit 0 if all pass and 1 otherwise:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from collections.abc import Callable
@@ -121,14 +122,82 @@ def _s2_contrast(df: pd.DataFrame) -> pd.Series:
     return rows.iloc[0]
 
 
+def near(df: pd.DataFrame, measure: str, kind: str, horizon: float) -> pd.Series:
+    """One row of help_kinds_summary.csv: the primary variant at a horizon in seconds."""
+    rows = df[(df["measure"] == measure) & (df["kind"] == kind) & (df["variant"] == "primary")
+              & ((df["horizon"] - horizon).abs() < 1e-9)]
+    assert len(rows) == 1, (measure, kind, horizon)
+    return rows.iloc[0]
+
+
+def count(df: pd.DataFrame, kind: str, variant: str) -> int:
+    rows = df[(df["measure"] == "count") & (df["kind"] == kind) & (df["variant"] == variant)]
+    assert len(rows) == 1, (kind, variant)
+    return int(rows["n"].iloc[0])
+
+
+def ci_of(row: pd.Series) -> tuple[float, float]:
+    return row["ci_low"], row["ci_high"]
+
+
+def _scene0_clearance(df: pd.DataFrame) -> float:
+    """The headline clearance of the drive figure 1 draws (the first scene of the JSON)."""
+    first = json.loads((REPORTS / "wind_scenes.json").read_text(encoding="utf-8"))
+    return one(df, drive_id=first["scenes"][0]["drive_id"])[f"left_clear_{HEADLINE}"]
+
+
+def _nearest(who: str, kind: str) -> Callable[[pd.DataFrame], float]:
+    return lambda d: near(d, "paired_diff", kind, 1.52)[who]
+
+
+KINDS = "help_kinds_summary.csv"
+COMMIT, REF = "near_committed", "near_committed_ref"
+
 SOURCES: tuple[Source, ...] = (
-    # How often there is a helper (help_table.csv: resolved drives, has_helper).
-    Source("A helper appears in ", "help_table.csv",
+    # The scope: committed near help and its reference (help_kinds_summary.csv).
+    Source("There are ", KINDS,
+           lambda d: (count(d, "flag", "near_committed"), count(d, "drives", "resolved")),
+           lambda v: f"{v[0]} of {v[1]}"),
+    Source("toward the handler (", KINDS, lambda d: count(d, "flag", "near_ref"), plain),
+    Source("the man left is ", "near_committed_drives.csv", _scene0_clearance,
+           lambda v: f"{v:.1f} ft"),
+    Source("defenders is ", KINDS, lambda d: near(d, "paired_diff", COMMIT, 1.52)["mean"], ft),
+    Source("defenders is **-0.66 ft** (CI ", KINDS,
+           lambda d: ci_of(near(d, "paired_diff", COMMIT, 1.52)), span),
+    Source("stays home it reads ", KINDS, lambda d: near(d, "paired_diff", REF, 1.52)["mean"], ft),
+    Source("stays home it reads **-0.03 ft** (CI ", KINDS,
+           lambda d: ci_of(near(d, "paired_diff", REF, 1.52)), span),
+    Source("Committed minus reference is ", KINDS,
+           lambda d: near(d, "contrast", COMMIT, 1.52)["mean"], ft),
+    Source("Committed minus reference is **-0.63 ft** (CI ", KINDS,
+           lambda d: ci_of(near(d, "contrast", COMMIT, 1.52)), span),
+    Source("At 1.0 s the contrast is ", KINDS,
+           lambda d: near(d, "contrast", COMMIT, 1.0)["mean"], ft),
+    Source("At 1.0 s the contrast is **-0.40 ft** (CI ", KINDS,
+           lambda d: ci_of(near(d, "contrast", COMMIT, 1.0)), span),
+    Source("and at 2.0 s ", KINDS, lambda d: near(d, "contrast", COMMIT, 2.0)["mean"], ft),
+    Source("and at 2.0 s **-0.89 ft** (CI ", KINDS,
+           lambda d: ci_of(near(d, "contrast", COMMIT, 2.0)), span),
+    # Who is nearest to the man left at 1.5 s (committed, then the reference).
+    Source("the helper in ", KINDS, _nearest("nearest_helper", COMMIT), pct0),
+    Source("of these drives (", KINDS, _nearest("nearest_helper", REF), pct0),
+    Source("the ball handler's defender in ", KINDS, _nearest("nearest_handler_def", COMMIT), pct0),
+    Source("one of the other three in ", KINDS, _nearest("nearest_third", COMMIT), pct0),
+    Source("one of the other three in **18 %** (", KINDS, _nearest("nearest_third", REF), pct0),
+    # Long help, the stated limit.
+    Source("resolved drives, ", KINDS, lambda d: count(d, "flag", "long"), plain),
+    # The pooled helper (help_table.csv, second_help_contrast.csv, help_base_rate.csv).
+    Source("appears in ", "help_table.csv",
            lambda d: is_true(resolved(d)["has_helper"]).mean(), pct1),
     Source("resolved drives (", "help_table.csv",
            lambda d: (int(is_true(resolved(d)["has_helper"]).sum()), len(resolved(d))),
            lambda v: f"{v[0]} of {v[1]}"),
-    # The corner as occupancy (help_base_rate.csv, y_band 18-inf, no standardisation).
+    Source("with no such helper, the same contrast at 1.5 s is ", "second_help_contrast.csv",
+           lambda d: one(d, horizon=HEADLINE)["contrast_mean"], ft),
+    Source("with no such helper, the same contrast at 1.5 s is **-0.16 ft** (CI ",
+           "second_help_contrast.csv",
+           lambda d: (one(d, horizon=HEADLINE)["contrast_ci_low"],
+                      one(d, horizon=HEADLINE)["contrast_ci_high"]), span),
     Source("only ", "help_base_rate.csv", lambda d: _y_band(d, "defender_share"), pct1),
     Source("off-ball defenders (", "help_base_rate.csv",
            lambda d: (
@@ -137,55 +206,9 @@ SOURCES: tuple[Source, ...] = (
                    ["n_defenders"].sum()),
            ),
            lambda v: f"{v[0]} of {v[1]:,}"),
-    # Above the ball (help_sensitivity.csv, the 4 ft, 1.0 s cell).
     Source("where it goes: ", "help_sensitivity.csv",
            lambda d: one(d, horizon_s=1.0, help_ft=4.0)["helper_above_ball"], pct0),
-    # The man left, open, at 1.5 s (second_help_summary.csv).
-    Source("within 6 ft) in ", "second_help_summary.csv",
-           lambda d: summary(d, True)["left_open_share"], pct1),
-    Source("helped drives, against ", "second_help_summary.csv",
-           lambda d: summary(d, False)["left_open_share"], pct1),
-    Source("with no helper (", "second_help_summary.csv",
-           lambda d: (int(summary(d, True)["n_clear"]), int(summary(d, False)["n_clear"])),
-           lambda v: f"{v[0]} and {v[1]}"),
-    Source("closely guarded: ", "second_help_summary.csv",
-           lambda d: summary(d, True)["left_open0_share"], pct1),
-    Source("open at the start, against ", "second_help_summary.csv",
-           lambda d: summary(d, False)["left_open0_share"], pct1),
-    # The paired difference, helped and not (second_help_summary.csv).
-    Source("paired difference of the other three defenders is ", "second_help_summary.csv",
-           lambda d: summary(d, True)["mean_diff"], ft),
-    Source("bootstrap CI ", "second_help_summary.csv",
-           lambda d: (summary(d, True)["ci_low"], summary(d, True)["ci_high"]), span),
-    Source("Without a helper it reads ", "second_help_summary.csv",
-           lambda d: summary(d, False)["mean_diff"], ft),
-    Source("Without a helper it reads **-0.52 ft** (CI ", "second_help_summary.csv",
-           lambda d: (summary(d, False)["ci_low"], summary(d, False)["ci_high"]), span),
-    Source("(median ", "second_help_summary.csv", lambda d: summary(d, True)["median_diff"], ft),
-    # Helped minus unhelped (second_help_contrast.csv).
-    Source("Helped minus unhelped is ", "second_help_contrast.csv",
-           lambda d: one(d, horizon=HEADLINE)["contrast_mean"], ft),
-    Source("Helped minus unhelped is **-0.16 ft** (CI ", "second_help_contrast.csv",
-           lambda d: (one(d, horizon=HEADLINE)["contrast_ci_low"],
-                      one(d, horizon=HEADLINE)["contrast_ci_high"]), span),
-    # Per-game signs (second_help_by_game.csv, helped, 1.5 s).
-    Source("The median is negative in ", "second_help_by_game.csv",
-           lambda d: _helped_games(d, "median_diff"), plain),
-    Source("by drive and ", "second_help_by_game.csv",
-           lambda d: _helped_games(d, "median_diff_pairs"), plain),
-    # Sensitivity grid (second_help_sensitivity.csv).
-    Source("the CI excludes zero in ", "second_help_sensitivity.csv", _excludes_zero, plain),
-    Source("5 ft and 2.0 s (CI ", "second_help_sensitivity.csv",
-           lambda d: (
-               one(d, horizon_s=2.0, help_ft=5.0, helped=True)["ci_low"],
-               one(d, horizon_s=2.0, help_ft=5.0, helped=True)["ci_high"],
-           ), span),
-    # Who is nearest to the man left (second_help_summary.csv).
-    Source("is the helper himself in ", "second_help_summary.csv",
-           lambda d: summary(d, True)["nearest_helper"], pct1),
-    Source("is nearest in ", "second_help_summary.csv",
-           lambda d: summary(d, False)["nearest_helper"], pct1),
-    # The pass (second_help_pass.csv, helped).
+    # The pass and the X-out of the pooled helper (second_help_pass.csv, _closeouts.csv).
     Source("follows in ", "second_help_pass.csv",
            lambda d: (int(one(d, helped=True)["n_first_pass"]),
                       int(one(d, helped=True)["n_drives"])),
@@ -194,19 +217,12 @@ SOURCES: tuple[Source, ...] = (
            lambda d: int(one(d, helped=True)["n_to_left"]), plain),
     Source("of them (", "second_help_pass.csv",
            lambda d: one(d, helped=True)["share_to_left"], pct1),
-    # The X-out (second_help_closeouts.csv, helped, receiver is the man left).
     Source("n = ", "second_help_closeouts.csv",
            lambda d: int(one(d, helped=True, receiver_is_left=True)["n"]), plain),
-    # The provider's matchups (matchup_coherence.csv, second_help_matchup_check.csv: S2, 1.5 s).
+    # The provider's matchups (matchup_coherence.csv).
     Source("is the nearest defender in ", "matchup_coherence.csv",
            lambda d: one(d, metric="assigned defender is the nearest"),
            lambda r: f"{r['n']} of {r['of']}"),
-    Source("man he leaves (", "second_help_matchup_check.csv",
-           lambda d: _s2_contrast(d)["n_drives"], lambda v: str(v).replace("/", " and ")),
-    Source("the contrast at 1.5 s is ", "second_help_matchup_check.csv",
-           lambda d: _s2_contrast(d)["mean"], ft),
-    Source("the contrast at 1.5 s is **-0.40 ft** (CI ", "second_help_matchup_check.csv",
-           lambda d: (_s2_contrast(d)["ci_low"], _s2_contrast(d)["ci_high"]), span),
     # The mirror (help_table.csv: provider_direction against the un-mirrored lateral sign).
     Source("agrees with it on ", "help_table.csv",
            lambda d: direction_agreement(d, "left"), pct0),
