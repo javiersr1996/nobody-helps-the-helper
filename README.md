@@ -48,17 +48,25 @@ The defender nearest to the man left is the helper himself in **59.9 %** of help
 
 ## Run it
 
+### From the committed CSVs (no dataset needed)
+
 ```bash
 uv sync --extra dev
+uv run pytest -q
+uv run --extra figures python scripts/help_figures.py
+uv run python scripts/wind_html.py
+NODE_PATH="$(npm root -g)" node docs/memoria/build_memoria.js
+uv run python scripts/check_readme.py
+```
+
+### Full pipeline (needs the dataset)
+
+```bash
 uv run python scripts/fetch_data.py          # ~730 MB, needs git-lfs
 uv run python scripts/build_frame_cache.py
 uv run python scripts/help_wind.py
 uv run python scripts/second_help.py
 uv run python scripts/wind_scenes.py
-uv run --extra figures python scripts/help_figures.py
-uv run python scripts/wind_html.py
-uv run pytest -q
-uv run python scripts/check_readme.py
 ```
 
 ## Licence

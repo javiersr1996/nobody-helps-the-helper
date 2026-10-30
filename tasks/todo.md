@@ -379,7 +379,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       defender chose. Accept: `scripts/check_readme.py` counts <= 1000 words and exactly two
       images, and maps every bold number to the CSV column it comes from, failing on a number
       it cannot find (tried once with a typed number).
-- [ ] C3 Clean clone [haiku]: `git clone` into the scratchpad, `uv sync --extra dev`,
+- [x] C3 (DONE 2026-10-30: clone at a35e489 in scratchpad; exit codes uv sync 0, pytest 0 with "288 passed, 21 skipped", help_figures 0, wind_html 0, build_memoria 0; git status: reports/nobody_helps_the_helper.html changed only in the record sha/subject (now a35e489), docs/memoria docx rebuilt with the commit-log table shifted one row and new timestamps; check_readme 0 failed, 890 words) Clean clone [haiku]: `git clone` into the scratchpad, `uv sync --extra dev`,
       `uv run pytest` (data tests skipped), `uv run --extra figures python
       scripts/help_figures.py`, the page build, the memoria build, all from the committed CSVs
       and no dataset. Accept: the five commands exit 0 in the clone and the README's "Run it"
