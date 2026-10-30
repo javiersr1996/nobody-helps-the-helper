@@ -59,3 +59,6 @@ fichas deben ser jugadores de baloncesto". Honest and unwatchable is still a fai
 is drawn. Keep the limit where it bites: no measure taken from what is drawn. Now standing in
 the page (its tracked/drawn note) and in the project memory, so it left the live file to make
 room under the 30-line cap for the A/B timing lesson.
+
+## Merged into "The deliverable follows the claim" (2026-10-30), its last heuristic kept here
+"What happened to X?" means X is missing from the deliverable, not that X needs explaining.

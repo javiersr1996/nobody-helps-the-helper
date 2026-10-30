@@ -1097,6 +1097,10 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    Captures, before/after sheets and the phone MP4 (8.000 s by ffprobe) in the session
    scratchpad `design_audit/after/`. Memoria v0.12 (14.3 counts, new 14.5; 49 pages, PDF read
    back). ruff 0, pytest 346 passed. NEXT: Javier looks at the sheets and the MP4; then push.
+   Sent to him 2026-10-30 with the recommendation to publish (the first impression outweighs
+   +140 ms on desktop; the 1.0 s row keeps failing when it fails, as a known limit). Open after
+   it: the helper tag's contrast to >= 4.5; the two taste items; the unexplained slow cold
+   loads; D1 (Javier reads the script aloud) and C5 (he reads the published README).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

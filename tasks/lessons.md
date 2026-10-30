@@ -6,10 +6,10 @@ reversed and its replacement was refuted, and 4 answered a question Goldsberry n
 **How to apply:** name the script that prints it, RUN it, read the value back off the BUILT
 artefact (video said 60 s, file 68); counts too ("8 of 10" was 7). Assert and re-read.
 
-## A null that lives only in the record is an overclaim in the deliverable
-**Why:** F6's missing cost side lived in `todo.md` and a CSV, not the README or the page.
-**How to apply:** ship the negative that qualifies a claim NEXT TO it, not in the record.
-"What happened to X?" means X is missing from the deliverable, not that X needs explaining.
+## The deliverable follows the claim: its nulls and its examples
+**Why:** F6's cost side lived only in `todo.md`; narrowed to near help, no page drive was one.
+**How to apply:** ship the qualifying negative NEXT TO the claim; when a claim narrows, re-run the
+rule behind every example (hook, figures, video) inside the new class before touching any text.
 
 ## Verify what moves by driving it, not by looking at it
 **Why:** clips checked with screenshots shipped nine defects, all in transitions a still cannot
