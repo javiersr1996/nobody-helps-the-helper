@@ -932,6 +932,12 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    LONG INCONCLUSIVE (7 drives; the thesis is neither extended to long help nor narrowed),
    NEAR-COMMITTED ABSENCE holds, published committed helpers ABSENCE. README is deliberately
    NOT updated yet: the author will rewrite it at the end.
+10. THESIS SCOPE (Javier, 2026-10-30, on A8's results: "las ayudas largas implican rotación,
+   eso es"). Long help implies rotation, as coaches teach; A8's 7 long-help drives point that
+   way but are not a measure. The entry's claim is now the near help that commits (n = 159,
+   contrast vs reference -0.63 ft, CI below zero): nobody covers the man it leaves, unlike
+   what is expected behind long help. README, title, page and video script still say the
+   pooled helper; rewrite them at the end with this scope (memoria 13 already says it).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

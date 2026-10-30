@@ -743,6 +743,7 @@ const sKinds = [
   bullet("La referencia no está en cero y depende de cómo se define quedarse en casa; la lectura es contra ella. La parte de finta y comprometida usa una sola regla de recuperación (1 pie a los 2,0 s), sin sensibilidad."),
   bullet("Superado es geométrico y empieza en el fotograma de arranque; una penetración que arranca con el jugador con balón ya por delante de su defensor cuenta como superada."),
   bullet("No se compara el desenlace (puntos, tiros libres): con diez partidos no tiene potencia (sección 10.2)."),
+  p("Lectura de Javier como entrenador, el 30 de octubre, al ver estos resultados: las ayudas largas implican rotación, así se enseña. Los 7 casos de ayuda larga apuntan en esa dirección (los otros defensores se mueven hacia el hombre del último, y el último deja de ser el más cercano a su propio hombre), pero con 7 casos no es una medida, es coherencia con la doctrina. La tesis queda acotada a lo que sí se mide: detrás de la ayuda cercana que se compromete nadie acude al hombre que deja, al contrario de lo que se espera detrás de la ayuda larga."),
 ];
 
 
