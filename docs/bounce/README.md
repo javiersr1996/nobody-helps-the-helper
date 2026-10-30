@@ -22,13 +22,13 @@ never touched.
 
 ## The two figures
 
-![Lift of a rimward heading by distance to the rim](reports/figures/figure_1_lift_by_distance.png)
+![Lift of a rimward heading by distance to the rim](../../reports/figures/figure_1_lift_by_distance.png)
 
 Both halves on the same axes: the replication is the argument. Intervals are a cluster bootstrap
 over the five games of each half, not over rebounds, which are not independent inside a game. Five
 clusters is few, so the bands are crude.
 
-![P(win) by approach angle inside a fixed 0-8 ft band](reports/figures/figure_2_pwin_by_angle.png)
+![P(win) by approach angle inside a fixed 0-8 ft band](../../reports/figures/figure_2_pwin_by_angle.png)
 
 The control. Players arriving rimward are also nearer, so figure 1 alone cannot separate heading
 from proximity. At a fixed distance, varying only the angle, P(win) falls 4.5x, 0.251 to 0.056

@@ -1,8 +1,8 @@
 [project]
 name = "scbasket"
 version = "0.1.0"
-description = "Rebound approach kinematics from SkillCorner's open basketball tracking: heading, speed and the shot-scaled zone"
-readme = "README.md"
+description = "Nobody helps the helper: who covers the man the helper leaves, measured against a placebo, from SkillCorner basketball tracking."
+readme = "docs/bounce/README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
