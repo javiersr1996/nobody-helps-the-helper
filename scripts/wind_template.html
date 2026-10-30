@@ -312,10 +312,15 @@ const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
    slide sideways by up to SHIFT of the canvas's half-width, a lens shift: the camera stays on the
    axis and never turns, and the rise takes the shift back to zero. Over the clip the fit only
    ever closes in, smoothed over PUSH_SMOOTH frames, and the camera starts PUSH further back than
-   the fit and closes to it by the end: the push-in. FOV_PLAN: the narrowest field of view the
-   rise reaches before the swap to the orthographic camera. Degrees and feet. */
+   the fit and closes to it by the end: the push-in. B4b-3: the frame also slides up or down, by
+   up to SHIFT_V of the canvas's half-height, so that the lowest of the story players' feet, the
+   hoop's base and the ball sits at BOTTOM below the centre (normalised device height) and the
+   spare height goes to the top; choosing where to look along the axis, each unit of that shift
+   costs SHIFT_COST of the camera's distance. FOV_PLAN: the narrowest field of view the rise
+   reaches before the swap to the orthographic camera. Degrees and feet. */
 const CAMERA = {wide: {pitch: 32, fov: 22}, square: {pitch: 28, fov: 22}};
 const FRAME_MARGIN = 0.03, HOOP_LOW = -0.3, SHIFT = 0.25, BODY_HALF = 1, PUSH_SMOOTH = 6, PUSH = 0.1;
+const SHIFT_V = 1.6, BOTTOM = 0.88, SHIFT_COST = 0.1;
 const LOOK_Z = 3, FOV_PLAN = 1;
 const DEG = Math.PI / 180;
 /* Slow motion around the help step, on the wall clock only (seek(t) never sees it): playback
@@ -354,15 +359,18 @@ const HAIRS = ["#15100d", "#241812", "#3a2719", "#5a3b24", "#86653f", "#b09062"]
 const HAIRLINES = [[1.745, 1.63], [1.77, 1.71], [1.735, 1.6]];
 const SOCK = "#f2efe8", SOLE = "#2a2a2a";
 /* The arena, drawn: the dark beyond the court, the hardwood, the painted key, the apron past
-   the lines, the lines, the stands and their seats, the light the crowd is seen in, the rim and
-   the net; the apron of wood past the lines (feet), the stands' rise and run. The crowd (B4b-2):
-   rows and seats per texture, the feet of stand one texture spans, the share of empty seats, the
-   shirts (no team's). */
+   the lines, the lines, the stands and their seats, the light the stands are seen in, the rim
+   and the net; the apron of wood past the lines, where the stands' first row starts past the
+   sidelines and past the apron at the ends (B4b-3: courtside, so the frame's upper corners show
+   people), the stands' rise and run (feet). The crowd (B4b-3): its rows, a seat's width, the
+   feet of stand one seats texture spans, the share of empty seats, how much higher or lower a
+   figure sits, a figure's body (width, height, the height of its centre over the slope) and head
+   (radius, height of its centre) in feet, the shirts (no team's). */
 const ARENA = {dark: "#15110e", wood: "#c4874f", paint: "#6e2330", apron: "#3a171c", line: "#f4ecdc",
                rim: "#e0622a", net: "#f2efe8", stands: "#1d1714", seat: "#2c2522", crowdLight: "#c8beb4",
                pad: "#1d2f5e", steel: "#3b2f29"};
-const APRON = 7, STANDS_H = 30, STANDS_RUN = 40;
-const CROWD = {rows: 16, seats: 28, span: 48, empty: 0.1,
+const APRON = 7, STANDS_SIDE = 3.5, STANDS_END = APRON + 2, STANDS_H = 30, STANDS_RUN = 40;
+const CROWD = {rows: 16, seat: 2, span: 48, empty: 0.1, sit: 0.3, body: [1.3, 1.7, 1.1], head: [0.38, 2.3],
                shirts: ["#d8d2c6", "#3b4a63", "#7a2f2f", "#2f5a46", "#b08c3c", "#5a4a6e", "#1f2226",
                         "#8c5a3a", "#456b8a", "#c46a3a", "#e8e4dc", "#4a4f57"]};
 /* Its light: a fill everywhere, a spot this high and this far up-court of the hoop with this
@@ -1067,45 +1075,62 @@ function woodTexture() {
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
-/** A crowd for the stands (B4b-2): CROWD.rows rows of seats a texture tall, CROWD.seats a texture
-    wide (one texture spans CROWD.span feet of stand), most seats taken; each spectator a shirt
-    from CROWD.shirts, a face and hair from the players' palettes, sitting a little higher or
-    lower (canvas, seeded: the same crowd on every load, and it never moves). */
-function crowdTexture() {
+/** The stands' surface (B4b-3): CROWD.rows rows of seat backs a texture tall, a seat every
+    CROWD.seat feet along a texture that spans CROWD.span feet (canvas). The people sit on it as
+    figures, crowdFigures. */
+function seatsTexture() {
   const c = document.createElement("canvas");
   c.width = 1024;
   c.height = 512;
-  const x = c.getContext("2d", SOFT), rnd = seeded(11), rowH = c.height / CROWD.rows, w = c.width / CROWD.seats;
+  const x = c.getContext("2d", SOFT), rowH = c.height / CROWD.rows, w = c.width * CROWD.seat / CROWD.span;
   x.fillStyle = ARENA.stands;
   x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = ARENA.seat;
   for (let row = 0; row < CROWD.rows; row++) {
-    const y0 = row * rowH;
-    x.fillStyle = ARENA.seat;                                 // the row of seat backs
-    x.fillRect(0, y0 + rowH * 0.74, c.width, rowH * 0.18);
-    for (let i = 0; i < CROWD.seats; i++) {
-      const cx = (i + 0.5 + (rnd() - 0.5) * 0.2) * w;
-      if (rnd() < CROWD.empty) continue;
-      const up = rowH * (rnd() - 0.5) * 0.12, shirt = CROWD.shirts[Math.floor(rnd() * CROWD.shirts.length)];
-      const skin = SKINS[Math.floor(rnd() * SKINS.length)], hair = HAIRS[Math.floor(rnd() * HAIRS.length)];
-      x.fillStyle = shirt;
-      x.beginPath();
-      x.roundRect(cx - w * 0.34, y0 + rowH * 0.46 + up, w * 0.68, rowH * 0.5, w * 0.16);
-      x.fill();
-      x.fillStyle = skin;
-      x.beginPath();
-      x.ellipse(cx, y0 + rowH * 0.3 + up, w * 0.16, rowH * 0.17, 0, 0, 2 * Math.PI);
-      x.fill();
-      x.fillStyle = hair;
-      x.beginPath();
-      x.ellipse(cx, y0 + rowH * 0.25 + up, w * 0.17, rowH * 0.13, 0, Math.PI, 2 * Math.PI);
-      x.fill();
-    }
+    for (let i = 0; i * w < c.width; i++) x.fillRect(i * w + w * 0.1, row * rowH + rowH * 0.5, w * 0.8, rowH * 0.4);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
+}
+/** The crowd (B4b-3): on the slopes of the two side stands and the far one, a seated figure (a
+    body and a head) on every seat of every row but the empty ones, its shirt and skin from the
+    palettes, dealt by a seeded generator: decoration, the same on every load, and it never moves.
+    Painted on the slope, the people of the side stands, which the broadcast camera sees nearly
+    edge-on, were streaks; as figures they read as people from any side. The stand behind the near
+    basket stays empty: its front rows would stand between the camera and the court. Two instanced
+    meshes; xa and ya are the stands' front edges, R and H their run and rise (feet). */
+function crowdFigures(xa, ya, R, H) {
+  const rnd = seeded(11), spots = [];
+  for (const [p, q, up] of [[[-xa, ya], [xa, ya], [0, 1]], [[-xa, -ya], [xa, -ya], [0, -1]],
+                             [[xa, -ya], [xa, ya], [1, 0]]]) {
+    const n = Math.floor(Math.hypot(q[0] - p[0], q[1] - p[1]) / CROWD.seat);
+    for (let row = 0; row < CROWD.rows; row++) {
+      const v = (row + 0.5) / CROWD.rows;
+      for (let i = 0; i < n; i++) {
+        const empty = rnd() < CROWD.empty, shirt = rnd(), skin = rnd(), sit = rnd();
+        if (empty) continue;
+        const u = (i + 0.5) / n;
+        spots.push({x: p[0] + (q[0] - p[0]) * u + up[0] * R * v, y: p[1] + (q[1] - p[1]) * u + up[1] * R * v,
+                    z: H * v + (sit - 0.5) * CROWD.sit, shirt: CROWD.shirts[Math.floor(shirt * CROWD.shirts.length)],
+                    skin: SKINS[Math.floor(skin * SKINS.length)]});
+      }
+    }
+  }
+  const [bw, bh, lift] = CROWD.body, [hr, hz] = CROWD.head;
+  const make = (geometry, z, colour) => {
+    const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshLambertMaterial(), spots.length);
+    const m = new THREE.Matrix4(), c = new THREE.Color();
+    spots.forEach((sp, k) => {
+      mesh.setMatrixAt(k, m.makeTranslation(V(sp.x, sp.y, sp.z + z)));
+      mesh.setColorAt(k, c.set(colour(sp)));
+    });
+    return mesh;
+  };
+  return [make(new THREE.BoxGeometry(bw, bh, bw), lift, sp => sp.shirt),
+          make(new THREE.IcosahedronGeometry(hr, 1), hz, sp => sp.skin)];
 }
 /** The ball's leather and seams (canvas, mapped as the sphere maps it). */
 function ballTexture() {
@@ -1192,9 +1217,9 @@ function buildArena() {
   lines.commit();
   arena.add(lines.mesh);
 
-  // the stands on four sides, a slope of crowd beyond the apron
+  // the stands on four sides, a slope of seats beyond the apron, and the crowd on them
   const crowd = fading(lit({color: ARENA.crowdLight, roughness: 1}));
-  const xa = -BASELINE + APRON + 5, ya = hw + APRON + 5, R = STANDS_RUN, H = STANDS_H;
+  const xa = -BASELINE + STANDS_END, ya = hw + STANDS_SIDE, R = STANDS_RUN, H = STANDS_H;
   for (const [corners, len] of [
     [[[-xa, ya, 0], [xa, ya, 0], [xa, ya + R, H], [-xa, ya + R, H]], 2 * xa],
     [[[xa, -ya, 0], [-xa, -ya, 0], [-xa, -ya - R, H], [xa, -ya - R, H]], 2 * xa],
@@ -1202,6 +1227,10 @@ function buildArena() {
     [[[-xa, -ya, 0], [-xa, ya, 0], [-xa - R, ya, H], [-xa - R, -ya, H]], 2 * ya]]) {
     const n = len / CROWD.span;
     arena.add(receive(quad(corners, [[0, 0], [n, 0], [n, 1], [0, 1]], crowd)));
+  }
+  for (const mesh of crowdFigures(xa, ya, R, H)) {
+    fading(mesh.material);
+    arena.add(mesh);
   }
   // the far basket and both stanchions, the net under each rim
   const pad = fading(lit({color: ARENA.pad, roughness: 0.8}));
@@ -1241,7 +1270,7 @@ function buildArena() {
   L.ball = receive(new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20), lit({roughness: 0.6})));
   // the canvases are painted by finishStage, once the GPU is compiling (a map's presence, not its
   // pixels, decides the program)
-  L.painted = [[wood.material, woodTexture], [crowd, crowdTexture], [L.ball.material, ballTexture]];
+  L.painted = [[wood.material, woodTexture], [crowd, seatsTexture], [L.ball.material, ballTexture]];
   scene3.add(L.ball);
   // B4b-2: the browser's own decoder where there is one; a plain loop otherwise (a mapped
   // Array.from took a tenth of the start-up)
@@ -1461,81 +1490,76 @@ function planFrame(s) {
     The field of view narrows as the distance grows, holding the crop near its final size, and
     at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
     straight down at the same centre: on the floor the two project the same. */
-/** The broadcast camera of a scene, per frame (B4b-2): its look-at point on the hoop's axis, its
-    distance back along the fixed pitch and its lens shift. Each frame takes the tightest camera
-    that holds the six story players, the ball and the hoop inside the margin with the hoop's
-    base low, shifted as little as that allows; the distance is then never allowed to grow (the
-    push-in), smoothed, and refitted where smoothing cut a story player off. Cached per canvas
-    size. */
+/** The broadcast camera of a scene, per frame (B4b-2, B4b-3): its look-at point on the hoop's
+    axis, its distance back along the fixed pitch and its lens shift, sideways and up or down.
+    Each frame takes the tightest camera that holds the six story players, the ball and the hoop
+    inside the margin with some shift; the distance is then never allowed to grow (the push-in),
+    smoothed, and refitted where smoothing cut a story player off. Last, each frame's vertical
+    shift sets the lowest of the story players' feet, the hoop's base and the ball BOTTOM above
+    the bottom edge (no lower than the margin and the hoop below HOOP_LOW allow): the spare
+    height goes to the top of the frame, past the court, not to the apron behind the baseline.
+    Cached per canvas size. */
 function shotOf(s) {
   const key = `${size.w}x${size.h}`;
   if (s.shot && s.shot.key === key) return s.shot;
   const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
-  const inner = 1 - 2 * FRAME_MARGIN, tv = t0 * inner, A = t0 * size.w / size.h;
+  const inner = 1 - 2 * FRAME_MARGIN, A = t0 * size.w / size.h;
   const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
   const r = s.roles, story = [r.handler, r.helper, r.left, ...r.others];
+  // the points to hold; the first 8 are the ones the bottom rule reads (the hoop's base, the six
+  // players' tracked feet, the ball)
   const pointsAt = f => {
-    const pts = [[HOOP_X, 0, 0], [HOOP_X, 0, RIM_Z]];
+    const b = s.ball[f], pts = [[HOOP_X, 0, 0], ...story.map(k => [...s.xy[f][k], 0]), [b[0], b[1], Math.max(b[2], BALL_R)]];
+    pts.push([HOOP_X, 0, RIM_Z], [b[0], b[1], Math.max(b[2], BALL_R) + BALL_R]);
     for (const k of story) {
       const [x, y] = s.xy[f][k];
       for (const z of [0, BODY_H]) pts.push([x, y - BODY_HALF, z], [x, y + BODY_HALF, z]);
       pts.push([x - BODY_HALF, y, 0], [x + BODY_HALF, y, 0]);
     }
-    const b = s.ball[f];
-    pts.push([b[0], b[1], Math.max(b[2], BALL_R) + BALL_R], [b[0], b[1], 0]);
     return pts;
   };
-  // the distance back from (lx, 0, LOOK_Z) that holds pts with the frame shifted by sx (in NDC)
-  const need = (pts, lx, sx) => {
-    let D = 0;
-    for (const [x, y, z] of pts) {
-      const dx = x - lx, dz = z - LOOK_Z, along = dx * fx + dz * fz;
-      D = Math.max(D, Math.abs(dx * ux + dz * uz) / tv - along, (y > 0 ? y / (inner - sx) : -y / (inner + sx)) / A - along);
-    }
-    return D;
-  };
-  // the least distance that holds pts with some shift, and the shift nearest 0 that does: each
-  // point bounds the shift from one side, more loosely the farther back the camera is, so the
-  // distance is found by bisection on whether the shifts left are an empty interval
-  const shiftFor = (pts, lx) => {
-    const n = pts.length, along = new Float64Array(n);
-    let lo = 0;
-    pts.forEach(([x, , z], i) => {
-      const dx = x - lx, dz = z - LOOK_Z;
-      along[i] = dx * fx + dz * fz;
-      lo = Math.max(lo, Math.abs(dx * ux + dz * uz) / tv - along[i], 0.01 - along[i]);
+  const LOW = 8;
+  // for a camera looking at (lx, 0, LOOK_Z) from D back: the shifts that hold every point, as
+  // [left, right] sideways and [below, above] up or down (NDC); the vertical one also keeps the
+  // hoop's base below HOOP_LOW, and `top` is the highest shift the bottom rule allows
+  const bounds = (pts, lx, D) => {
+    let a = -SHIFT, b = SHIFT, c = -SHIFT_V, d = SHIFT_V, low = Infinity, hoop = 0;
+    pts.forEach(([x, y, z], i) => {
+      const dx = x - lx, dz = z - LOOK_Z, depth = dx * fx + dz * fz + D;
+      const q = depth > 0 ? y / (A * depth) : Infinity, v = depth > 0 ? (dx * ux + dz * uz) / (t0 * depth) : Infinity;
+      a = Math.max(a, -inner - q);
+      b = Math.min(b, inner - q);
+      c = Math.max(c, -inner - v);
+      d = Math.min(d, inner - v);
+      if (i === 0) hoop = v;
+      if (i < LOW) low = Math.min(low, v);
     });
-    const shifts = D => {
-      let a = -SHIFT, b = SHIFT;
-      for (let i = 0; i < n; i++) {
-        const q = pts[i][1] / (A * (along[i] + D));
-        a = Math.max(a, -inner - q);
-        b = Math.min(b, inner - q);
-      }
-      return [a, b];
-    };
-    let hi = lo + 8;
-    while (shifts(hi)[0] > shifts(hi)[1]) hi = lo + 2 * (hi - lo);
-    for (let it = 0; it < 22; it++) {
-      const mid = (lo + hi) / 2, [a, b] = shifts(mid);
-      if (a <= b) hi = mid; else lo = mid;
-    }
-    const [a, b] = shifts(hi);
-    return [clamp(0, a, b), hi];
+    d = Math.min(d, HOOP_LOW - hoop);
+    return {a, b, c, d, top: Math.min(d, -BOTTOM - low)};
   };
-  // the farthest the camera may be with the hoop's base still below HOOP_LOW
-  const most = lx => {
-    const dx = HOOP_X - lx, dz = -LOOK_Z;
-    return (dx * ux + dz * uz) / (HOOP_LOW * t0) - (dx * fx + dz * fz);
+  // the least distance with room for both shifts (sideways fixed at sx if given), by bisection:
+  // the bounds only widen as the camera goes back
+  const fitAt = (pts, lx, sx) => {
+    const ok = D => {
+      const k = bounds(pts, lx, D);
+      return k.c <= k.d && (sx === undefined ? k.a <= k.b : k.a <= sx && sx <= k.b);
+    };
+    let lo = 0, hi = 8;
+    while (!ok(hi)) { lo = hi; hi *= 2; }
+    for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
+    const k = bounds(pts, lx, hi);
+    return {D: hi, sx: sx === undefined ? clamp(0, k.a, k.b) : sx};
   };
   const frames = Array.from({length: F_END + 1}, (_, f) => pointsAt(f));
   const look = [], dist = [], shift = [];
-  const better = (c, best) => !best || (c.ok && !best.ok) || (c.ok === best.ok && (c.ok ? c.D < best.D : c.over < best.over));
   for (const pts of frames) {
     let best = null;
+    // the closest camera, but a vertical shift costs SHIFT_COST of the distance per unit (NDC), so
+    // the look-at point keeps the action low by itself where that costs little
     const tryAt = lx => {
-      const [sx, D] = shiftFor(pts, lx), c = {lx, sx, D, ok: D <= most(lx), over: D - most(lx)};
-      if (better(c, best)) best = c;
+      const c = fitAt(pts, lx), k = bounds(pts, lx, c.D);
+      c.cost = c.D * (1 + SHIFT_COST * Math.abs(Math.max(k.c, k.top)));
+      if (!best || c.cost < best.cost) best = Object.assign(c, {lx});
     };
     for (let lx = HOOP_X - 5; lx <= HOOP_X + 50; lx += 2) tryAt(lx);       // coarse, then fine
     const lc = best.lx;
@@ -1547,11 +1571,34 @@ function shotOf(s) {
   const blur = arr => smoothPts(arr.map(v => [v, 0]), PUSH_SMOOTH).map(v => v[0]);
   const closing = arr => { for (let f = arr.length - 2; f >= 0; f--) arr[f] = Math.max(arr[f], arr[f + 1]); return arr; };
   const L = blur(look), S = blur(shift), D = blur(closing(dist.slice()));
-  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], need(frames[f], L[f], S[f]));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], fitAt(frames[f], L[f], S[f]).D);
   closing(D);
   // the push-in: further back at the start, onto the fit by the end (only ever wider than it)
-  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], Math.min(D[f] * (1 + PUSH * (1 - smooth(f / F_END))), most(L[f])));
-  s.shot = {key, look: L, dist: D, shift: S, pitch: p, fov: cam.fov};
+  for (let f = 0; f <= F_END; f++) D[f] = D[f] * (1 + PUSH * (1 - smooth(f / F_END)));
+  // a second pass on that distance: the push-in keeps the early frames as wide as the widest
+  // later one, so their action sits small and high; each frame's look-at point moves along the
+  // axis to where it needs the least vertical shift (smoothed, and the distance refitted where
+  // that cut someone off), then the shifts are set on the final camera, the vertical one as high
+  // as the bottom rule allows
+  const L2 = blur(frames.map((pts, f) => {
+    let best = L[f], least = Infinity;
+    for (let lx = L[f] - 20; lx <= L[f] + 30; lx += 0.5) {
+      const k = bounds(pts, lx, D[f]);
+      if (k.a > k.b || k.c > k.d) continue;
+      const need = Math.abs(Math.max(k.c, k.top));
+      if (need < least) { least = need; best = lx; }
+    }
+    return best;
+  }));
+  for (let f = 0; f <= F_END; f++) D[f] = Math.max(D[f], fitAt(frames[f], L2[f]).D);
+  closing(D);
+  const S2 = [], SY = [];
+  frames.forEach((pts, f) => {
+    const k = bounds(pts, L2[f], D[f]);
+    S2.push(clamp(0, k.a, k.b));
+    SY.push(Math.max(k.c, k.top));
+  });
+  s.shot = {key, look: L2, dist: D, shift: S2, shiftY: SY, pitch: p, fov: cam.fov};
   return s.shot;
 }
 /** The broadcast camera at clip time t: frames interpolated, so a pure function of t. */
@@ -1559,7 +1606,7 @@ function broadcastAt(s, t) {
   const sh = shotOf(s), f = clamp(t * FPS, 0, F_END), i = Math.min(Math.floor(f), F_END), j = Math.min(i + 1, F_END), a = f - i;
   const lerpF = arr => arr[i] + (arr[j] - arr[i]) * a, lx = lerpF(sh.look), D = lerpF(sh.dist);
   return {look: V(lx, 0, LOOK_Z), eye: V(lx - D * Math.cos(sh.pitch), 0, LOOK_Z + D * Math.sin(sh.pitch)), fov: sh.fov,
-          shift: lerpF(sh.shift)};
+          shift: lerpF(sh.shift), shiftY: lerpF(sh.shiftY)};
 }
 
 /** The hook's wall clock (B4b): clip time against wall time for a broadcast run of a scene,
@@ -1626,9 +1673,10 @@ function placeCamera(p) {
   persp.position.set(0, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
   persp.up.set(0, 1 - e, -e).normalize();
   persp.lookAt(target);
-  // B4b-2: the broadcast frame's lens shift, taken back to zero on the way up (the camera itself
-  // never leaves the axis)
-  persp.setViewOffset(size.w, size.h, -cam.shift * (1 - e) * size.w / 2, 0, size.w, size.h);
+  // B4b-2, B4b-3: the broadcast frame's lens shifts, sideways and up or down, taken back to zero
+  // on the way up (the camera itself never leaves the axis)
+  persp.setViewOffset(size.w, size.h, -cam.shift * (1 - e) * size.w / 2, cam.shiftY * (1 - e) * size.h / 2,
+                     size.w, size.h);
   persp.updateProjectionMatrix();
   persp.updateMatrixWorld();
   active = persp;

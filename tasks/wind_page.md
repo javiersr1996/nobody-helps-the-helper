@@ -118,9 +118,17 @@ not data.
   no team's, league's or sponsor's mark.
 - **The arena (B4b-2), drawn:** the hardwood lit by one key light over the attacked half,
   the keys and the apron past the lines stained darker so the court stands out of its
-  surround, and stands on four sides with a crowd painted by a seeded generator (rows of
-  seats, shirts, faces and hair, no signs, no text). The crowd never moves. Everything drawn
-  is a pure function of t: two renders of the same t give the same pixels.
+  surround, and stands on four sides. Everything drawn is a pure function of t: two renders
+  of the same t give the same pixels.
+- **The crowd (B4b-3).** B4b-2 painted the crowd on the stands' slopes, 5 ft past a 7 ft
+  apron; the tighter frame never reached them on the desktop, and the side stands, which the
+  camera sees almost edge-on, turned painted people into streaks. Now the side stands start
+  3.5 ft past the sidelines (courtside) and the far one 2 ft past the apron, and the crowd is
+  figures: a body and a head on most seats of every row of the two side stands and the far
+  one (shirt and skin dealt by a seeded generator; no signs, no text, no team's colours),
+  darker than the lit court. The stand behind the near basket keeps empty seats: its front
+  rows would stand between the camera and the court. The crowd never moves. It must read as
+  people at a glance on the t = 0 still, at 1440 and at 390 px.
 - **Palette, figure 1's:** ball handler black; the man he left black; the other three
   attackers grey; helper orange; the three other defenders purple; the ball handler's
   defender pale grey. Teams are therefore black/grey (attack) against orange/purple/pale
@@ -182,14 +190,23 @@ canvas), fitted to all ten players, which left them about 40 px tall at 1440 px 
   look-at point on the axis and its distance back along the pitch) that holds inside the
   canvas, less a 3 % margin, the **six story players** (ball handler, helper, the man he left,
   the three others: feet and the top of the body, 1 ft either side), **the ball** and **the
-  hoop** (its base and its rim), aiming the hoop's base at the bottom 35 % of the canvas
-  (smoothing lets it rise to 37 %; B5 asserts 40 %). The other four players may leave the
-  frame.
+  hoop** (its base and its rim). The other four players may leave the frame.
 - **A lens shift.** The six can stand 19 ft to one side of the axis and 14 to the other; a
   frame centred on the axis would be as wide as twice the larger. So the frame may slide
   sideways by up to an eighth of the canvas's width (a shifted frustum, `setViewOffset`): the
   camera itself never leaves the axis or turns, the hoop stays within 15 % of the horizontal
   centre, and the rise takes the shift back to zero.
+- **A vertical lens shift, and no dead apron (B4b-3).** B4b-2 kept the hoop's base in the
+  bottom 35 % by where it aimed, which left the bottom fifth to quarter of the desktop frame
+  dark apron behind the baseline, and the top and bottom thirds of the phone frame empty. Now
+  the frame also slides up or down (the same shifted frustum, by up to 0.8 of the canvas's
+  height): on every frame the lowest of the six story players' tracked feet, the hoop's base
+  and the ball sits 6 % of the canvas's height above its bottom edge, and the spare height
+  goes to the top of the frame, past the court, where the crowd is. The look-at point is
+  chosen so that shift stays small where that costs the players little size, and moved along
+  the axis on the push-in's early frames, which are wider than their own fit. Rule: on
+  frames 0..38 of the four scenes at both widths, at most 10 % of the canvas's height lies
+  below that lowest point.
 - **The push-in.** Over the clip the distance only ever shrinks (smoothed over 6 frames) and
   starts 10 % further back than the fit, closing to it by the end.
 - **Targets, measured from outside** (Head bone to the lower foot bone of each drawn body,
@@ -199,8 +216,9 @@ canvas), fitted to all ten players, which left them about 40 px tall at 1440 px 
   are what keep each one findable.
 - **B5 asserts the framing rule, not the numbers:** on frames 0..38 of all four scenes, the
   six story players' tracked (x, y) at 0 and at 6.5 ft, the ball and the hoop's base and rim
-  project inside the canvas; the hoop's base is in the bottom 40 % and within 15 % of the
-  horizontal centre in every view.
+  project inside the canvas; at most 10 % of the canvas's height lies below the lowest of the
+  six's tracked feet, the hoop's base and the ball (B4b-3); the hoop's base is in the bottom
+  40 % and within 15 % of the horizontal centre in every view.
 - The near hoop's rim and backboard now stand in the upper middle of the frame (a 10 ft rim
   close to a camera this low projects high); the glass and frame are see-through in
   `broadcast`, so a player behind them still reads.
@@ -220,9 +238,9 @@ frame by frame with no clock:
   crop centre; its look-at lerps to the crop centre on the floor; its up vector lerps from
   world up (0, 1, 0) to (0, 0, -1) and is renormalised, so forward and up stay perpendicular
   and screen-right stays +y_drive the whole way. Nothing rotates on screen; the hoop slides
-  down to the bottom edge and the floor flattens. The broadcast frame's lens shift (2.3)
-  eases to zero with the same progress, so the picture slides sideways at most an eighth of
-  its width on the way up.
+  down to the bottom edge and the floor flattens. The broadcast frame's lens shifts (2.3),
+  sideways and up or down, ease to zero with the same progress, so on the way up the picture
+  slides at most an eighth of its width sideways and up to 0.8 of its height upward (B4b-3).
 - The perspective collapses on the way: the vertical fov narrows from its broadcast value to
   about 2° while the distance grows so that the plan crop keeps the screen size it will have
   at p = 1 (the dolly-zoom to flat). At p = 1 the page swaps to the orthographic camera that
@@ -596,10 +614,12 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
   1 px; at `flight(1)` `#measure` is visible and `camera().type` is orthographic.
 - **No measure outside plan:** `#measure` carries `hidden` whenever `state().view !== "plan"`,
   and a pixel scan of the canvas in `broadcast` finds none of the trail colours.
-- **Framing** (B4b-2's rule, 2.3): over the four scenes and frames 0..38, in `broadcast`, the
-  six story players' tracked (x, y) at 0 and at 6.5 ft, the ball and the hoop's base and rim
-  project inside the canvas (the other four players are not asserted); the hoop's base is in
-  the bottom 40 % and within 15 % of the horizontal centre in every view.
+- **Framing** (B4b-2's rule and B4b-3's, 2.3): over the four scenes and frames 0..38, in
+  `broadcast`, the six story players' tracked (x, y) at 0 and at 6.5 ft, the ball and the
+  hoop's base and rim project inside the canvas (the other four players are not asserted); at
+  most 10 % of the canvas's height lies below the lowest of the six's tracked feet, the hoop's
+  base and the ball; the hoop's base is in the bottom 40 % and within 15 % of the horizontal
+  centre in every view.
 - **Tags** (B4b-2, 2.2): on frames 0..38 of the four scenes at 1440 and 390 px, in
   `broadcast` and in `plan`, each tag's anchor (its leader's `x2`, `y2`) is nearer to its own
   player's head, projected by the check itself through `camera()` from the JSON's (x, y) at
@@ -615,7 +635,8 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
   within 1.5 s; 3 s of frames while playing at 1440 px, median at most 17 ms and 95th
   percentile at most 20 ms. Before the first frame the natural run reads `broadcast`, `idle`,
   t = 0. If the browser's WebGL renderer is a software one (SwiftShader), these rows and the
-  clock's fail as "software renderer: timing not measurable", not pass.
+  clock's fail as "software renderer: timing not measurable", not pass; so do the natural
+  run and the pause check, whose waits and thresholds are timings too (B4b-3).
 - **The numbers at the headline frame:** at `seek(T)` the three black and grey bars equal
   `to_left[i][38]` and `placebo[i][38]` and the matching `second_help_pairs.csv` rows
   (`drive_id`, `horizon == 38`, `def_slot`) within 0.01 ft; the live tile equals

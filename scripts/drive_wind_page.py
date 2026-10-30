@@ -571,6 +571,11 @@ def check_startup(D: Data, p, target: str) -> None:
 @guarded
 def check_hook(D: Data, browser, target: str) -> None:
     """Natural run from load: opens in broadcast, ends, holds, rises, lands in plan, no click."""
+    if not TIMED["on"]:
+        # the natural run is timed end to end (its waits are the page's clock): B4b-3
+        R.check("natural run: opens, plays, holds, rises and lands in plan with no click", False, SOFTWARE)
+        R.check("clocked rising ignores play/pause/seek/next/view and returns false", False, SOFTWARE)
+        return
     ctx, pg, errors = open_page(browser, target)
     c = pg.evaluate(
         "({RATE: wind.RATE, HOLD: wind.HOLD_S, FLIGHT: wind.FLIGHT_S, FADE: wind.FADE_S, T: wind.T})"
@@ -766,8 +771,8 @@ def check_transport(D: Data, browser, target: str) -> None:
     t2 = state(pg)
     R.check(
         "pause: phase idle and t kept while paused",
-        t1["phase"] == "idle" and t1["t"] == t2["t"] and t1["t"] > 0.3,
-        f"t={t1['t']:.4f} then {t2['t']:.4f}",
+        TIMED["on"] and t1["phase"] == "idle" and t1["t"] == t2["t"] and t1["t"] > 0.3,
+        f"t={t1['t']:.4f} then {t2['t']:.4f}" if TIMED["on"] else SOFTWARE,
     )
     R.check("pause: label reads Play", ui(pg)["play"]["text"] == "Play")
     pg.evaluate("wind.play()")
@@ -1159,6 +1164,7 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         W, H = cam["width"], cam["height"]
         worst = 1e9
         outside = 0
+        room = 0.0
         hoop_ok = True
         r = D.scenes[i]["roles"]
         story = [r["handler"], r["helper"], r["left"], *r["others"]]
@@ -1174,9 +1180,15 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
                 if not (0 <= px <= W and 0 <= py <= H):
                     outside += 1
                 worst = min(worst, px, W - px, py, H - py)
+            # B4b-3 (2.3): the share of the canvas below the lowest of the six's tracked feet, the
+            # hoop's base and the ball (drawn at its centre, no lower than its radius)
+            low = [[float(xy[k][0]), float(xy[k][1]), 0.0] for k in story]
+            low += [[D.hoop_x, 0.0, 0.0], [float(b[0]), float(b[1]), max(float(b[2]), BALL_R_FT)]]
+            bottom = max(q[1] for q in pg.evaluate(f"(ps) => ps.map(p => ({PROJ_JS})(p))", low))
+            room = max(room, (H - bottom) / H)
             hx, hy = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
             hoop_ok = hoop_ok and hy >= 0.6 * H and abs(hx - W / 2) <= 0.15 * W
-        out.append((i, outside, round(worst, 1), hoop_ok))
+        out.append((i, outside, round(worst, 1), hoop_ok, round(room, 3)))
         go_plan(pg)
         px, py = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
         out.append(
@@ -1188,9 +1200,9 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         )
     R.check(
         f"framing at {width}px: the six story players (feet and heads), the ball and the hoop (base and rim) inside the"
-        " canvas on frames 0..38 of all scenes in broadcast; hoop in the bottom 40 % and within 15 % of centre in"
-        " broadcast and plan",
-        all(o[1] == 0 and o[3] for o in out if len(o) == 4)
+        " canvas on frames 0..38 of all scenes in broadcast; at most 10 % of the canvas below the lowest of the six's"
+        " feet, the hoop's base and the ball; hoop in the bottom 40 % and within 15 % of centre in broadcast and plan",
+        all(o[1] == 0 and o[3] and o[4] <= 0.10 for o in out if len(o) == 5)
         and all(o[2] for o in out if len(o) == 3),
         str(out),
     )

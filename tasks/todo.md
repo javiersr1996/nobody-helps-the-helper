@@ -308,7 +308,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       phase: idle|playing|ended, view: broadcast|rising|plan, positions}`.
       Accept: builds from the CSVs; `rg '[0-9]+\.[0-9]+ ?(%|ft)'` on the template finds nothing
       outside the court geometry; renders with DevTools offline.
-- [ ] B4b The hook, rebuilt to hook (Javier, 2026-10-29, on opening B4's page: "no engancha
+- [x] B4b (DONE 2026-10-30; see the record) The hook, rebuilt to hook (Javier, 2026-10-29, on opening B4's page: "no engancha
       nada; las fichas deben ser jugadores de baloncesto; vamos a currárnoslo todo lo que
       podamos"). Amends D8's "players as tokens": in `broadcast` and `rising` the players are
       rigged 3D basketball players (a CC0 or MIT/CC-BY asset found by a research spike, licence
@@ -782,25 +782,32 @@ thin strip, so the arena still reads empty; the helper hides the handler at the 
 (the story's own geometry from behind the hoop). Javier watched the video and said it hooks
 ("sí"); one short pass follows for the apron (a vertical lens shift) and a crowd that shows,
 leaving the backboard and the hidden handler as they are.
+**B4b CLOSED 2026-10-30.** The follow-up pass (branch `worktree-agent-ada1dd0fe1ae15475`:
+21b09a4 bottom-room rule in the storyboard, 0c1ab86 vertical lens shift, faca83d crowd as
+figures courtside, 8534983 the rule in B5 plus the software guard on every timed row) was
+reviewed and merged. Stills at 1440 and 390, t = 0 and 0.75 s of the four scenes, read as a
+stranger: the paint, not apron, fills the bottom; the tags land on their players; the crowd
+reads as people (a row of figures across the top at 390, the two side stands' corners at
+1440). Caught on the way: the first B5 rerun used main's driver on the branch's page (old
+4-tuple rows), so the new rule had not run. With the branch's driver, alone on the GPU
+(Intel Arc, ANGLE D3D11): branch page 184 passed, 0 failed, bottom room 6.0 % in all four
+scenes at both widths, frame median 16.7 ms, playing in 0.47-0.67 s; main's c9e1cfe page
+fails exactly the two framing rows, bottom room 18.7-36.9 % (so the rule can fail). Memoria
+v0.4 amended before sharing (section 13 paragraph on B4b, phase B row, version row "29 y 30
+de octubre"; 32 pages, the new sentences read back from the PDF). ruff and pytest green.
 
-### NEXT SESSION (left 2026-10-29)
-1. B4b, nearly closed. Main is at c9e1cfe (players, the four fixes; Javier said it hooks).
-   The short follow-up pass (apron and a visible crowd) was stopped at the end of the session
-   (2026-10-30 00:08) while writing its report, NOT reviewed and NOT merged: four commits on
-   branch `worktree-agent-ada1dd0fe1ae15475` (21b09a4 storyboard bottom-room rule, 0c1ab86
-   vertical lens shift, faca83d crowd courtside, 8534983 driver rule plus the software guard
-   on every timed row), worktree clean. Its last B5 run (scratchpad b4b3, b5_final.txt) read
-   184 passed, 0 failed; video and stills were in that session's scratchpad `b4b3\`, which
-   may be gone. Next: look at the branch's page as a stranger (render it at 1440 and 390;
-   the bottom 10 % rule, the crowd reads as people), rerun B5 alone on the GPU, merge,
-   update memoria (section 13, D8, version row) and `todo` in the same commit, close B4b.
-   Then remove the two merged worktrees under `.claude/worktrees/` (ask Javier first).
+### NEXT SESSION (left 2026-10-30)
+1. Two merged worktrees remain under `.claude/worktrees/` (agent-a22b51f6d4661edd3, merged
+   905ed37; agent-ada1dd0fe1ae15475, merged 2026-10-30, locked): remove them and their
+   branches once Javier says so.
 2. B4 reads `help_field.csv`; the wind map, now
    `wind_map_league.png`, is a top-down section of the page, not a README figure; since D8 the
    hook is the drive in 3D.
 3. README C2 later: the corner as occupancy and the above-the-ball qualifier in two sentences
    next to the 45.3 %; nothing says where help comes from.
-4. Memoria v0.4 is built and committed (31 pages) and not yet shared; each step updates it.
+4. Memoria v0.4 is built and committed (32 pages) and not yet shared; each step updates it.
+5. Next in the plan: B6 (memoria section "La página"), then B7 (Javier opens the page on his
+   own machine). Phase B is ahead of its 9-29 Nov window.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
