@@ -1054,6 +1054,49 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       checked against scene 0 (defender 2 toward the man left +12.0 ft at 1.5 s); the 8.7 ft is
       the man left's clearance at 1.5 s in `near_committed_drives.csv` (8.72), now one sentence
       in the README; every spoken number greps in the README. Javier reads it aloud (D1).
+12. DONE 2026-10-30 (local commit, NOT pushed; Javier approves from the captures first): the
+   design audit's fixes 1-6, approved by Javier (the two taste items, bold takeaways and the
+   scrubber's tick labels, left out). Storyboard: B4c block in `wind_page.md` 2.6, old layout
+   lines marked superseded. (1) Phone: the stage first, full-bleed, `max(360px, 100svh - 156px)`
+   (390x688 at 390x844), title one line over its top band, dark controls bar under it (Play
+   715-759, Next 785-829), drawn note below the fold (1309). (2) Desktop: stage 1440x900, title
+   card (0..1008 x 0..166) and controls card (1056..1440 x 0..158) over the canvas. Bottom
+   overlays were impossible (the 10 % rule keeps the lowest story point near the bottom), so the
+   overlays sit on the top band and `shotOf` treats the band as outside the frame (`roof`); tags
+   stay out of it; bottom room still 6 % in every scene at both widths. (3) The bars are `#panel`
+   inside `#measure` (still hidden outside plan), over the stage: under the band on the phone
+   (bars 160..322 of 844, were at 1282), right column on the desktop (244..442); `planFrame`
+   frames the crop in the free region, its centre may sit off the axis (the rise slides to it;
+   swap at p = 0.999 vs 1 continuous). Found on the way: the desktop subtitle wrapped in plan
+   only (`max-width:60ch`), moving the band 167 -> 194 px and the plan camera 19.8 px at the swap;
+   fixed, plus two reserved lines at 900-1279 px. (4) Result tile: the 1.5 s contrast of
+   `help_kinds_summary.csv`, -0.63 ft (CI -1.25 to -0.03), 64 px desktop / 46 px phone; live tile
+   20 px. (5) Every target >= 44 px (styled range, 44 px thumb, ticks follow it; summary and
+   footer link padded). (6) Footer: `on top of commit <sha>: "subject"`.
+   B5: the four old-layout rows replaced, 16 rows added (106 code rows, 196 checks): 196/196
+   twice (74 s, 82 s; first paint 0.85/0.84/0.69 and 0.83/0.53/0.54 s), then 195/196 on the
+   committed build (only the first-paint row: 1.07, 1.17, 0.83 s; see TIMING). On the old page 12 of
+   the 16 new rows fail (183/196, plus its own cold load at 1.24 s); the 4 that pass there
+   (overlays at both widths, desktop bars plain and after landing) are shown failing on mutants:
+   fit without the band -> 225 points under it at 1440; court under the panel -> 56 track points
+   (scenes 1, 2). Limits: at 390 the band-less fit hides nobody (spare height already goes up);
+   the natural-landing row checks scene 0's tokens only.
+   TIMING, interleaved, fresh browser each, real GPU, alone (scratchpad `ab/ab_timing.py`,
+   `ab_split.py`, `gap_probe.py`): frame time unchanged (16.7 median, p95 16.7-16.8 ms, both
+   widths, both pages). First paint at 1440 REGRESSED: 10 rounds old 0.61 s (0.44-0.99) vs new
+   0.75 (0.51-1.11), new later in 8/10, over 1.0 s 0/10 vs 1/10; 6 rounds 0.84 (0.52-0.91) vs
+   0.92 (0.55-1.22), 0/6 vs 3/6. Script to first draw about equal (0.57 vs 0.63 s); the first
+   frame itself 40 ms (29-63) -> 125 ms (81-190). Not pixels (buffer at 0.58: 131 ms), not the
+   overlays (hidden: 128 ms); pre-uploading the painted textures shortens the frame (95-106 vs
+   147 ms) but not the first paint (1.01-1.02 vs 1.04 s), so not shipped; likely the wide frame's
+   extra arena on its first draw. Phone (dpr 2) no difference: 0.79 (0.48-1.14) vs 0.75
+   (0.46-1.09), 1/6 each over 1.0 s. Bar untouched. Audit re-measured (`design_audit/after/`):
+   body 17 px, overflow 0 at both widths, no overlaps but the intended overlays on the stage,
+   targets all >= 44 (were 7 under at each width); helper tag contrast over the real canvas
+   pixels 3.21-3.73 new vs 3.23-3.63 old (fails 4.5 on both; not in fixes 1-6, untouched).
+   Captures, before/after sheets and the phone MP4 (8.000 s by ffprobe) in the session
+   scratchpad `design_audit/after/`. Memoria v0.12 (14.3 counts, new 14.5; 49 pages, PDF read
+   back). ruff 0, pytest 346 passed. NEXT: Javier looks at the sheets and the MP4; then push.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

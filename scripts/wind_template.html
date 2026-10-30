@@ -29,19 +29,26 @@ a:hover{text-decoration-color:var(--ink)}
 button{font:inherit}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
-/* ------------------------------------------------------------------- header */
-header.top{padding:20px 16px 4px}
-h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:800;
-   letter-spacing:-.02em}
-.sub{font-size:clamp(18px,1.8vw,21px);color:var(--dim);margin:8px 0 0;max-width:60ch;min-height:1.6em}
-@media (max-width:899px){.sub{min-height:3.2em}}
+/* ------------------------------------------------------- the first screen (the hero) */
+/* The stage is the first thing on the page, full-bleed: on the phone as tall as the screen allows
+   with the controls still on it, on the desktop the whole viewport. The title (and on the desktop
+   the controls) sit over the canvas's top band, where the broadcast frame puts the crowd; the
+   page's script reads the band's height (--band) so the camera fit and the plan view keep the
+   players below it. --side is the desktop's right column (controls, then the bars in plan),
+   --panel-h the phone's bars panel under the title band. */
+#drive{position:relative;--band:0px;--side:384px;--panel-h:222px;--thumb:44px;
+       --overlay:rgba(16,13,11,.82)}
+.hero{position:relative}
+.top{position:absolute;left:0;right:0;top:0;z-index:2;padding:10px 16px 10px;
+     background:var(--overlay);color:#fff}
+.top .eyebrow{color:#d9d2c7;display:none}
+h1{font-size:min(28px,7vw);line-height:1.15;margin:0;font-weight:800;letter-spacing:-.02em;
+   white-space:nowrap}
+.sub{font-size:16px;line-height:1.45;color:#ece6dc;margin:3px 0 0;max-width:60ch;min-height:2.9em}
 
 /* -------------------------------------------------------------------- stage */
-.stage-grid{display:grid;grid-template-columns:minmax(0,760px) minmax(300px,1fr);gap:36px;
-            align-items:start;padding:12px 0 40px}
-.stage-col{position:sticky;top:8px;min-width:0}
-.stage{position:relative;width:100%;aspect-ratio:4/3;background:var(--sky);overflow:hidden;
-       border:1px solid var(--line)}
+.stage{position:relative;width:100%;height:max(360px,calc(100svh - 156px));background:#1d1714;
+       overflow:hidden}
 .stage canvas{display:block;width:100%;height:100%;touch-action:pan-y}
 .tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .tag{position:absolute;left:0;top:0;will-change:transform;white-space:nowrap;font-size:13px;
@@ -55,36 +62,59 @@ h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:80
 .leaders .lead{stroke:var(--ink);stroke-width:1.6}
 .leaders .lead.helper{stroke:var(--orange-ink)}
 .leaders .lead.other{stroke:var(--purple-ink)}
-.no-gl{position:absolute;inset:0;margin:0;padding:24px;display:flex;align-items:center;
-       font-size:17px;background:var(--paper)}
+.no-gl{position:absolute;inset:0;margin:0;padding:calc(var(--band) + 16px) 24px 24px;display:flex;
+       align-items:center;font-size:17px;background:var(--paper)}
 .drawn{margin:8px 0 0;font-size:16px;color:var(--faint)}
-.controls{margin-top:12px}
+/* The controls: a dark bar under the stage on the phone, a card over its top right on the desktop;
+   every target at least 44 px (the scrubber's thumb included). */
+.controls{background:var(--overlay);color:#fff;padding:10px 16px 12px}
 .controls .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.controls .row + .row{margin-top:10px}
-.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:15px;font-weight:600;
-     padding:8px 16px;border-radius:3px;cursor:pointer;min-width:84px;min-height:40px}
-.btn.ghost{background:transparent;color:var(--ink)}
+.controls .row + .row{margin-top:8px}
+.controls :focus-visible,.top :focus-visible{outline-color:#fff}
+.btn{border:1px solid #fff;background:#fff;color:var(--ink);font-size:15px;font-weight:600;
+     padding:8px 16px;border-radius:3px;cursor:pointer;min-width:84px;min-height:44px}
+.btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.75)}
 .btn[disabled],.seg button[disabled]{opacity:.4;cursor:default}
-.scrubwrap{flex:1;min-width:150px;position:relative;padding-bottom:40px}
-#scrub{width:100%;margin:0;accent-color:var(--ink);height:24px}
-.ticks{position:absolute;left:0;right:0;top:26px;height:38px;font-size:13px;color:var(--faint)}
-.tick{position:absolute;top:0;width:1px;height:7px;background:var(--faint)}
+.scrubwrap{flex:1;min-width:150px;position:relative;padding-bottom:34px}
+#scrub{-webkit-appearance:none;appearance:none;display:block;width:100%;height:var(--thumb);margin:0;
+       background:transparent;cursor:pointer;--f:0}
+#scrub:disabled{opacity:.4;cursor:default}
+#scrub::-webkit-slider-runnable-track{height:6px;border-radius:3px;
+  background:linear-gradient(to right,#fff calc(var(--f) * (100% - var(--thumb)) + var(--thumb) / 2),
+                             rgba(255,255,255,.3) 0)}
+#scrub::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.3)}
+#scrub::-moz-range-progress{height:6px;border-radius:3px;background:#fff}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;width:var(--thumb);height:var(--thumb);margin-top:-19px;
+  border:0;border-radius:50%;background:radial-gradient(circle,#fff 0 9px,rgba(255,255,255,.2) 10px 20px,transparent 21px)}
+#scrub::-moz-range-thumb{width:var(--thumb);height:var(--thumb);border:0;border-radius:50%;
+  background:radial-gradient(circle,#fff 0 9px,rgba(255,255,255,.2) 10px 20px,transparent 21px)}
+.ticks{position:absolute;left:0;right:0;top:calc(var(--thumb) / 2 + 14px);height:38px;font-size:13px;
+       color:#d6cfc4}
+.tick{position:absolute;top:0;width:1px;height:7px;background:#d6cfc4}
 .tick-label{position:absolute;white-space:nowrap;transform:translateX(-100%)}
-.seg{display:flex;border:1px solid var(--ink);border-radius:3px;overflow:hidden}
-.seg button{background:transparent;border:0;color:var(--ink);font-size:15px;padding:8px 14px;
-            cursor:pointer;min-height:40px}
-.seg button + button{border-left:1px solid var(--ink)}
-.seg button[aria-pressed=true]{background:var(--ink);color:#fff;font-weight:600}
-.caption{margin:0;font-size:16px;color:var(--dim);flex:1;min-width:220px}
+.seg{display:flex;border:1px solid rgba(255,255,255,.75);border-radius:3px;overflow:hidden}
+.seg button{background:transparent;border:0;color:#fff;font-size:15px;padding:8px 14px;
+            cursor:pointer;min-height:44px}
+.seg button + button{border-left:1px solid rgba(255,255,255,.75)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:600}
+.caption{margin:0;font-size:16px;color:#e8e2d8;flex:1;min-width:220px}
+.top .caption{margin-top:4px;min-width:0}
 .key{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:6px 16px;
      font-size:16px;color:var(--dim)}
 .key li{display:flex;align-items:center;gap:7px}
 .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
-.side{min-width:0}
-.watch{font-size:18px;color:var(--dim);margin:0;max-width:40ch}
+.after{padding-top:18px;padding-bottom:40px}
+.after .key{margin-top:0}
+.watch{font-size:18px;color:var(--dim);margin:14px 0 0}
 
 /* ------------------------------------------------------------------ measure */
-#measure{font-size:16px}
+#measure{font-size:16px;margin-top:28px}
+/* The bars, over the stage in plan only (they are inside #measure): under the title band on the
+   phone, the desktop's right column under the controls. The plan view frames the court clear of it. */
+.panel{position:absolute;z-index:2;left:0;right:0;top:var(--band);height:var(--panel-h);
+       padding:6px 16px 0;background:rgba(251,250,247,.94);overflow:hidden}
+.panel .legend{margin:0 0 2px}
+.flat .panel{position:static;height:auto;padding:0;background:none}
 #measure h2{font-size:24px;line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
 #measure h2.second{margin-top:42px;padding-top:26px;border-top:1px solid var(--line)}
 #measure h3{font-size:16px;margin:24px 0 6px}
@@ -100,15 +130,21 @@ h1{font-size:clamp(34px,5vw,54px);line-height:1.02;margin:6px 0 0;font-weight:80
 .chart .row.on .row-bg{fill:#f2eee6}
 .cap{color:var(--dim)}
 .limit{border-left:3px solid var(--line-2);padding:2px 0 2px 12px;color:var(--dim)}
-.tile{background:var(--paper);border:1px solid var(--line);padding:14px 16px;margin-top:6px}
-.tile .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+/* The result over all drives is the page's big number; the live tile (one drive) is secondary. */
+.result{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--ink);
+        padding:16px 18px;margin-top:6px}
+.result .num{font-size:clamp(46px,9vw,64px);font-weight:800;line-height:1;letter-spacing:-.02em;
+             font-variant-numeric:tabular-nums}
+.result .ci{font-size:18px;color:var(--dim);margin-top:6px}
+.tile{background:var(--paper);border:1px solid var(--line);padding:12px 16px;margin-top:14px}
+.tile .big{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .tile .quotes{color:var(--faint);margin-top:6px}
 ul.who{list-style:none;padding:0;margin:8px 0 0}
 ul.who li{display:flex;align-items:center;gap:8px;margin:4px 0}
 .tip{position:absolute;pointer-events:none;background:var(--paper);border:1px solid var(--line-2);
      padding:6px 9px;font-size:13px;white-space:nowrap;z-index:5;display:none}
 details{margin-top:18px}
-summary{cursor:pointer;color:var(--dim);font-weight:600}
+summary{cursor:pointer;color:var(--dim);font-weight:600;padding:10px 0}
 .scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;margin-top:10px;font-size:16px}
 th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);
@@ -137,65 +173,72 @@ footer h3{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(
 footer pre{background:var(--paper);border:1px solid var(--line);padding:12px 14px;font-family:var(--mono);
            font-size:14px;overflow-x:auto;margin:0}
 footer code{font-family:var(--mono);font-size:15px}
+footer a{display:inline-block;padding:11px 0}
 
-@media (max-width:899px){
-  .stage-grid{grid-template-columns:minmax(0,1fr);gap:22px}
-  .stage-col{position:static}
-  .stage{aspect-ratio:1/1}
-  .watch{max-width:none}
+@media (min-width:900px){
+  .stage{height:max(560px,100svh)}
+  .top{right:auto;width:calc(100% - var(--side) - 48px);padding:16px 24px 14px}
+  .top .eyebrow{display:block}
+  h1{font-size:clamp(30px,3.2vw,46px);margin-top:4px}
+  .sub{font-size:19px;min-height:1.45em;max-width:none}
+  .controls{position:absolute;top:0;right:0;z-index:2;width:var(--side);padding:14px 20px 12px}
+  .panel{left:auto;right:0;top:calc(var(--band) + 12px);width:var(--side);height:auto;padding:12px 20px 4px}
 }
+/* where the two views' subtitle and caption wrap differently, two lines each, so the band (and
+   with it the camera) does not change with the view */
+@media (min-width:900px) and (max-width:1279px){.sub,.top .caption{min-height:2.9em}}
 </style>
 </head>
 <body>
 
-<header class="top wrap">
-  <p class="eyebrow" id="eyebrow"></p>
-  <h1>Nobody helps the helper</h1>
-  <p class="sub" id="stage-sub">One defender steps toward the ball. Watch the man he leaves.</p>
-</header>
-
 <main>
-<section class="wrap" id="drive" aria-label="the drive">
-  <div class="stage-grid">
-    <div class="stage-col">
-      <div class="stage" id="stage">
-        <canvas id="court" role="img" aria-label="one drive, ten players on the court"></canvas>
-        <div class="tags" id="tags" aria-hidden="true"></div>
-        <p class="no-gl" id="no-gl" hidden>This browser has no WebGL, so the drive cannot be drawn
-          here. What it shows: on a drive, one defender steps toward the ball, and nobody moves
-          toward the man he leaves. The README's two figures draw the same drive and the result;
-          the measures beside and below this box need no GPU and still work.</p>
+<section id="drive" aria-label="the drive">
+  <div class="hero">
+    <header class="top" id="top">
+      <p class="eyebrow" id="eyebrow"></p>
+      <h1>Nobody helps the helper</h1>
+      <p class="sub" id="stage-sub">One defender steps toward the ball. Watch the man he leaves.</p>
+    </header>
+    <div class="stage" id="stage">
+      <canvas id="court" role="img" aria-label="one drive, ten players on the court"></canvas>
+      <div class="tags" id="tags" aria-hidden="true"></div>
+      <p class="no-gl" id="no-gl" hidden>This browser has no WebGL, so the drive cannot be drawn
+        here. What it shows: on a drive, one defender steps toward the ball, and nobody moves
+        toward the man he leaves. The README's two figures draw the same drive and the result;
+        the measures below this box need no GPU and still work.</p>
+    </div>
+    <div class="controls" id="controls">
+      <div class="row">
+        <button class="btn" id="play" type="button">Play</button>
+        <div class="scrubwrap">
+          <input type="range" id="scrub" min="0" step="1" value="0" aria-label="time in the drive">
+          <div class="ticks" id="ticks"></div>
+        </div>
       </div>
+      <div class="row">
+        <div class="seg" role="group" aria-label="camera">
+          <button id="view-broadcast" type="button" aria-pressed="true">Broadcast</button>
+          <button id="view-plan" type="button" aria-pressed="false">Top-down</button>
+        </div>
+        <button class="btn ghost" id="next" type="button">Next drive</button>
+        <p class="caption" id="stage-caption" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="after wrap narrow">
+      <ul class="key" id="key"></ul>
+      <p class="watch" id="watch"></p>
       <p class="drawn" id="drawn">Only where each player stands is tracked; the bodies, their
         facing and stride, and the arena are drawn; the ball's height is the provider's.</p>
-      <div class="controls">
-        <div class="row">
-          <button class="btn" id="play" type="button">Play</button>
-          <div class="scrubwrap">
-            <input type="range" id="scrub" min="0" step="1" value="0" aria-label="time in the drive">
-            <div class="ticks" id="ticks"></div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="seg" role="group" aria-label="camera">
-            <button id="view-broadcast" type="button" aria-pressed="true">Broadcast</button>
-            <button id="view-plan" type="button" aria-pressed="false">Top-down</button>
-          </div>
-          <button class="btn ghost" id="next" type="button">Next drive</button>
-          <p class="caption" id="stage-caption" aria-live="polite"></p>
-        </div>
-      </div>
-      <ul class="key" id="key"></ul>
-    </div>
-
-    <div class="side">
-      <p class="watch" id="watch"></p>
       <div id="measure" hidden>
+        <div class="panel" id="panel">
+          <div class="legend"><span><i style="background:var(--ink)"></i>toward the man he left</span>
+            <span><i style="background:var(--grey)"></i>toward the other attackers, on average</span></div>
+          <div class="chart" id="bars"></div>
+        </div>
         <h2>Does anyone else move toward the man the helper left?</h2>
         <p id="lead"></p>
-        <div class="legend"><span><i style="background:var(--ink)"></i>toward the man he left</span>
-          <span><i style="background:var(--grey)"></i>toward the other attackers, on average</span></div>
-        <div class="chart" id="bars"></div>
         <p class="cap">Feet each moves toward a target: his own movement along the line from his
           start to where the target is then (negative: away). The whole defence sinks with a
           drive, so the test is the difference against the other attackers off the ball, his own
@@ -206,6 +249,7 @@ footer code{font-family:var(--mono);font-size:15px}
         <p class="limit" id="limit-chosen"></p>
 
         <h2 class="second">Nobody else moves toward the man the helper left</h2>
+        <div class="result" id="result-tile"></div>
         <div class="tile" id="tile"></div>
         <h3 id="all-title"></h3>
         <ul class="who" id="who"></ul>
@@ -230,7 +274,6 @@ footer code{font-family:var(--mono);font-size:15px}
         <p id="pass"></p>
         <p class="limit" id="long-limit"></p>
       </div>
-    </div>
   </div>
 </section>
 
@@ -947,7 +990,7 @@ const V = (x, y, z = 0) => new THREE.Vector3(y, z, -x);
 const flat = p => [p[1], -p[0]];                                  // drive (x, y) -> world (X, Z)
 
 const st = {scene: 0, t: 0, phase: "idle", view: "broadcast", p: 0, wall: 0};
-const size = {w: 0, h: 0, square: false};
+const size = {w: 0, h: 0, square: false, band: 0, region: null};
 let scene3, persp, ortho, active, current = null, hover = -1;
 let pucks = [], ball, shadow, plan = [], hoverTris = [];
 let playRaf = 0, playLast = null, holdTimer = 0, flyRaf = 0, flyLast = null, fadeRaf = 0;
@@ -1490,19 +1533,22 @@ function finishStage() {
           cFwd: gaitOf(rig, rig.clips.Crouch_Fwd_Loop)};
 }
 
-/** The orthographic frame that contains a scene's crop in the canvas's aspect ("contain",
-    never stretched). The crop sits on the canvas's bottom edge, so any spare height shows more
-    of the court up-court rather than an empty band behind the baseline. */
+/** The orthographic frame that contains a scene's crop in the canvas's free region ("contain",
+    never stretched): below the title band and the phone's bars panel, left of the desktop's right
+    column (size.region, pixels). The crop sits on the region's bottom edge, so any spare height
+    shows more of the court up-court rather than an empty band behind the baseline, and its middle
+    is as near the canvas's as the region lets it be. */
 function planFrame(s) {
-  const aspect = size.w / size.h, w = 2 * (G.half_width_ft + MARGIN), h = s.crop.hi - s.crop.lo;
-  let halfW, halfH;
-  if (w / h > aspect) { halfW = w / 2; halfH = halfW / aspect; }
-  else { halfH = h / 2; halfW = halfH * aspect; }
-  return {halfW, halfH, centre: V(s.crop.lo + halfH, 0, 0)};
+  const R = size.region, w = 2 * (G.half_width_ft + MARGIN), h = s.crop.hi - s.crop.lo;
+  const k = Math.min((R.x1 - R.x0) / w, (R.y1 - R.y0) / h);                 // pixels per foot
+  const cx = clamp(size.w / 2, R.x0 + w * k / 2, R.x1 - w * k / 2);
+  return {halfW: size.w / 2 / k, halfH: size.h / 2 / k,
+          centre: V(s.crop.lo + (R.y1 - size.h / 2) / k, (size.w / 2 - cx) / k, 0)};
 }
 
 /** The camera at progress p of the rise (0 broadcast, 1 plan). Pitch only: eye, target and up
-    stay in the vertical plane through the hoop's axis, so screen-right is +y the whole way.
+    stay in a vertical plane along the hoop's axis, so screen-right is +y the whole way (where the
+    plan frame's centre is off the axis, that plane slides sideways to it on the way up).
     The field of view narrows as the distance grows, holding the crop near its final size, and
     at p = 1 the orthographic camera takes over from a perspective of FOV_PLAN degrees aimed
     straight down at the same centre: on the floor the two project the same. */
@@ -1514,12 +1560,13 @@ function planFrame(s) {
     shift sets the lowest of the story players' feet, the hoop's base and the ball BOTTOM above
     the bottom edge (no lower than the margin and the hoop below HOOP_LOW allow): the spare
     height goes to the top of the frame, past the court, not to the apron behind the baseline.
-    Cached per canvas size. */
+    The title band over the canvas's top (size.band pixels) is outside the frame: everything held
+    stays the margin below it. Cached per canvas size and band. */
 function shotOf(s) {
-  const key = `${size.w}x${size.h}`;
+  const key = `${size.w}x${size.h}:${size.band}`;
   if (s.shot && s.shot.key === key) return s.shot;
   const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
-  const inner = 1 - 2 * FRAME_MARGIN, A = t0 * size.w / size.h;
+  const inner = 1 - 2 * FRAME_MARGIN, A = t0 * size.w / size.h, roof = inner - 2 * size.band / size.h;
   const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
   const r = s.roles, story = [r.handler, r.helper, r.left, ...r.others];
   // the points to hold; the first 8 are the ones the bottom rule reads (the hoop's base, the six
@@ -1547,7 +1594,7 @@ function shotOf(s) {
       a = Math.max(a, -inner - q);
       b = Math.min(b, inner - q);
       c = Math.max(c, -inner - v);
-      d = Math.min(d, inner - v);
+      d = Math.min(d, roof - v);
       if (i === 0) hoop = v;
       if (i < LOW) low = Math.min(low, v);
     }
@@ -1669,7 +1716,7 @@ function placeCamera(p) {
   const s = SCENES[st.scene], frame = planFrame(s);
   if (p >= 1) {
     Object.assign(ortho, {left: -frame.halfW, right: frame.halfW, top: frame.halfH, bottom: -frame.halfH});
-    ortho.position.set(0, 400, frame.centre.z);
+    ortho.position.set(frame.centre.x, 400, frame.centre.z);
     ortho.up.set(0, 0, -1);
     ortho.lookAt(frame.centre);
     ortho.updateProjectionMatrix();
@@ -1691,7 +1738,7 @@ function placeCamera(p) {
   persp.aspect = size.w / size.h;
   persp.near = Math.max(0.5, dist - 150);
   persp.far = dist + 150;
-  persp.position.set(0, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
+  persp.position.set(target.x, target.y + Math.sin(th) * dist, target.z + Math.cos(th) * dist);
   persp.up.set(0, 1 - e, -e).normalize();
   persp.lookAt(target);
   // B4b-2, B4b-3: the broadcast frame's lens shifts, sideways and up or down, taken back to zero
@@ -1761,12 +1808,14 @@ function placeTags() {
                        || b.y >= q.y + q.h + TAG_PAD || q.y >= b.y + b.h + TAG_PAD;
   const covers = (b, p) => p[0] > b.x - TAG_PAD && p[0] < b.x + b.w + TAG_PAD && p[1] > b.y - TAG_PAD && p[1] < b.y + b.h + TAG_PAD;
   const placed = [];
+  // the tags stay clear of what lies over the canvas: the title band, and in plan the bars' panel
+  const F = st.view === "plan" ? size.region : {x0: 0, x1: size.w, y0: size.band, y1: size.h};
   for (const t of tags) {
     if (!t.w) { t.w = t.node.offsetWidth; t.h = t.node.offsetHeight; t.spots = spotsOf(t); }
     const a = anchors[t.slot];
     let best = null;
     for (const c of t.spots) {
-      const b = {x: clamp(a[0] + c.dx, 2, size.w - t.w - 2), y: clamp(a[1] + c.dy, 2, size.h - t.h - 2), w: t.w, h: t.h};
+      const b = {x: clamp(a[0] + c.dx, F.x0 + 2, F.x1 - t.w - 2), y: clamp(a[1] + c.dy, F.y0 + 2, F.y1 - t.h - 2), w: t.w, h: t.h};
       const n = nearest(b, ball);
       let bad = placed.some(q => !apart(b, q)) ? 100 : 0;
       if (Math.hypot(n[0] - ball[0], n[1] - ball[1]) < ballR) bad += 100;
@@ -1931,6 +1980,7 @@ function drawAt(t, draw = true) {
   }
   if (!measure.hidden) updateMeasure(P);
   scrub.value = String(Math.round(t * FPS));
+  scrub.style.setProperty("--f", String(Number(scrub.value) / F_END));
   scrub.setAttribute("aria-valuetext", `t = ${t.toFixed(2)} s`);
 }
 
@@ -2300,6 +2350,13 @@ function renderMeasure() {
   at("who-dist").innerHTML = `The reference is the ${nq(h, false, "n", base.n)} drives where the nearest defender`
     + ` moves less than ${q(N.stay_ft, N.stay_ft.toFixed(0) + NB + "ft", HK, "NEAR_STAY_FT")} toward the handler within ${sec(F_NAMED)}: he stays home.`;
 
+  // The result over all drives, the section's big number (help_kinds_summary.csv, the contrast at
+  // the headline horizon); the live tile below it is one drive.
+  at("result-tile").innerHTML = `<div class="num">${ncq(F_END, "mean")}${NB}ft</div>`
+    + `<div class="ci">95% CI ${ncq(F_END, "ci_low")} to ${ncq(F_END, "ci_high")}${NB}ft, at ${sec(F_END)}</div>`
+    + `<p>After a near help that commits, the three other defenders move this much less toward the man he left`
+    + ` than when the nearest defender stays home, each net of how far they move toward the other attackers:`
+    + ` the mean over ${nq(h, true, "n", head.n)} drives against ${nq(h, false, "n", base.n)}.</p>`;
   const cn = N.contrast;
   at("claim").innerHTML = `Near help that commits minus the reference, mean (95% CI): `
     + cn.map(r => `${sec(r.frames)} ${ncq(r.frames, "mean")} (${ncq(r.frames, "ci_low")} to ${ncq(r.frames, "ci_high")})`).join("; ")
@@ -2392,7 +2449,8 @@ function updateMeasure(P) {
 
 /** Figure 1's bars at t: per other defender, toward the man left (black) and the placebo (grey). */
 function renderBars(P) {
-  const s = SCENES[st.scene], host = at("bars"), rowH = 50, top = 26, H = top + 3 * rowH + 34;
+  const rowH = window.matchMedia("(max-width: 899px)").matches ? 34 : 46;   // the phone's panel is short
+  const s = SCENES[st.scene], host = at("bars"), top = 26, H = top + 3 * rowH + 34;
   const {svg, w} = fit(host, H);
   const left = 26, right = w - 100, span = s.span;
   const x = v => left + (v + span) / (2 * span) * (right - left);
@@ -2729,8 +2787,8 @@ function renderStatic() {
   const ticksHost = at("ticks");
   scrub.max = String(F_END);
   ticksHost.innerHTML = [[F_NAMED, "the helper is named here", 18], [F_END, "the measure", 0]]
-    .map(([f, label, dy]) => `<i class="tick" style="left:calc(${f / F_END} * (100% - 16px) + 8px)"></i>`
-      + `<span class="tick-label" style="left:calc(${f / F_END} * (100% - 16px) + 12px);top:${8 + dy}px">${sec(f)} · ${label}</span>`).join("");
+    .map(([f, label, dy]) => `<i class="tick" style="left:calc(${f / F_END} * (100% - var(--thumb)) + var(--thumb) / 2)"></i>`
+      + `<span class="tick-label" style="left:calc(${f / F_END} * (100% - var(--thumb)) + var(--thumb) / 2 + 4px);top:${8 + dy}px">${sec(f)} · ${label}</span>`).join("");
 
   at("wind-sub").innerHTML = `Context, over all ${lq("n_resolved", L.n_resolved)} drives. The whole`
     + ` defence sinks with a drive; the help is a step on top of that.`;
@@ -2822,18 +2880,31 @@ function renderStatic() {
     + ` licence and inlined in this file: the page makes no request. The players' body is Quaternius'`
     + ` Universal Animation Library mannequin, CC0, vendored in <code>vendor/players</code> with the script`
     + ` that trimmed it and inlined here too.</p>`
-    + `<h3>Built</h3><p>${esc(D.built)}` + (rec ? `, on top of <code>${esc(rec.sha)}</code> ${esc(rec.subject)}` : "") + `.</p>`
+    + `<h3>Built</h3><p>${esc(D.built)}` + (rec ? `, on top of commit <code>${esc(rec.sha)}</code>: “${esc(rec.subject)}”` : "") + `.</p>`
     + `<h3>Data</h3><p>Tracking: SkillCorner's open ACB basketball data,`
     + ` <a href="https://github.com/SkillCorner/opendata-basketball">github.com/SkillCorner/opendata-basketball</a>.</p>`;
 }
 
 /* ------------------------------------------------------------------ sizing */
+/* The stage's size, the band over its top (the title, and on the desktop the controls beside it)
+   and the plan view's free region: under the band and the phone's bars panel, or left of the
+   desktop's right column and 16 px clear of it. The caption sits in the title card on the
+   desktop and in the controls bar on the phone. Pixels. */
 function sizeStage() {
-  if (!GL) return;
+  const square = window.matchMedia("(max-width: 899px)").matches, cap = at("stage-caption");
+  const home = square ? nextBtn.parentNode : at("top");
+  if (cap.parentNode !== home) home.appendChild(cap);
   const box = at("stage"), w = Math.floor(box.clientWidth), h = Math.floor(box.clientHeight);
-  const square = window.matchMedia("(max-width: 899px)").matches;
-  if (w === size.w && h === size.h && square === size.square) return false;
-  Object.assign(size, {w, h, square});
+  const y0 = box.getBoundingClientRect().top, drive = at("drive");
+  const band = Math.ceil(Math.max(at("top").getBoundingClientRect().bottom,
+                                  square ? 0 : at("controls").getBoundingClientRect().bottom) - y0);
+  drive.style.setProperty("--band", band + "px");
+  drive.classList.toggle("flat", !GL);
+  if (!GL) return false;
+  if (w === size.w && h === size.h && square === size.square && band === size.band) return false;
+  const aside = parseFloat(getComputedStyle(drive).getPropertyValue(square ? "--panel-h" : "--side"));
+  const region = square ? {x0: 0, x1: w, y0: band + aside, y1: h} : {x0: 0, x1: w - aside - 16, y0: band, y1: h};
+  Object.assign(size, {w, h, square, band, region});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
   return true;

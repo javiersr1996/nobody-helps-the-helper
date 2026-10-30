@@ -276,8 +276,27 @@ frame by frame with no clock:
 | `T` | 1.52 | `headline_frame / fps`, read from the JSON, not typed |
 
 The canvas: desktop 4:3, at most 760 px wide; phone (under 900 px) 1:1 at the full content
-width. The aspect never changes within a view or during the flight, so the flight needs no
-re-fit. Rendering is on demand (a `requestAnimationFrame` loop only while playing or flying),
+width. **[SUPERSEDED 2026-10-30, B4c, the owner's fixes 1-6 of the design audit: see the block
+below.]** The aspect never changes within a view or during the flight, so the flight needs no
+re-fit.
+
+**B4c (2026-10-30): the first screen.** The stage is the first thing on the page and full-bleed:
+on the phone `max(360px, 100svh - 156px)` tall (688 px at 390x844) with a dark controls bar
+under it (Play and the camera buttons on the first screen); on the desktop the whole viewport
+(1440x900). The title (`#top`: eyebrow on the desktop only, the h1 on one line, the subtitle, and
+on the desktop the caption) lies over the canvas's top band, and on the desktop the controls are a
+card over its top right (`--side`, 384 px). The page measures that band (`--band`) and the camera
+fit treats it as outside the frame (the story players, the ball and the hoop stay the margin below
+it; the bottom rule of 2.3 is unchanged), and the tags stay out of it. The bars of 4.1 move into
+`#panel`, inside `#measure` (so still hidden outside plan), over the stage: under the title band on
+the phone (`--panel-h`, 222 px), in the right column under the controls on the desktop. The plan
+view frames the crop in the free region (under band and panel; left of the column, 16 px clear),
+with its middle as near the canvas's as that region allows, so the plan camera's centre may sit
+off the hoop's axis and the rise slides to it. Bottom overlays were ruled out: the 10 % rule of
+2.3 puts the lowest story point near the canvas's bottom edge. Under 4.2, a result tile carries
+the big number, the 1.5 s contrast of `help_kinds_summary.csv` with its CI; the live tile is
+secondary (20 px). Every target is at least 44 px (the scrubber's thumb is 44 px; the ticks
+follow it). The footer's commit hash is set apart from its subject. Rendering is on demand (a `requestAnimationFrame` loop only while playing or flying),
 and a hidden tab stops the clock, not the clip (the old page's rule).
 
 **Start-up and frame time (B4b-2).** B4b's page drew its first frame 1.4 to 3.2 s after
@@ -333,7 +352,8 @@ measured occupancy).
 ### 4.1 The drive, measured: the three others beside their placebo
 
 The stage of section 2 and its `#measure` panel, side by side at or above 900 px, stacked
-under 900 px. This section is figure 1 live.
+under 900 px **[SUPERSEDED 2026-10-30 by B4c, 2.6: the bars over the stage, the text below]**.
+This section is figure 1 live.
 
 - **Heading:** "Does anyone else move toward the man the helper left?" (figure 1's title;
   figure 2 and section 4.2 answer it).
@@ -661,6 +681,16 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
   in the colour of the anti-aliased edge pixels (530 of them, alpha identical) with nothing
   drawn in between; the check takes one read first and discards it, then compares two reads
   0.7 s apart byte for byte.
+- **The first screen (B4c, 2026-10-30)**, replacing the four rows of the old layout (phone 1:1,
+  desktop 4:3 at most 760 px, `#measure` under or beside the canvas): at 390 px the stage at the
+  top, full width, at least 60 % of the height, the title one line, Play on screen under it, the
+  drawn note below the fold; at 1440 px the stage full-bleed and viewport-high with the title and
+  the controls over it, apart and uncut; at both, in plan, the bars on screen at scroll 0 with
+  the bars' panel and the overlays covering no player's track (frames 0..38, all scenes) and no
+  tag, the same after the natural run's landing (scene 0's tokens), the overlays covering no story
+  player, ball, hoop or tag in broadcast on frames 0..38, every visible target at least 44 px, a
+  press 20 px either side of the scrubber thumb's centre landing on it, and the 1.5 s contrast the
+  largest number in `#measure`, printed as the CSV has it.
 - **Mutations (lesson 4), B5's three:** a typed number in the template, a broken `seek`, a
   perspective camera left on in `plan`. The storyboard adds a fourth worth one run: a trail
   drawn in `broadcast` (the pixel scan must catch it).
@@ -681,6 +711,8 @@ the flight a cut; every injected number equals the CSV value it names; 390 and 1
   under the controls, bars full width; the wind canvas full width with the field grid's
   aspect; no horizontal scroll, body text 16 px. **1440 px:** canvas 760 px wide at 4:3 with
   the `#measure` panels beside it; everything else in one column of at most 66 ch.
+  **[SUPERSEDED 2026-10-30 by B4c, section 2.6: the stage full-bleed at both widths, title and
+  bars over it, the text below in one column of at most 66 ch.]**
 - **No WebGL:** the stage shows one sentence naming the finding and pointing to the README's
   figures; `#measure` and everything below (4.2's result, the wind on canvas 2D, the limits)
   still work, because none of it needs the GPU. B5 fails loudly if WebGL is not live in the

@@ -1162,6 +1162,7 @@ def check_camera(D: Data, browser, target: str) -> None:
 def check_framing(D: Data, browser, target: str, width: int) -> None:
     ctx, pg, _ = open_page(browser, target, width=width, height=900 if width > 600 else 844)
     out = []
+    covered, tags_under, frames_seen = [], 0, 0
     for i in range(SCENES_N):
         go_broadcast(pg)
         while state(pg)["scene"] != i:
@@ -1169,6 +1170,12 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         pg.evaluate("wind.pause()")
         cam = pg.evaluate("wind.camera()")
         W, H = cam["width"], cam["height"]
+        # the title band and the controls where they lie over the canvas (2026-10-30), in canvas pixels
+        over = [k for k in pg.evaluate(
+            """() => { const c = document.getElementById('court').getBoundingClientRect();
+                return [...document.querySelectorAll('.top, .controls')].map(e => { const b = e.getBoundingClientRect();
+                  return [b.left - c.left, b.top - c.top, b.right - c.left, b.bottom - c.top]; }); }""")
+            if k[2] > 0 and k[0] < W and k[3] > 0 and k[1] < H]
         worst = 1e9
         outside = 0
         room = 0.0
@@ -1183,10 +1190,19 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
             pts = [[float(xy[k][0]), float(xy[k][1]), z] for k in story for z in (0.0, HEAD_FT)]
             b = D.ball(i, f)
             pts += [[float(b[0]), float(b[1]), max(float(b[2]), 0.0)], [D.hoop_x, 0.0, 0.0], [D.hoop_x, 0.0, RIM_FT]]
+            frames_seen += 1
             for px, py in pg.evaluate(f"(ps) => ps.map(p => ({PROJ_JS})(p))", pts):
                 if not (0 <= px <= W and 0 <= py <= H):
                     outside += 1
                 worst = min(worst, px, W - px, py, H - py)
+                if any(k[0] <= px <= k[2] and k[1] <= py <= k[3] for k in over):
+                    covered.append(f"s{i} f{f}")
+            for t in pg.evaluate(
+                """() => { const c = document.getElementById('court').getBoundingClientRect();
+                    return [...document.querySelectorAll('#tags .tag')].map(e => { const b = e.getBoundingClientRect();
+                      return [b.left - c.left, b.top - c.top, b.right - c.left, b.bottom - c.top]; }); }"""):
+                tags_under += any(min(t[2], k[2]) - max(t[0], k[0]) > 1 and min(t[3], k[3]) - max(t[1], k[1]) > 1
+                                  for k in over)
             # B4b-3 (2.3): the share of the canvas below the lowest of the six's tracked feet, the
             # hoop's base and the ball (drawn at its centre, no lower than its radius)
             low = [[float(xy[k][0]), float(xy[k][1]), 0.0] for k in story]
@@ -1212,6 +1228,12 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         all(o[1] == 0 and o[3] and o[4] <= 0.10 for o in out if len(o) == 5)
         and all(o[2] for o in out if len(o) == 3),
         str(out),
+    )
+    R.check(
+        f"overlays at {width}px: the title band and the controls over the canvas cover none of the six story"
+        " players (feet and heads), the ball, the hoop or a tag on frames 0..38 of all scenes in broadcast",
+        frames_seen == SCENES_N * (D.headline + 1) and not covered and tags_under == 0,
+        f"{frames_seen} frames; points under an overlay {len(covered)} {covered[:4]}; tags under one {tags_under}",
     )
     ctx.close()
 
@@ -1471,24 +1493,78 @@ def check_numbers(D: Data, browser, target: str) -> None:
     ctx.close()
 
 
+TARGET_PX = 44  # the owner's touch-target floor (2026-10-30, fix 5)
+
+# The layout of one state at scroll 0. Overlays and the bars' panel are found by class and id, so
+# the same read runs on a page that has none of them (they come back null).
+LAYOUT_JS = """() => { const de = document.documentElement, b = document.body;
+  const box = (e) => e ? e.getBoundingClientRect().toJSON() : null;
+  const r = (id) => box(document.getElementById(id));
+  const small = [...document.querySelectorAll('main p, main li, p, li, summary')]
+    .filter(e => e.textContent.trim().length > 0 && !e.closest('svg') && !e.closest('canvas') && __vis(e))
+    .map(e => [parseFloat(getComputedStyle(e).fontSize), e.id || e.tagName, e.textContent.trim().slice(0, 30), e.textContent.trim().length])
+    .filter(x => x[0] < (x[3] >= 60 ? 16 : 12));
+  const targets = [...document.querySelectorAll('a, button, input, summary, select, [role=button]')].filter(__vis)
+    .map(e => { const q = e.getBoundingClientRect();
+      return [e.id || e.tagName.toLowerCase() + ':' + e.textContent.trim().slice(0, 20), +q.width.toFixed(1), +q.height.toFixed(1)]; });
+  const h1 = document.querySelector('h1'), bars = document.querySelector('#bars svg');
+  const overlays = [...document.querySelectorAll('.top, .controls')].map(box);
+  return {iw: innerWidth, ih: innerHeight, sw: Math.max(de.scrollWidth, b.scrollWidth), body: parseFloat(getComputedStyle(b).fontSize),
+          court: r('court'), measure: r('measure'), small: small,
+          controls: ['play', 'view-broadcast', 'view-plan', 'next', 'scrub'].map(r), targets: targets,
+          top: box(document.querySelector('.top')), ctrl: box(document.querySelector('.controls')),
+          play: r('play'), drawn: r('drawn'), panel: r('panel'), overlays: overlays,
+          bars: box(bars), bars_vis: __vis(document.getElementById('bars')),
+          fade: parseFloat(getComputedStyle(document.getElementById('measure')).opacity),
+          h1: {h: h1.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(h1).lineHeight),
+               sw: h1.scrollWidth, cw: h1.clientWidth},
+          tags: [...document.querySelectorAll('#tags .tag')].map(box)}; }"""
+
+
+def inside(a: dict, b: dict, tol: float = 0.5) -> bool:
+    """Box a lies within box b (getBoundingClientRect dicts)."""
+    return (a["left"] >= b["left"] - tol and a["right"] <= b["right"] + tol
+            and a["top"] >= b["top"] - tol and a["bottom"] <= b["bottom"] + tol)
+
+
+def meets(a: dict, b: dict) -> bool:
+    """Boxes a and b overlap by more than a pixel each way."""
+    return (min(a["right"], b["right"]) - max(a["left"], b["left"]) > 1
+            and min(a["bottom"], b["bottom"]) - max(a["top"], b["top"]) > 1)
+
+
+def plan_clear(pg, m: dict) -> tuple[bool, str]:
+    """Fix 3: in plan, at scroll 0, the bars are on screen and shown, the ten tokens (projected
+    here through camera() from state()) are on the canvas and on screen, and neither the bars'
+    panel nor the overlays over the canvas cover a token or a tag."""
+    view = {"left": 0, "top": 0, "right": m["iw"], "bottom": m["ih"]}
+    players = state(pg)["positions"]["players"]
+    c = m["court"]
+    toks = [(c["left"] + x, c["top"] + y) for x, y in
+            pg.evaluate(f"(ps) => ps.map(p => ({PROJ_JS})(p))", [[x, y, 0.0] for x, y in players])]
+    covers = [k for k in [m["panel"], *m["overlays"]] if k and meets(k, c)]
+    on = [p for p in toks if c["left"] <= p[0] <= c["right"] and c["top"] <= p[1] <= c["bottom"]
+          and 0 <= p[0] <= m["iw"] and 0 <= p[1] <= m["ih"]]
+    hidden = [p for p in toks for k in covers
+              if k["left"] - 6 <= p[0] <= k["right"] + 6 and k["top"] - 6 <= p[1] <= k["bottom"] + 6]
+    tag_hit = sum(meets(t, k) for t in m["tags"] for k in covers)
+    ok = (m["bars"] is not None and inside(m["bars"], view) and m["bars_vis"] and m["fade"] >= 0.999
+          and len(on) == 10 and not hidden and tag_hit == 0)
+    b = m["bars"]
+    return ok, (f"bars {b['left']:.0f}..{b['right']:.0f} x {b['top']:.0f}..{b['bottom']:.0f} of {m['iw']}x{m['ih']}"
+                if b else "no bars") + (f", opacity {m['fade']}; tokens on screen {len(on)}/10, under the panel or band"
+                                        f" {len(hidden)}, tags under them {tag_hit}")
+
+
 @guarded
 def check_layout(D: Data, browser, target: str, width: int) -> None:
     height = 844 if width < 600 else 900
     ctx, pg, _ = open_page(browser, target, width=width, height=height)
     for view in ("broadcast", "plan"):
         (go_broadcast if view == "broadcast" else go_plan)(pg)
+        pg.evaluate("window.scrollTo(0, 0)")
         pg.wait_for_timeout(500)
-        m = pg.evaluate(
-            """() => { const de = document.documentElement, b = document.body;
-              const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON();
-              const small = [...document.querySelectorAll('main p, main li, p, li, summary')]
-                .filter(e => e.textContent.trim().length > 0 && !e.closest('svg') && !e.closest('canvas') && __vis(e))
-                .map(e => [parseFloat(getComputedStyle(e).fontSize), e.id || e.tagName, e.textContent.trim().slice(0, 30), e.textContent.trim().length])
-                .filter(x => x[0] < (x[3] >= 60 ? 16 : 12));
-              return {iw: innerWidth, sw: Math.max(de.scrollWidth, b.scrollWidth), body: parseFloat(getComputedStyle(b).fontSize),
-                      court: r('court'), measure: r('measure'), small: small,
-                      controls: ['play', 'view-broadcast', 'view-plan', 'next', 'scrub'].map(r)}; }"""
-        )
+        m = pg.evaluate(LAYOUT_JS)
         tag = f"{width}px {view}"
         R.check(
             f"{tag}: no horizontal scroll",
@@ -1509,36 +1585,141 @@ def check_layout(D: Data, browser, target: str, width: int) -> None:
         )
         ctrl_ok = all(r["left"] >= 0 and r["right"] <= m["iw"] + 0.01 for r in m["controls"])
         R.check(f"{tag}: controls inside the viewport", ctrl_ok)
-        if view == "broadcast":
-            aspect = c["width"] / c["height"]
-            if width < 900:
-                R.check(
-                    f"{tag}: phone canvas is 1:1 at the content width",
-                    abs(aspect - 1) < 0.02 and c["width"] <= width - 20,
-                    f"{c['width']:.0f}x{c['height']:.0f}",
-                )
-            else:
-                R.check(
-                    f"{tag}: desktop canvas is 4:3, at most 760 px wide",
-                    abs(aspect - 4 / 3) < 0.02 and c["width"] <= 760.5,
-                    f"{c['width']:.0f}x{c['height']:.0f}",
-                )
+        small_t = [t for t in m["targets"] if t[1] < TARGET_PX or t[2] < TARGET_PX]
+        R.check(
+            f"{tag}: touch targets: every visible button, link, summary and the scrubber at least"
+            f" {TARGET_PX} x {TARGET_PX} px",
+            bool(m["targets"]) and not small_t,
+            f"{len(m['targets'])} targets; under: {small_t[:5]}",
+        )
+        h1 = m["h1"]
+        one_line = h1["h"] <= 1.5 * h1["lh"] and h1["sw"] <= h1["cw"]
+        if view == "broadcast" and width < 900:
+            # fix 1 (the owner, 2026-10-30): the stage first and as large as the screen allows,
+            # the title one line, Play on the first screen, the drawn note below the fold
+            p, d = m["play"], m["drawn"]
+            R.check(
+                f"{tag}: phone first screen: the stage at the top, full width, at least 60 % of the"
+                " height; the title one line; Play on screen under the stage; the drawn note below the fold",
+                c["top"] <= 1 and c["left"] <= 0.5 and c["right"] >= m["iw"] - 0.5
+                and c["height"] >= 0.6 * m["ih"] and one_line
+                and p["bottom"] <= m["ih"] and p["top"] >= c["bottom"] - 1 and d["top"] >= m["ih"],
+                f"canvas {c['left']:.0f}..{c['right']:.0f} x {c['top']:.0f}..{c['bottom']:.0f} of"
+                f" {m['iw']}x{m['ih']}; title {h1['h']:.0f} px for a {h1['lh']:.0f} px line,"
+                f" {h1['sw']}/{h1['cw']} wide; Play {p['top']:.0f}..{p['bottom']:.0f}; drawn note at {d['top']:.0f}",
+            )
+        elif view == "broadcast":
+            # fix 2: the stage full-bleed and viewport-high, the title and the controls over the
+            # canvas, apart, nothing of either cut off
+            full = {"left": 0, "top": 0, "right": m["iw"], "bottom": m["ih"]}
+            t, k = m["top"], m["ctrl"]
+            R.check(
+                f"{tag}: desktop first screen: the stage full-bleed and viewport-high; the title and"
+                " the controls over the canvas, apart, nothing cut off; the title one line",
+                inside(full, c, 1) and inside(c, full, 1) and inside(t, c) and inside(k, c)
+                and not meets(t, k) and one_line,
+                f"canvas {c['left']:.0f}..{c['right']:.0f} x {c['top']:.0f}..{c['bottom']:.0f} of"
+                f" {m['iw']}x{m['ih']}; title {t['left']:.0f}..{t['right']:.0f} x {t['top']:.0f}..{t['bottom']:.0f};"
+                f" controls {k['left']:.0f}..{k['right']:.0f} x {k['top']:.0f}..{k['bottom']:.0f}",
+            )
         else:
-            me = m["measure"]
-            if width < 900:
-                R.check(
-                    f"{tag}: #measure stacked under the canvas",
-                    me["top"] >= c["bottom"] - 1
-                    and me["left"] >= 0
-                    and me["right"] <= m["iw"] + 0.01,
-                    f"canvas bottom {c['bottom']:.0f}, measure top {me['top']:.0f}",
-                )
-            else:
-                R.check(
-                    f"{tag}: #measure beside the canvas",
-                    me["left"] >= c["right"] - 1 and me["right"] <= m["iw"] + 0.01,
-                    f"canvas right {c['right']:.0f}, measure left {me['left']:.0f}",
-                )
+            ok, why = plan_clear(pg, m)
+            # every scene, at T: no player's track (frames 0..38, all ten) and no tag under the
+            # bars' panel or an overlay (the tokens of one scene at one time can miss it by luck)
+            c = m["court"]
+            covers = [k for k in [m["panel"], *m["overlays"]] if k and meets(k, c)]
+            under, tag_hit = [], 0
+            for i in range(SCENES_N):
+                while state(pg)["scene"] != i:
+                    pg.evaluate("wind.next()")
+                settle(pg)
+                pts = [[float(x), float(y), 0.0] for f in range(D.headline + 1) for x, y in D.xy(i, f)]
+                for px, py in pg.evaluate(f"(ps) => ps.map(p => ({PROJ_JS})(p))", pts):
+                    vx, vy = c["left"] + px, c["top"] + py
+                    if any(k["left"] - 6 <= vx <= k["right"] + 6 and k["top"] - 6 <= vy <= k["bottom"] + 6 for k in covers):
+                        under.append(i)
+                tag_hit += sum(meets(t, k) for t in pg.evaluate(LAYOUT_JS)["tags"] for k in covers)
+            R.check(
+                f"{tag}: the bars on screen with the court at scroll 0, shown; the bars' panel and the"
+                " overlays cover no player's track (frames 0..38, all scenes) and no tag",
+                ok and not under and tag_hit == 0,
+                f"{why}; track points under them {len(under)} (scenes {sorted(set(under))}), tags {tag_hit}",
+            )
+            check_hierarchy(D, pg, tag)
+    check_thumb(D, pg, width)
+    ctx.close()
+
+
+def check_hierarchy(D: Data, pg, tag: str) -> None:
+    """Fix 4: the largest number in #measure is the result over all drives, the 1.5 s contrast of
+    `help_kinds_summary.csv`, and it is that cell's value as printed."""
+    row = f"measure=contrast;kind=near_committed;variant=primary;horizon={D.headline / D.fps:g}"
+    got = pg.evaluate(
+        """(row) => { const m = document.getElementById('measure'), fs = e => parseFloat(getComputedStyle(e).fontSize);
+          const own = e => [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('');
+          const tgt = [...m.querySelectorAll('[data-src="help_kinds_summary.csv"][data-col="mean"]')]
+            .filter(e => e.dataset.row === row && __vis(e)).sort((a, b) => fs(b) - fs(a))[0];
+          let next = {fs: 0, what: null};
+          for (const e of m.querySelectorAll('*')) {
+            if (e === tgt || (tgt && e.contains(tgt)) || !__vis(e) || !/[0-9]/.test(own(e))) continue;
+            if (fs(e) > next.fs) next = {fs: fs(e), what: (e.id || e.tagName) + ': ' + e.textContent.trim().slice(0, 24)};
+          }
+          return {fs: tgt ? fs(tgt) : 0, value: tgt ? +tgt.dataset.value : null, text: tgt ? tgt.textContent : null, next}; }""",
+        row,
+    )
+    want = source_value(D, "help_kinds_summary.csv", row, "mean")
+    shown = shown_matches(got["text"], want)[0] if got["text"] else False
+    R.check(
+        f"{tag}: results: the largest number in #measure is the result over all drives (the 1.5 s contrast"
+        " mean of help_kinds_summary.csv), printed as the file has it",
+        got["value"] is not None and abs(got["value"] - want) < 1e-9 and shown and got["fs"] > got["next"]["fs"],
+        (f"{got['text']!r} at {got['fs']} px; the next largest {got['next']['fs']} px ({got['next']['what']});"
+         f" file {want:.4f}").replace("−", "-").encode("ascii", "replace").decode(),
+    )
+
+
+def check_thumb(D: Data, pg, width: int) -> None:
+    """Fix 5, the scrubber's thumb: at the clip's middle frame the thumb is centred on the input
+    whatever its width, so a press 20 px either side of the input's middle lands on a thumb at
+    least 41 px wide (the value stays) and on the bare track of a narrower one (it jumps)."""
+    go_broadcast(pg)
+    mid = D.headline // 2
+    pg.evaluate(f"wind.pause(); wind.seek({mid} / {D.fps})")
+    pg.locator("#scrub").scroll_into_view_if_needed()
+    settle(pg)
+    b = pg.evaluate("document.getElementById('scrub').getBoundingClientRect().toJSON()")
+    cx, cy, seen = b["left"] + b["width"] / 2, b["top"] + b["height"] / 2, []
+    for dx in (0, -20, 20):
+        pg.evaluate(f"wind.seek({mid} / {D.fps})")
+        pg.mouse.click(cx + dx, cy)
+        settle(pg)
+        seen.append((dx, int(pg.evaluate("document.getElementById('scrub').value"))))
+    R.check(
+        f"{width}px: the scrubber's thumb takes a press 20 px either side of its centre (value stays at frame {mid})",
+        all(v == mid for _, v in seen) and mid * 2 == D.headline,
+        f"input {b['width']:.0f}x{b['height']:.0f}; presses (offset, value): {seen}",
+    )
+
+
+@guarded
+def check_landing(D: Data, browser, target: str, width: int) -> None:
+    """Fix 3 on the transition itself: the natural run from load, with no click, lands in plan with
+    the bars on screen and faded in beside or under the court, covering no token."""
+    if not TIMED["on"]:
+        R.check(f"{width}px natural run: the bars on screen on landing", False, SOFTWARE)
+        return
+    ctx, pg, _ = open_page(browser, target, width=width, height=844 if width < 600 else 900)
+    wait_view(pg, "plan", 15)
+    pg.wait_for_function("parseFloat(getComputedStyle(document.getElementById('measure')).opacity) >= 1", timeout=5000)
+    settle(pg)
+    m = pg.evaluate(LAYOUT_JS)
+    ok, why = plan_clear(pg, m)
+    R.check(
+        f"{width}px natural run: on landing in plan the bars are on screen with the court, faded in;"
+        " the bars' panel and the overlays cover no token and no tag",
+        ok and pg.evaluate("scrollY") == 0,
+        why,
+    )
     ctx.close()
 
 
@@ -1589,6 +1770,7 @@ def main(argv: list[str]) -> int:
             check_framing(D, browser, target, w)
             check_tags(D, browser, target, w)
             check_layout(D, browser, target, w)
+            check_landing(D, browser, target, w)
         browser.close()
     n_fail = sum(1 for r in R.rows if not r[0])
     print(f"\n{len(R.rows) - n_fail} passed, {n_fail} failed, {time.time() - t0:.0f} s")
