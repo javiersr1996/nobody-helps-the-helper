@@ -461,7 +461,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
 #### Phase D, 7 Dec to 13 Dec: the video
-- [ ] D1 (WRITTEN 2026-10-30: 158 spoken words, about 61 s at 2.6 words a second, the start base rates spoken in scene 2; waits for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
+- [ ] D1 (REWRITTEN 2026-10-30 to the near-committed scope: 151 words by `wc -w`, about 62 s spoken with its numbers; waits for the new drive (item 11a) and then for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
       the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
@@ -979,6 +979,20 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    contrast vs reference -0.63 ft, CI below zero): nobody covers the man it leaves, unlike
    what is expected behind long help. README, title, page and video script still say the
    pooled helper; rewrite them at the end with this scope (memoria 13 already says it).
+11. SCOPE REWRITE NOW (Javier, 2026-10-30, chose "ahora" over "al final"). Found first: none of
+   the page's four drives is a committed near help (`reports/help_kinds.csv`): scenes 0-2 have
+   helpers of class `other`, scene 3 a nearest helper who recovers; the hook's nearest defender
+   stunts. Done: the video script, rewritten to the scope (151 words by `wc -w`, per scene 21,
+   26, 17, 21, 38, 28; numbers from `help_kinds_summary.csv`, table in the script); Javier
+   reads it aloud after the new drive is in. In order, one at a time (they share the template,
+   B5 and the GPU):
+   a. Re-pick the four drives by the same rule among the 159 committed near helps (roles:
+      helper = the nearest, man left = his raw matchup), regenerate `wind_scenes.json`, figure
+      1 (percentile among the 159), the page; B5 on the real GPU. Javier sees the new hook on
+      his phone BEFORE it is pushed.
+   b. Figure 2 on committed near help against the near reference ("stays home").
+   c. Page text, README (`check_readme.py`), memoria; the script's numbers then grep in the
+      README. Push after Javier's look.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
