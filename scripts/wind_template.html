@@ -1524,7 +1524,8 @@ function shotOf(s) {
   // hoop's base below HOOP_LOW, and `top` is the highest shift the bottom rule allows
   const bounds = (pts, lx, D) => {
     let a = -SHIFT, b = SHIFT, c = -SHIFT_V, d = SHIFT_V, low = Infinity, hoop = 0;
-    pts.forEach(([x, y, z], i) => {
+    for (let i = 0, n = pts.length / 3; i < n; i++) {
+      const x = pts[3 * i], y = pts[3 * i + 1], z = pts[3 * i + 2];
       const dx = x - lx, dz = z - LOOK_Z, depth = dx * fx + dz * fz + D;
       const q = depth > 0 ? y / (A * depth) : Infinity, v = depth > 0 ? (dx * ux + dz * uz) / (t0 * depth) : Infinity;
       a = Math.max(a, -inner - q);
@@ -1533,30 +1534,34 @@ function shotOf(s) {
       d = Math.min(d, inner - v);
       if (i === 0) hoop = v;
       if (i < LOW) low = Math.min(low, v);
-    });
+    }
     d = Math.min(d, HOOP_LOW - hoop);
     return {a, b, c, d, top: Math.min(d, -BOTTOM - low)};
   };
-  // the least distance with room for both shifts (sideways fixed at sx if given), by bisection:
-  // the bounds only widen as the camera goes back
+  // whether a camera at distance D has room for both shifts (sideways fixed at sx if given)
+  const okAt = (pts, lx, sx, D) => {
+    const k = bounds(pts, lx, D);
+    return k.c <= k.d && (sx === undefined ? k.a <= k.b : k.a <= sx && sx <= k.b);
+  };
+  // the least distance with room for both shifts, by bisection: the bounds only widen as the
+  // camera goes back
   const fitAt = (pts, lx, sx) => {
-    const ok = D => {
-      const k = bounds(pts, lx, D);
-      return k.c <= k.d && (sx === undefined ? k.a <= k.b : k.a <= sx && sx <= k.b);
-    };
     let lo = 0, hi = 8;
-    while (!ok(hi)) { lo = hi; hi *= 2; }
-    for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
+    while (!okAt(pts, lx, sx, hi)) { lo = hi; hi *= 2; }
+    for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (okAt(pts, lx, sx, mid)) hi = mid; else lo = mid; }
     const k = bounds(pts, lx, hi);
     return {D: hi, sx: sx === undefined ? clamp(0, k.a, k.b) : sx};
   };
-  const frames = Array.from({length: F_END + 1}, (_, f) => pointsAt(f));
+  const frames = Array.from({length: F_END + 1}, (_, f) => Float64Array.from(pointsAt(f).flat()));
   const look = [], dist = [], shift = [];
   for (const pts of frames) {
     let best = null;
     // the closest camera, but a vertical shift costs SHIFT_COST of the distance per unit (NDC), so
     // the look-at point keeps the action low by itself where that costs little
     const tryAt = lx => {
+      // a cost is never below its distance: where the best cost so far has no room, this look-at
+      // point's least distance is above it and the point cannot win (the same pick, far fewer fits)
+      if (best && !okAt(pts, lx, undefined, best.cost)) return;
       const c = fitAt(pts, lx), k = bounds(pts, lx, c.D);
       c.cost = c.D * (1 + SHIFT_COST * Math.abs(Math.max(k.c, k.top)));
       if (!best || c.cost < best.cost) best = Object.assign(c, {lx});

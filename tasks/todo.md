@@ -931,6 +931,26 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    B5's framing rows (bottom room 6.0 %) guard the result. Not started: it changes the
    published page. These commits were left LOCAL (main ahead of origin): pushing publishes,
    so ask Javier first.
+   DONE 2026-10-30 (local commit, not pushed): `shotOf` cut with the SAME result, no tolerance
+   change. (a) A look-at point is skipped with one `bounds` call when the best cost so far has
+   no room at that distance (cost >= distance, so it cannot win); only a point that can win gets
+   its 22-halving fit. (b) `bounds` loops over a flat Float64Array instead of `forEach` with
+   destructuring. The 22 halvings stay, so no sub-pixel tolerance is needed. `shotOf` runs once
+   at start-up (one `s.shot` write, one scene, one size, at 1440x900 and 390x844): nothing
+   repeated to drop. Equivalence (scratchpad `equiv.py`, real GPU, old function taken from the
+   committed template and run beside the new): 4 scenes x 390x844 (square), 1440x900,
+   1920x1080 (wide), max |diff| of look, dist, shift, shiftY over 39 frames is exactly 0 in all
+   12; the same harness on a 6-halving variant reports dist off by up to 4.24 ft, shiftY by up
+   to 0.057 NDC, and fails it. `shotOf` alone, A B A B x4 blocks of 5 scenes-sets: 1440x900 old
+   median 127.9 ms/scene (97.1-173.9), new 22.5 (15.3-30.7); 390x844 old 111.1 (78.4-178.4),
+   new 23.2 (16.7-30.9). `startup_split.py` 12 rounds alternating: parser done old 528-1267 ms
+   (median 837), new 561-777 (684); first draw old 619-1363 (932), new 671-907 (813); first
+   paint old 658-1410 (977), new 719-972 (858); machine slower than in the earlier notes, so
+   compare old to new only. B5 on the new page, three runs: 184/184, 181/184, 184/184; the
+   failing run's cold loads were 0.80, 1.08, 1.52 s (first paint and playing rows), threshold
+   untouched; the slow cold load is still unexplained. ruff 0, pytest 341 passed. Memoria v0.9
+   (15.4, 17; PDF read back, 46 pages). `tasks/video_script_wind.md` was edited by someone else
+   and is not in this commit.
 7. Waiting for Javier: B7 (he opened the local page today; checklist given in chat: start-up,
    the drive and its tags, the rise, the controls, the tracked/drawn note), C5 (read the README
    on GitHub), D1 (read `tasks/video_script_wind.md` aloud once: it must land at 55-62 s).
