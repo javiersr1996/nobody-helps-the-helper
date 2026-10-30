@@ -22,7 +22,7 @@ const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
 const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.6";
+const VERSION = "0.7";
 const DATE = "30 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
@@ -67,6 +67,7 @@ const shSens = readCsv(path.join(REPORTS, "second_help_sensitivity.csv"));
 const shContrastSens = readCsv(path.join(REPORTS, "second_help_contrast_sensitivity.csv"));
 const shPass = readCsv(path.join(REPORTS, "second_help_pass.csv"));
 const shClose = readCsv(path.join(REPORTS, "second_help_closeouts.csv"));
+const hk = readCsv(path.join(REPORTS, "help_kinds_summary.csv"));
 
 const ok = table.filter((r) => r.status === "ok");
 const helped = ok.filter((r) => bool(r.has_helper));
@@ -309,9 +310,10 @@ const SECTIONS = [
   "8. Resultados (semana 1)", "9. Las dos figuras (semana 2)",
   "10. La reorientación: una sola entrada, el council y la segunda ayuda (28 de octubre de 2026)",
   "11. La segunda ayuda: una ausencia medida", "12. La esquina, con su tasa base (29 de octubre de 2026)",
-  "13. La página (29 y 30 de octubre de 2026)",
-  "14. El repositorio público y el README (30 de octubre de 2026)", "15. Plan y calendario",
-  "16. Pendientes y decisiones abiertas", "17. Registro de versiones de este documento",
+  "13. Ayuda cercana y ayuda larga (30 de octubre de 2026)",
+  "14. La página (29 y 30 de octubre de 2026)",
+  "15. El repositorio público y el README (30 de octubre de 2026)", "16. Plan y calendario",
+  "17. Pendientes y decisiones abiertas", "18. Registro de versiones de este documento",
 ];
 const toc = [
   h1("Índice"),
@@ -645,25 +647,119 @@ const sCorner = [
   bullet([bold("La figura 1 pasa a contexto descriptivo: "), run("adónde va la defensa en el primer segundo, con la esquina como ocupación y la cuota de ayudantes por encima del balón, cada una con su n. Revisado el mismo día: tras el cribado de 37 sobre 100 (sección 9.3), Javier aceptó sacar ese mapa del README y poner en su lugar una penetración elegida por regla que enseña la medida (sección 9.1); el contexto de esta sección pasa a dos frases del README.")]),
   bullet([bold("El ayudante conserva su definición. "), run("Redefinirlo, por ejemplo solo con el movimiento lateral, obligaría a rehacer la fase A a siete semanas del cierre; el matiz va al lado de la cifra.")]),
   h2("12.5 El mapa de viento, fuera del README"),
-  p("El mapa de viento ya no es una de las dos figuras del README; se queda aquí y en la página, como una sección en vista cenital (el plan lo ponía como gancho; desde el 29 de octubre el gancho es la penetración en 3D, sección 13). Esta es su versión redibujada del 29 de octubre, con la tasa por defensor en lugar de la densidad bruta de orígenes."),
+  p("El mapa de viento ya no es una de las dos figuras del README; se queda aquí y en la página, como una sección en vista cenital (el plan lo ponía como gancho; desde el 29 de octubre el gancho es la penetración en 3D, sección 14). Esta es su versión redibujada del 29 de octubre, con la tasa por defensor en lugar de la densidad bruta de orígenes."),
   ...windMap,
+];
+
+// Ayuda cercana y ayuda larga (sección 13), leída de reports/help_kinds_summary.csv, que escribe
+// scripts/help_kinds.py con scbasket.help_kinds. Las constantes son las del módulo.
+const PATH_FT = 6, LAST_MOVE_FT = 4, STAY_FT = 2, NEAR_STEP_FT = 2, NEAR_STAY_FT = 1, RECOVER_FT = 1;
+const PRE_SHA = execSync('git log --format=%h --grep="Pre-register the near/long help split" -n 1', { cwd: ROOT }).toString().trim();
+const hkn = (kind, variant) => num(hk.find((r) => r.measure === "count" && r.kind === kind && r.variant === variant).n);
+const HK = (measure, kind, variant, h) => hk.find((r) => r.measure === measure && r.kind === kind && r.variant === variant && Math.round(num(r.horizon) * 25) === h);
+const ni = (v) => String(Math.round(num(v)));
+const hkCi = (r) => `${sg(num(r.mean))} (${sg(num(r.ci_low))} a ${sg(num(r.ci_high))})`;
+const READING_ES = { ROTATION: "Rotación", ABSENCE: "Ausencia", INCONCLUSIVE: "No concluyente", "": "ninguna fijada" };
+const KIND_ROWS = [
+  ["LONG (el último), primaria", "long", "primary"],
+  ["LONG, radio de 5 ft", "long_path5", "sensitivity"],
+  ["LONG, radio de 8 ft", "long_path8", "sensitivity"],
+  ["LONG, superada según blowby", "long_blowby", "sensitivity"],
+  ["LONG, regla de la primera sonda", "long_move4", "sensitivity"],
+  ["CERCANA, finta", "near_stunt", "primary"],
+  ["CERCANA, comprometida", "near_committed", "primary"],
+  ["Publicados, todos", "pub_all", "published"],
+  ["Publicados, el último", "pub_last", "published"],
+  ["Publicados, el más cercano", "pub_nearest", "published"],
+  ["Publicados, otro", "pub_other", "published"],
+  ["Publicados, recuperó", "pub_recovered", "published"],
+  ["Publicados, comprometido", "pub_committed", "published"],
+];
+const refOf = (kind, variant) => (variant === "published" ? HK("paired_diff", "pub_unhelped", "published", HEADLINE) : HK("paired_diff", `${kind}_ref`, variant, HEADLINE));
+const LONG_C = HK("contrast", "long", "primary", HEADLINE);
+const COMM_C = HK("contrast", "near_committed", "primary", HEADLINE);
+const STUNT_C = HK("contrast", "near_stunt", "primary", HEADLINE);
+const PUBC_C = HK("contrast", "pub_committed", "published", HEADLINE);
+const LONG_SENS = ["long_path5", "long_path8", "long_blowby", "long_move4"].map((k) => HK("contrast", k, "sensitivity", HEADLINE));
+// Lo que la sección 13 afirma se comprueba al generar, no se supone.
+if (LONG_C.reading !== "INCONCLUSIVE" || num(LONG_C.n) >= 40) throw new Error("la lectura de LONG ya no es no concluyente: revisar la sección 13.6");
+if (!LONG_SENS.every((r) => r.reading === "INCONCLUSIVE")) throw new Error("alguna sensibilidad de LONG ya no es no concluyente: revisar la sección 13.6");
+if (COMM_C.reading !== "ABSENCE" || num(COMM_C.ci_high) >= 0) throw new Error("CERCANA comprometida ya no queda por debajo de cero: revisar la sección 13.6");
+if (PUBC_C.reading !== "ABSENCE" || !(num(PUBC_C.ci_low) <= 0 && num(PUBC_C.ci_high) >= 0)) throw new Error("los publicados comprometidos ya no contienen el cero: revisar la sección 13.6");
+if (STUNT_C.reading !== "") throw new Error("la finta no lleva lectura fijada");
+const nResolved = hkn("drives", "resolved");
+const nHelpers = hkn("drives", "published_helpers");
+
+const sKinds = [
+  h1("13. Ayuda cercana y ayuda larga (30 de octubre de 2026)", { pageBreakBefore: true }),
+  h2("13.1 La distinción y por qué importa"),
+  p("Javier, que es entrenador, separa dos ayudas que el ayudante publicado (sección 6) junta. La ayuda cercana: el defensor sin balón más próximo al balón se mueve hacia el jugador con balón; es una finta (stunt) si vuelve a su hombre y una ayuda comprometida si no vuelve. La ayuda larga: el jugador con balón supera a su defensor y el último defensor, el defensor sin balón más lejano del balón, salta al camino de la penetración para pararla; ahí la pregunta es quién rota al atacante del último."),
+  p(`El ayudante publicado es el defensor que no es el emparejado del balón y que más se mueve hacia donde está el balón 1,0 s después, con ${es(HELP_FT, 0)} pies o más. Mezcla las dos ayudas. De los ${nHelpers} ayudantes, ${pct(hkn("helper_class", "nearest") / nHelpers)} son el defensor más cercano al balón al arrancar, ${pct(hkn("helper_class", "last") / nHelpers)} el más lejano y ${pct(hkn("helper_class", "other") / nHelpers)} otro; y ${pct(hkn("helper_stance", "recovered") / (hkn("helper_stance", "recovered") + hkn("helper_stance", "committed")))} vuelve a su hombre a los 2,0 s. Eso importa para la tesis: tras una finta se espera que nadie rote al hombre dejado, porque el defensor vuelve, de modo que una ausencia de rotación medida sobre la mezcla no dice nada de la ayuda larga, que es donde un compañero tendría que rotar de verdad. Esta sección separa las dos y pregunta si la ausencia de la sección 11 sobrevive en cada una.`),
+  h2("13.2 Las definiciones"),
+  p(`Todas están en scbasket.help_kinds como constantes de módulo, a los 1,0, 1,5 y 2,0 s del fotograma de arranque (el titular es 1,5 s) y con la sensibilidad indicada. Como el resto del paquete, miden desplazamientos y distancias, no decisiones: "finta" y "comprometida" son condiciones geométricas.`),
+  bullet([bold("Defensores sin balón. "), run("Los cuatro que no son el emparejado del balón. El MÁS CERCANO y el ÚLTIMO son los que están más cerca y más lejos del balón al arrancar; el hombre de cada uno es el que le asigna la tabla matchups del proveedor al arrancar, sin sustituto (si falta, o es el propio jugador con balón, la penetración se descarta y se cuenta).")]),
+  bullet([bold("Superado. "), run("En algún fotograma de los primeros 1,5 s el jugador con balón está más cerca del aro que su defensor. Sensibilidad: la marca blowby del proveedor.")]),
+  bullet([bold("Ayuda larga (LONG). "), run(`Superado y, en algún fotograma de esos 1,5 s, el último está a ${es(PATH_FT, 0)} pies o menos del jugador con balón y más cerca del aro que él. Sensibilidades: radio de 5 y de 8 pies; superado según blowby; y la regla de la primera sonda (el último se mueve ${es(LAST_MOVE_FT, 0)} pies o más hacia el jugador con balón en 1,0 s), sin condición de camino. Referencia: no superado y el último se mueve menos de ${es(STAY_FT, 0)} pies (se queda en casa).`)]),
+  bullet([bold("Ayuda cercana. "), run(`El más cercano se mueve ${es(NEAR_STEP_FT, 0)} pies o más hacia el jugador con balón (la proyección de la ayuda de la sección 6) en 1,0 s. FINTA si a los 2,0 s su distancia a su hombre es la de arranque más ${es(RECOVER_FT, 0)} pie o menos; COMPROMETIDA si no; sin definir (contada, excluida) si falta la ventana de 2,0 s o su hombre. Referencia: se mueve menos de ${es(NEAR_STAY_FT, 0)} pie.`)]),
+  bullet([bold("La medida. "), run("Para cada clase, con su ayudante H (el último o el más cercano) y su hombre M: la misma diferencia emparejada de la sección 11 (los otros tres defensores, que no son el emparejado del balón ni H, hacia M menos el placebo), quién está más cerca de M al horizonte, y el contraste de la clase menos su referencia con el mismo bootstrap (unidad, remuestreos y semilla de scripts/second_help.py). Los ayudantes publicados se parten por clase (último, más cercano, otro) y por recuperó o comprometido, cada uno contra la serie publicada sin ayudante.")]),
+  h2("13.3 La primera definición de la sonda y por qué se cambió"),
+  p(`Una sonda previa, sin código en el paquete (sus cifras están en tasks/todo.md, tarea A8), definió la ayuda larga del último como superado y el último se mueve ${es(LAST_MOVE_FT, 0)} pies o más hacia el jugador con balón en 1,0 s. Dio entre 14 y 33 penetraciones, no concluyente, y en ellas el último seguía siendo el defensor más cercano a su propio hombre a los 1,5 s en el 75 a 86 %: la regla recogía hundimientos parciales y no saltos al camino de la penetración. Por eso la definición primaria pide estar en el camino (a ${es(PATH_FT, 0)} pies y por delante del jugador con balón) y la regla antigua queda como sensibilidad. La sonda mostró también que la referencia (el último se queda en casa) no está centrada en cero, sino en torno a ${sg(num(refOf("long", "primary").mean))} a ${sg(num(refOf("long_blowby", "sensitivity").mean))} ft a 1,5 s en esta ejecución, de modo que la lectura es siempre contra la referencia y no contra el cero.`),
+  h2("13.4 Las lecturas, fijadas antes de correr"),
+  p(`Se escribieron y se confirmaron en el commit ${PRE_SHA} antes de tocar los datos, y se aplican tal cual a 1,5 s.`),
+  bullet([bold("LONG. "), run("ROTACIÓN si el contraste LONG menos referencia tiene el intervalo por encima de cero (los demás se mueven hacia el hombre del último más que cuando él se queda en casa): entonces la tesis se estrecha a la ayuda cercana. NADIE AYUDA AL ÚLTIMO si el intervalo contiene el cero o queda por debajo, con 40 penetraciones LONG o más. NO CONCLUYENTE si hay menos de 40, o si el intervalo se extiende más de 1 ft a los dos lados del cero.")]),
+  bullet([bold("CERCANA COMPROMETIDA. "), run("La ausencia se sostiene si el contraste COMPROMETIDA menos la referencia cercana tiene el intervalo con el cero o por debajo; ROTACIÓN si queda por encima; mismas reglas de 40 y de anchura.")]),
+  bullet([bold("Ayudantes publicados comprometidos "), run("contra la serie publicada sin ayudante, a 1,5 s: la misma lectura de tres vías.")]),
+  h2("13.5 Qué sale"),
+  p(`De las ${nResolved} penetraciones resueltas, el último tiene hombre y ventana de 1,5 s en ${hkn("last_status", "ok")} (se descartan ${hkn("last_status", "no_window")} por ventana y ${hkn("last_status", "no_man")} por falta de hombre) y el más cercano, con la ventana de 2,0 s, en ${hkn("near_status", "ok")} (${hkn("near_status", "no_man")} sin hombre y ${hkn("near_status", "no_window")} sin ventana). Superado, según la geometría, está el jugador con balón en ${hkn("flag", "beaten_geo")} y según blowby en ${hkn("flag", "blowby")}. Hay ${hkn("flag", "long")} penetraciones LONG primarias (${hkn("flag", "long_path5")} con radio de 5 ft, ${hkn("flag", "long_path8")} con 8 ft, ${hkn("flag", "long_blowby")} con blowby, ${hkn("flag", "long_move4")} con la regla de la sonda) frente a ${hkn("flag", "long_ref")} de referencia; y ${hkn("flag", "near_stunt")} fintas, ${hkn("flag", "near_committed")} comprometidas y ${hkn("flag", "near_ref")} de referencia. Entre los ${nHelpers} ayudantes publicados: ${hkn("helper_class", "nearest")} el más cercano, ${hkn("helper_class", "last")} el último y ${hkn("helper_class", "other")} otro; ${hkn("helper_stance", "recovered")} recuperaron, ${hkn("helper_stance", "committed")} quedaron comprometidos y ${hkn("helper_stance", "undefined")} sin definir.`),
+  grid(["Clase", "n", "Media, ft (IC 95 %)", "n ref.", "Referencia, ft (IC 95 %)", "Clase menos referencia, ft (IC 95 %)", "Lectura"],
+    KIND_ROWS.map(([label, kind, variant]) => {
+      const m = HK("paired_diff", kind, variant, HEADLINE);
+      const c = HK("contrast", kind, variant, HEADLINE);
+      const ref = refOf(kind, variant);
+      return [label, ni(m.n), hkCi(m), ni(c.n_ref), hkCi(ref), hkCi(c), READING_ES[c.reading || ""]];
+    }),
+    [1600, 600, 1450, 600, 1450, 1700, 1626], { align: ["l", "r", "r", "r", "r", "r", "l"] }),
+  source("reports/help_kinds_summary.csv (measure paired_diff y contrast, a 1,52 s; mean, ci_low, ci_high, n, n_ref, reading). La media es la de la diferencia emparejada por penetración con el intervalo por bootstrap sobre penetraciones; en los publicados, la referencia es la serie sin ayudante; la finta no tiene lectura fijada."),
+  p(`La referencia de la ayuda larga ronda ${sg(num(refOf("long", "primary").mean))} ft y la de la cercana ${sg(num(refOf("near_stunt", "primary").mean))} ft; la serie publicada sin ayudante, ${sg(num(refOf("pub_all", "published").mean))} ft. Ninguna está en cero, y por eso la columna que se lee es la del contraste.`),
+  grid(["Clase", "Su defensor (H)", "H en la referencia", "Emparejado del balón", "Un tercero"],
+    KIND_ROWS.slice(0, 7).map(([label, kind, variant]) => {
+      const m = HK("paired_diff", kind, variant, HEADLINE);
+      const ref = refOf(kind, variant);
+      return [label, pct(num(m.nearest_helper)), pct(num(ref.nearest_helper)), pct(num(m.nearest_handler_def)), pct(num(m.nearest_third))];
+    }),
+    [2700, 1500, 1700, 1700, 1426], { align: ["l", "r", "r", "r", "r"] }),
+  source("reports/help_kinds_summary.csv (nearest_helper, nearest_handler_def, nearest_third), a 1,52 s: quién es el defensor más cercano a M. La columna H en la referencia es el mismo defensor cuando se queda en casa; las otras dos son de la clase."),
+  grid(["Clase", "1,0 s", "1,5 s", "2,0 s"],
+    [["LONG (primaria)", "long", "primary"], ["CERCANA, finta", "near_stunt", "primary"], ["CERCANA, comprometida", "near_committed", "primary"], ["Publicados comprometidos", "pub_committed", "published"]].map(([label, kind, variant]) => [label, ...HORIZONS.map((h) => hkCi(HK("contrast", kind, variant, h)))]),
+    [2600, 2142, 2142, 2142], { align: ["l", "r", "r", "r"] }),
+  source("reports/help_kinds_summary.csv (measure contrast): la clase menos su referencia, en pies con su intervalo del 95 %, por horizonte."),
+  h2("13.6 Los veredictos"),
+  p(`LONG: ${READING_ES[LONG_C.reading].toUpperCase()}. Hay ${LONG_C.n} penetraciones en que el último está en el camino de una penetración superada, frente al mínimo de 40 fijado; el contraste es ${hkCi(LONG_C)} ft. Las cuatro sensibilidades dan la misma lectura por el mismo motivo (${LONG_SENS.map((r) => `n = ${r.n}`).join(", ")}), pero no coinciden en el signo del intervalo: ${LONG_SENS.filter((r) => num(r.ci_low) > 0).length} de las ${LONG_SENS.length} dejan el intervalo por encima de cero, con tamaños de ${Math.min(...LONG_SENS.map((r) => num(r.n)))} a ${Math.max(...LONG_SENS.map((r) => num(r.n)))} penetraciones entre las cuatro, y la regla de la primera sonda (n = ${LONG_SENS[3].n}) lo deja con el cero dentro (${hkCi(LONG_SENS[3])} ft). La lectura fijada no permite concluir; la inclinación de las estimaciones apunta hacia la rotación y no hacia la ausencia, así que nada de esto autoriza a extender "nadie ayuda al último" a la ayuda larga. Tampoco estrecha la tesis, porque ese paso exigía el veredicto de rotación.`),
+  p(`CERCANA COMPROMETIDA: ${READING_ES[COMM_C.reading].toUpperCase()} (la ausencia se sostiene). Con ${ni(COMM_C.n)} penetraciones y ${ni(COMM_C.n_ref)} de referencia, el contraste es ${hkCi(COMM_C)} ft: el intervalo queda por debajo de cero, es decir, cuando el defensor más cercano se compromete, los otros tres se mueven hacia su hombre menos que cuando se queda en casa. La finta no tiene lectura fijada; su contraste es ${hkCi(STUNT_C)} ft (n = ${STUNT_C.n}), una inclinación hacia la rotación que roza el cero por abajo y no se interpreta.`),
+  p(`AYUDANTES PUBLICADOS COMPROMETIDOS contra la serie publicada sin ayudante: ${READING_ES[PUBC_C.reading].toUpperCase()}. Son ${ni(PUBC_C.n)} frente a ${ni(PUBC_C.n_ref)} sin ayudante, con un contraste de ${hkCi(PUBC_C)} ft, con el cero dentro.`),
+  h2("13.7 Límites"),
+  bullet("Diez partidos. La ayuda larga, tal como se define aquí, casi no ocurre en ellos: el último está en el camino en pocas penetraciones, y con ese n el contraste dice poco; no se bajó el listón de 40 ni se ensanchó la definición hasta que saliera un número."),
+  bullet(`Toda la clasificación descansa en la tabla matchups del proveedor para el hombre del último y del más cercano, que no se ha contrastado con vídeo (sección 11.9); para el más cercano falta en el ${pct(hkn("near_status", "no_man") / nResolved, 1)} de las penetraciones.`),
+  bullet("La referencia no está en cero y depende de cómo se define quedarse en casa; la lectura es contra ella. La parte de finta y comprometida usa una sola regla de recuperación (1 pie a los 2,0 s), sin sensibilidad."),
+  bullet("Superado es geométrico y empieza en el fotograma de arranque; una penetración que arranca con el jugador con balón ya por delante de su defensor cuenta como superada."),
+  bullet("No se compara el desenlace (puntos, tiros libres): con diez partidos no tiene potencia (sección 10.2)."),
 ];
 
 
 const sPage = [
-  h1("13. La página (29 y 30 de octubre de 2026)", { pageBreakBefore: true }),
+  h1("14. La página (29 y 30 de octubre de 2026)", { pageBreakBefore: true }),
   p("La página (reports/nobody_helps_the_helper.html, construida por scripts/wind_html.py desde scripts/wind_template.html) es la entrega que se mira: una sola página, sin red, que abre con una penetración en 3D y sube a la vista cenital para enseñar la medida. De cada jugador solo se mide su posición en el suelo; los cuerpos, hacia dónde miran y la zancada se dibujan, y la página lo dice junto al arranque. Ninguna medida se enseña en perspectiva."),
-  h2("13.1 Lo que decidió el guion"),
+  h2("14.1 Lo que decidió el guion"),
   p("El guion de la página (B3, tasks/wind_page.md) lo aprobó Javier el 29 de octubre, antes de construir nada. La página abre con la penetración de la figura 1 a media velocidad desde la cámara de detrás de la canasta, se congela en el instante que miden las figuras (1,5 s) y la cámara sube, sin girar, a la vista cenital, que reproduce la figura 1; solo entonces aparecen las trayectorias, las barras y la distancia del hombre dejado. Toda cifra vive en un bloque de la página que está oculto fuera de la vista cenital, y la comprobación desde la consola lo verifica. El balón se dibuja a su altura en la vista 3D y plano desde arriba, y nada se mide con él. No hay órbita libre: llevaría al lector a la perspectiva que deforma la medida. Las cifras que el guion cita se comprobaron por script contra los ficheros que nombra."),
   p("Lo que el lector puede tocar es poco y se puede enumerar: reproducir y pausar, el deslizador del tiempo, la siguiente penetración, el cambio de cámara y, sobre los tres defensores que no son el ayudante, ver su línea de hacia dónde van. No hay órbita libre, por tres razones: dejaría al lector inclinarse justo hasta la vista donde los pies sobre el suelo engañan; ya existe un visor 3D de este mismo paquete, así que explorar no aporta originalidad y arriesga la comunicación; y los controles de órbita llevan gestos táctiles que pelean con el desplazamiento de la página en 390 píxeles y un estado de cámara que ninguna comprobación podría enumerar. Quedan dos cámaras, las dos comprobables. Debajo de la penetración, la página repite los límites de esta memoria con su fuente: los diez partidos, el espejo de la penetración que en las casi rectas es casi arbitrario, que la altura del balón arrastra la anomalía del eje vertical, que la ausencia se mide contra un placebo y no como rotación, y que la esquina no se afirma."),
-  h2("13.2 La construcción y los jugadores"),
+  h2("14.2 La construcción y los jugadores"),
   p("La página se construyó el mismo día (B4): scripts/wind_html.py inyecta en scripts/wind_template.html los datos de los CSV y de wind_scenes.json, sin una cifra escrita a mano, y mete dentro three.js (versión 0.185.1, con su licencia MIT y su huella comprobada), de modo que la página funciona sin red. La construcción se niega a escribir la página si las barras, la distancia del hombre dejado o el percentil no coinciden con sus CSV, o si alguna frase de la página dejaría de ser cierta (un intervalo del contraste que excluya el cero). Respecto al guion cambió la cámara de retransmisión, que se puso sobre el eje de la canasta porque la del guion dejaba fichas fuera de la imagen y habría girado al subir. La prueba independiente desde la consola (B5, scripts/drive_wind_page.py) la escribió otro agente a partir del guion y sin leer el código de la página: 178 comprobaciones pasan sobre la página construida, y cada una de cuatro versiones estropeadas a propósito (una cifra escrita a mano, un seek roto, una cámara en perspectiva en la vista cenital, trayectorias dibujadas en la vista 3D) la hace fallar."),
   p("Javier abrió la página y el arranque no enganchaba: \"no engancha nada; las fichas deben ser jugadores de baloncesto\" (B4b). El límite de los datos decide lo que se dice, no lo que se dibuja: los jugadores pasan a ser figuras 3D animadas (un maniquí con licencia CC0 de Quaternius, con camiseta, pantalón y número añadidos), colocadas en su posición medida, con la zancada sacada de la distancia que recorren y el bote sincronizado con la altura medida del balón; hacia dónde miran y la postura se dibujan, y la página lo dice junto al arranque. El papel de cada uno va en un aro de color en el suelo, y al subir la cámara cada jugador se funde en su ficha de la figura 1, así que la vista de la medida no cambia."),
   p("El primer montaje con jugadores se juzgó como lo vería un extraño, en vídeo y en capturas a 1440 y 390 píxeles de ancho, y se arreglaron cuatro cosas medidas: los jugadores eran pequeños (la cámara se encuadra ahora sobre los seis protagonistas, el balón y la canasta, no sobre los diez), las etiquetas caían en otro jugador en el paso de la ayuda (ahora llevan una línea hasta la cabeza de su jugador), el arranque tardaba 2,7 s (se compilaban en serie doce programas de sombreado) y faltaban pelo, tonos de piel y público. Javier vio el vídeo y dijo que engancha. Quedaba una pasada corta, cerrada el 30 de octubre: el quinto inferior de la imagen de escritorio era delantal oscuro detrás de la línea de fondo y el público apenas se veía. El encuadre se desliza ahora también en vertical (la cámara no se mueve ni gira; la subida a la vista cenital deshace el desplazamiento) y el público son figuras sentadas a pie de pista. La regla nueva del guion, como mucho un 10 % de la altura de la imagen por debajo del pie, el balón o la canasta más bajos, la mide la comprobación desde la consola: la página anterior la incumple (entre el 18,7 % y el 36,9 % según penetración y ancho) y la nueva deja un 6 % en las cuatro penetraciones y los dos anchos. En la GPU de este portátil la comprobación pasa entera (184 de 184), con 16,7 ms por fotograma y la página reproduciendo en menos de 0,7 s. Quedan como están, a propósito, el tablero en el centro de la imagen y el ayudante tapando al del balón en el paso de la ayuda, que es la geometría de la jugada vista desde detrás de la canasta."),
-  h2("13.3 Lo que comprueba la consola"),
+  h2("14.3 Lo que comprueba la consola"),
   p("scripts/drive_wind_page.py abre la página construida con Playwright y la maneja solo por su interfaz de consola (window.wind). Son 101 filas en el código, que en la ejecución de este portátil el 30 de octubre dan 184 comprobaciones, 184 pasadas y 0 fallidas, en 65 s, con el renderizador ANGLE Intel Arc D3D11. Los valores esperados se leen en cada ejecución de los CSV y del JSON de las escenas, no se escriben en el comprobador. Comprueba, en lo esencial: que el número de cada elemento inyectado (136 con su fuente data-src) coincide con el CSV que nombra y con los dígitos impresos; que la vista cenital es de verdad cenital, con una cámara ortográfica y con el color de las fichas del ayudante y del hombre dejado devuelto por unproject a 0,1 ft de su posición medida, sin fiarse de la cuenta que lleva la propia página; que ninguna medida es visible fuera de la vista cenital y que en la vista 3D no hay ninguna trayectoria dibujada, por exploración de píxeles; que las etiquetas caen en su jugador, no se pisan entre sí y no tapan el balón; que las barras en el instante de la medida igualan los CSV a 0,01 ft; que con movimiento reducido no hay vuelo; y que ocurre lo mismo a 1440 y a 390 píxeles de ancho."),
   p("Las filas de tiempos solo valen en la GPU: con un renderizador por software fallan como \"tiempo no medible\", no pasan. En la GPU de este portátil el fotograma tiene una mediana de 16,7 ms, la página está reproduciendo a los 0,47 a 0,67 s en tres cargas en frío, y el margen inferior de la imagen, que el guion limita a un 10 % de la altura, es de un 6,0 % en las cuatro penetraciones a 1440 y a 390 píxeles."),
-  h2("13.4 Las versiones estropeadas a propósito"),
+  h2("14.4 Las versiones estropeadas a propósito"),
   p("Una comprobación que no puede fallar no ha comprobado nada, así que cada una de estas versiones de la página se construyó aparte, con un defecto puesto a propósito, y el comprobador tenía que salir con error. Salió con error en todas."),
   grid(["Defecto puesto", "Qué lo detecta", "Resultado"], [
     ["Una cifra escrita a mano (helper_help_move)", "Los controles de data-value y de los dígitos impresos", "Sale con 1"],
@@ -676,33 +772,33 @@ const sPage = [
 ]
 
 const sRepo = [
-  h1("14. El repositorio público y el README (30 de octubre de 2026)", { pageBreakBefore: true }),
+  h1("15. El repositorio público y el README (30 de octubre de 2026)", { pageBreakBefore: true }),
   p("Decidido (decisión D2): este repositorio es la entrada. El estado final de la entrada del rebote queda marcado con la etiqueta bounce-final, sobre el commit 635ea4d, y su README se movió a docs/bounce/ con sus enlaces corregidos. No se borró nada: los guiones, los tests y los CSV del rebote siguen en el repositorio y siguen en verde."),
-  h2("14.1 Qué dice el README nuevo y qué deja fuera"),
+  h2("15.1 Qué dice el README nuevo y qué deja fuera"),
   p("El README (890 palabras contadas por el comprobador, con un límite de 1000, y exactamente dos imágenes) cuenta solo la segunda ayuda: la primera mitad de la tesis se retiró el 29 de octubre (sección 12). Junto al 45,3 % lleva los dos matices: la esquina es ocupación (1,8 %) y hundirse por encima del balón cuenta como ayuda (el 66 % de los ayudantes arranca por encima del balón). Ninguna frase dice de dónde viene la ayuda ni que un defensor eligiera."),
-  p("Deja fuera, a propósito, el error de 4 a 5 pies de las posiciones extrapoladas: ningún CSV lo lleva y en el README toda cifra sale de un CSV. Vive solo en esta memoria (riesgos, sección 15.1)."),
-  h2("14.2 Cómo se vigila"),
+  p("Deja fuera, a propósito, el error de 4 a 5 pies de las posiciones extrapoladas: ningún CSV lo lleva y en el README toda cifra sale de un CSV. Vive solo en esta memoria (riesgos, sección 16.1)."),
+  h2("15.2 Cómo se vigila"),
   p("scripts/check_readme.py comprueba tres cosas: que el README no pase de 1000 palabras, que tenga exactamente dos imágenes y que cada cifra en negrita (29 hoy) se recalcule desde la columna del CSV de la que sale, y falle si no la encuentra. Para saber si podía fallar se probó con una copia en la que \"45,3 %\" pasó a \"46,3 %\": el comprobador imprimió un FAIL (README 46,3 %, CSV 45,3 %), 30 aprobadas y 1 fallada, y salió con código 1. Con el README real da 31 comprobaciones aprobadas (29 cifras, las palabras y las imágenes) y 0 falladas."),
-  h2("14.3 El clon limpio"),
+  h2("15.3 El clon limpio"),
   p("Se clonó el repositorio en una carpeta nueva, sin el conjunto de datos, y se ejecutó lo que el README manda ejecutar: uv sync --extra dev, uv run pytest (288 pasan, 21 se saltan por necesitar el dato), scripts/help_figures.py, scripts/wind_html.py y esta misma memoria, con código de salida 0 en las cinco. Las figuras salieron idénticas byte a byte (no aparecen en git status); la página solo difirió en el identificador del commit que lleva incrustado, y el docx solo en la tabla del registro de versiones y en las marcas de tiempo."),
-  h2("14.4 Lo que falta"),
+  h2("15.4 Lo que falta"),
   p("C1b, publicar la página en GitHub Pages, se hizo el mismo 30 de octubre con el visto bueno de Javier: el repositorio público es github.com/javiersr1996/nobody-helps-the-helper y la página se sirve en javiersr1996.github.io/nobody-helps-the-helper, publicada por un flujo de GitHub Actions que copia el fichero del repositorio sin reconstruirlo. El README enlaza ya a esa dirección. La dirección responde 200 y el fichero servido tiene la misma huella SHA-256 que el del repositorio. La comprobación desde la consola contra la dirección destapó un fallo del propio comprobador, no de la página: leía el estado y la barra de tiempo en dos llamadas separadas mientras la página seguía reproduciendo; ahora las lee en una sola y se probó que sigue fallando con una página estropeada a propósito. Queda abierto el arranque por red: en tres pasadas contra la dirección el primer fotograma tardó entre 0,97 y 1,18 s, 0,57 s y entre 1,15 y 1,52 s, frente al objetivo de 1,0 s del guion, que en local se cumple (entre 0,47 y 0,67 s); el resto de comprobaciones pasa (182 de 184). La página es la misma byte a byte y pesa 877 KB comprimida, así que la diferencia está en la red; falta medir qué parte es descarga. No se ha movido el objetivo. Javier no ha leído aún el README (C5)."),
 ];
 
 const s12 = [
-  h1("15. Plan y calendario", { pageBreakBefore: true }),
+  h1("16. Plan y calendario", { pageBreakBefore: true }),
   grid(["Fase", "Fechas", "Trabajo", "Estado"], [
     ["Semanas 1 y 2", "28 de octubre", "scbasket.wind, el script, los tests y los CSV; las dos figuras", "Hecho"],
     ["A", "29 de octubre a 8 de noviembre", "La ausencia, medida: scbasket.rotation con su placebo, sus tests, scripts/second_help.py y sus CSV; la tasa base en la tabla de ayuda; la figura 2 nueva; memoria v0.3", "Cerrada el 29 de octubre: A1 a A4 el 28, A5 a A7 el 29, con la figura 2 aprobada por Javier. El mismo día, antes de la fase B, la tasa base de la esquina, la primera mitad de la tesis retirada y la figura 1 redibujada (sección 12; memoria v0.4)"],
-    ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en 3D (WebGL con three.js dentro del HTML, sin CDN) que abre con la penetración y sube a vista cenital para la medida, conducida desde la consola; memoria v0.5", "En curso, adelantada: B1 a B5 hechas entre el 29 y el 30 de octubre, con el arranque rehecho con jugadores (B4b) y aprobado por Javier; la sección de la página en esta memoria (B6, sección 13) hecha el 30 de octubre; queda que Javier la abra en su máquina (B7)"],
-    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público; la página publicada en GitHub Pages y enlazada desde el README; el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.6", "C1 a C4 hechas el 30 de octubre, antes de su ventana: el README anterior archivado en docs/bounce con la etiqueta bounce-final, el README nuevo de 890 palabras con dos figuras y un comprobador (scripts/check_readme.py) que recalcula desde los CSV sus 29 cifras en negrita, el clon limpio y la sección 14 de esta memoria. C1b publicada el mismo día con el visto bueno de Javier, con el arranque por red abierto (sección 14); C5 (que Javier lea el README) espera a Javier"],
+    ["B", "9 a 29 de noviembre", "La página: el campo kernel dentro del paquete, cuatro penetraciones elegidas por una regla, el guion visual antes del motor, la página en 3D (WebGL con three.js dentro del HTML, sin CDN) que abre con la penetración y sube a vista cenital para la medida, conducida desde la consola; memoria v0.5", "En curso, adelantada: B1 a B5 hechas entre el 29 y el 30 de octubre, con el arranque rehecho con jugadores (B4b) y aprobado por Javier; la sección de la página en esta memoria (B6, sección 14) hecha el 30 de octubre; queda que Javier la abra en su máquina (B7)"],
+    ["C", "30 de noviembre a 6 de diciembre", "El repositorio público; la página publicada en GitHub Pages y enlazada desde el README; el README de 1000 palabras con su comprobador; un clon limpio; memoria v0.6", "C1 a C4 hechas el 30 de octubre, antes de su ventana: el README anterior archivado en docs/bounce con la etiqueta bounce-final, el README nuevo de 890 palabras con dos figuras y un comprobador (scripts/check_readme.py) que recalcula desde los CSV sus 29 cifras en negrita, el clon limpio y la sección 15 de esta memoria. C1b publicada el mismo día con el visto bueno de Javier, con el arranque por red abierto (sección 15); C5 (que Javier lea el README) espera a Javier"],
     ["D", "7 a 13 de diciembre", "El vídeo: guion, diapositivas, corte mudo y la voz de Javier; memoria v0.7", "Pendiente"],
     ["E", "14 a 18 de diciembre", "Dispositivos reales, memoria v1.0, la verificación final con la única revisión adversarial, y el envío antes del 17", "Pendiente"],
   ], [1100, 1700, 3626, 2600]),
   p("Cada fase cierra con ruff y pytest en verde y una revisión con Javier. El detalle de cada tarea, con su criterio de aceptación y su modelo, está en tasks/todo.md."),
-  p("Decidido el 29 de octubre (Javier, decisión D8): la página abre con la penetración de la regla en 3D, con una cámara parecida a la de la retransmisión, y la cámara sube a la vista cenital para la medida; el vídeo la graba desde la propia página. El 3D no entra en el README: GitHub solo muestra imágenes, las bases permiten dos figuras, y la perspectiva deforma justo lo que se mide (pies sobre el suelo hacia un punto: un pie cerca de la cámara no se ve igual que uno al fondo), así que solo en la vista cenital el lector puede juzgar \"hacia\" a ojo. Por eso ninguna medida se enseña en la vista en perspectiva, y la comprobación desde la consola lo exige. Límites que viajan con la decisión: el tracking no trae cuerpos, así que de cada jugador solo se mide su posición en el suelo (al principio se dibujaron fichas; véase la sección 13); la altura del balón arrastra la anomalía del eje vertical (sección 4); y ya existe un visor 3D de este mismo bundle, así que el 3D puntúa en comunicación si enseña al ayudante y al hombre que deja, y en originalidad nada."),
+  p("Decidido el 29 de octubre (Javier, decisión D8): la página abre con la penetración de la regla en 3D, con una cámara parecida a la de la retransmisión, y la cámara sube a la vista cenital para la medida; el vídeo la graba desde la propia página. El 3D no entra en el README: GitHub solo muestra imágenes, las bases permiten dos figuras, y la perspectiva deforma justo lo que se mide (pies sobre el suelo hacia un punto: un pie cerca de la cámara no se ve igual que uno al fondo), así que solo en la vista cenital el lector puede juzgar \"hacia\" a ojo. Por eso ninguna medida se enseña en la vista en perspectiva, y la comprobación desde la consola lo exige. Límites que viajan con la decisión: el tracking no trae cuerpos, así que de cada jugador solo se mide su posición en el suelo (al principio se dibujaron fichas; véase la sección 14); la altura del balón arrastra la anomalía del eje vertical (sección 4); y ya existe un visor 3D de este mismo bundle, así que el 3D puntúa en comunicación si enseña al ayudante y al hombre que deja, y en originalidad nada."),
   p("Decidido el mismo día (Javier): la página se publica en GitHub Pages, gratis y desde el mismo repositorio público, y el README enlaza a esa dirección. GitHub enseña un HTML guardado en el repositorio como código fuente, así que un enlace al fichero mostraría el código y no la página. Hoy el repositorio no tiene remoto; crearlo en GitHub y subirlo es publicar hacia fuera, y Javier lo confirma en ese momento (tarea C1b). La publicación se da por buena cuando la dirección responde, sirve el mismo fichero que está en el repositorio y la comprobación desde la consola pasa contra ella, no contra la copia local."),
-  h2("15.1 Riesgos asumidos"),
+  h2("16.1 Riesgos asumidos"),
   bullet("La fase B tiene tres semanas a tiempo parcial para la escena 3D, la reproducción de las penetraciones y la conducción desde la consola, sin holgura dentro; el 3D (WebGL) cuesta más que el canvas 2D que había en el plan, sin horas medidas; la voz necesita a Javier en una ventana de siete días."),
   bullet("Parte del viento hacia el aro es la defensa entera hundiéndose con la penetración, no ayuda. Se nombra desplazamiento colectivo; el ayudante es el que más se mueve hacia el balón futuro, y eso no separa del todo las dos cosas: por encima del balón, hundirse cuenta como ayuda (sección 12.3)."),
   bullet("Todo depende de la tabla matchups del proveedor para saber quién es el emparejado del balón y a quién marcaba el ayudante. Donde falta, se usa el defensor más cercano para el primero y se deja vacío el segundo. Esa tabla no se ha contrastado con vídeo (no lo hay en los datos abiertos); la sección 11.9 mide cuánto concuerda con la cercanía y repite el contraste donde está corroborada, y es coherencia, no validación."),
@@ -712,17 +808,17 @@ const s12 = [
 ];
 
 const s13 = [
-  h1("16. Pendientes y decisiones abiertas"),
+  h1("17. Pendientes y decisiones abiertas"),
   numbered("Cerrado el 29 de octubre: range.bin, un fichero suelto de 100 bytes (el principio de un frame de tracking en JSON) en la raíz del repo y sin referencia alguna, se borró por decisión de Javier."),
   numbered("La rotación después del pase (el X-out) no se puede juzgar con 18 casos; se publica como límite."),
   numbered("Cerrados el 28 de octubre por la decisión de entrada única: confirmar si una persona puede presentar dos entradas (ya no aplica), avisar a SkillCorner del kit de calibración y grabar la voz del vídeo del rebote (ninguno de los dos se envía). Decidido el mismo día: el repositorio público de la entrada es este (sección 10.4)."),
   numbered("Cerrado el 29 de octubre: la figura 1 (la penetración que enseña la medida) no se explicaba sola: al verla, Javier preguntó qué representa, el riesgo de comunicación que señaló el segundo cribado del council (48 sobre 100). Se rehízo ese día para que se lea sola, con una lectura en frío antes y después en lugar de otro cribado (sección 9.3), y Javier la aprobó."),
   numbered(`El README y la página tienen que llevar el matiz del ayudante (sección 12.3) junto al ${pct(N.shareHelped, 1)}, y la esquina como ocupación, no como afirmación.`),
-  numbered("El arranque de la página por red: contra la dirección publicada el primer fotograma tarda más de 1,0 s en dos de tres pasadas (sección 14). Antes de decidir nada hay que medir qué parte es descarga, qué parte análisis del HTML y qué parte compilación."),
+  numbered("El arranque de la página por red: contra la dirección publicada el primer fotograma tarda más de 1,0 s en dos de tres pasadas (sección 15). Antes de decidir nada hay que medir qué parte es descarga, qué parte análisis del HTML y qué parte compilación."),
 ];
 
 const s14 = [
-  h1("17. Registro de versiones de este documento"),
+  h1("18. Registro de versiones de este documento"),
   grid(["Versión", "Fecha", "Cambios"], [
     ["0.1", "28 de octubre de 2026", "Creación. Competición, dato, antecedentes, ideación con las tres sondas, definiciones, implementación y resultados de la semana 1, las dos figuras de la semana 2, plan y pendientes."],
     ["0.2", "28 de octubre de 2026", "Título nuevo, \"Nobody helps the helper\". Sección 10 nueva: una sola entrada de baloncesto, el council (37 sobre 100) y la sonda de la segunda ayuda. Tasa base junto al porcentaje de hombres libres en las secciones 8 y 9. Plan por fases A a E en la sección 11. Pendientes depurados por la decisión de entrada única."],
@@ -730,6 +826,7 @@ const s14 = [
     ["0.4", "29 y 30 de octubre de 2026", "Sección 12 nueva, \"La esquina, con su tasa base\", leída de reports/help_base_rate.csv: la tasa por defensor por banda de |y| y por zona, con su intervalo; la comparación con lo que predicen la distancia y la orientación del punto adonde va el balón; el matiz del ayudante (por encima del balón, hundirse cuenta como ayuda); y lo decidido: primera mitad de la tesis retirada, figura 1 descriptiva, ayudante sin redefinir. Corregidas la definición de la sección 6, la frase de la 8.4 sobre el título, la tesis de la 10.4 (con nota) y un riesgo de la 13.1. El mapa de viento, redibujado con la tasa por defensor y su franja a 11 puntos, sale del README tras un cribado de 37 sobre 100 y pasa a 12.5; la figura 1 nueva (9.1) es una penetración elegida por regla (scripts/wind_scenes.py, B2 adelantada) que enseña la medida con su percentil y la tira de todas las penetraciones con ayudante; 9.3 cuenta las miradas y los dos cribados (37 y 48 sobre 100), y cómo se rehízo la figura 1 para que se lea sola, probada con una lectura en frío antes y después, y aprobada por Javier. El campo kernel del mapa de viento pasa al paquete y a reports/help_field.csv (12.5). Guion de la página aprobado, página construida y probada desde la consola; el arranque se rehace con jugadores 3D (sección 13). Plan: la página abre con la penetración en 3D y sube a vista cenital para la medida (decisión D8, sección 13), y se publica en GitHub Pages en la fase C. La tabla de la sección 8 lleva la tasa base de la esquina. Plan y pendientes al día; secciones 12 a 14 anteriores renumeradas a 13 a 15. El 30 de octubre, antes de compartirla: el arranque con jugadores, cerrado (B4b, sección 13), con sus cuatro arreglos, la pasada del encuadre y el público, y la regla del margen inferior medida contra la página anterior."],
     ["0.5", "30 de octubre de 2026", "Sección 13 nueva, \"La página\": lo que decidió el guion, cómo se construyó y se rehízo el arranque (movido desde el plan), lo que comprueba la consola (184 comprobaciones en la GPU, con sus tiempos y el margen inferior) y las versiones de la página estropeadas a propósito que la hacen fallar, con lo que no cubre. Plan, pendientes y registro pasan a las secciones 14, 15 y 16; el plan conserva la decisión D8 y la publicación en GitHub Pages, con un puntero a la 13. El 30 de octubre, además, el README de la entrada (876 palabras, dos figuras, 31 cifras en negrita recalculadas desde los CSV por scripts/check_readme.py) sustituye al del rebote, archivado en docs/bounce; la dirección de la página en el README sigue siendo el fichero local hasta C1b."],
     ["0.6", "30 de octubre de 2026", "Sección 14 nueva, \"El repositorio público y el README\": la decisión D2 (este repositorio es la entrada, etiqueta bounce-final, README del rebote en docs/bounce), lo que dice y lo que deja fuera el README nuevo, cómo lo vigila scripts/check_readme.py con su prueba de fallo, el resultado del clon limpio y lo que espera a Javier (C1b). Plan, pendientes y registro pasan a las secciones 15, 16 y 17; la fila de la fase C del plan se pone al día (890 palabras, 29 cifras en negrita). El mismo día, la página publicada en GitHub Pages (C1b) con su verificación y el arranque por red como pendiente. Después, la subsección 11.9, \"Los emparejamientos del proveedor\": la coherencia de la tabla matchups al arrancar y el contraste de la segunda ayuda en subconjuntos donde el emparejamiento está corroborado."],
+    ["0.7", "30 de octubre de 2026", "Sección 13 nueva, \"Ayuda cercana y ayuda larga\", leída de reports/help_kinds_summary.csv: la distinción del entrenador entre la ayuda cercana (finta o comprometida) y la ayuda larga del último, las definiciones de scbasket.help_kinds, por qué se cambió la regla de la primera sonda, las lecturas fijadas en un commit antes de correr, los resultados a 1,5 s con sus sensibilidades, los tres veredictos y los límites. La página, el repositorio, el plan, los pendientes y el registro pasan a las secciones 14 a 18."],
   ], [1200, 2200, 5626]),
 ];
 
@@ -771,7 +868,7 @@ const doc = new Document({
       new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "777777" }),
     ] })] }) },
     children: [...cover, ...toc, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...s8, ...s9,
-               ...s9b, ...s10, ...sSecond, ...sCorner, ...sPage, ...sRepo, ...s12, ...s13, ...s14],
+               ...s9b, ...s10, ...sSecond, ...sCorner, ...sKinds, ...sPage, ...sRepo, ...s12, ...s13, ...s14],
   }],
 });
 

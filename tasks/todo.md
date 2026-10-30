@@ -259,7 +259,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       **DONE 2026-10-29**: ruff clean, 295 passed; Javier approved figure 2 v4 (7ff6827).
       Phase A is closed; the corner base rate (section "OPEN 2026-10-29" below) is new work
       that comes before B1.
-- [ ] A8 Help kinds: near help and long help by the last [sonnet]. Why: a coach separates
+- [x] A8 Help kinds: near help and long help by the last [sonnet]. Why: a coach separates
       NEAR help (the off-ball defender nearest the ball moves toward the handler; a stunt if he
       recovers to his man, committed if not) from LONG help (the handler beats his defender and
       the LAST defender, the off-ball defender farthest from the ball, jumps into the drive's
@@ -316,6 +316,21 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       State each verdict; for LONG also say whether the sensitivities agree.
       Accept: ruff + pytest exit 0; the readings applied as written; memoria section in the same
       commit as the results.
+      **DONE 2026-10-30** (readings pre-registered in bd6033b). Of 618 resolved drives: last ok
+      598 (12 no window, 8 no man), nearest ok 547 (47 no man, 24 no window); beaten 329 by
+      geometry, 142 by blowby. LONG primary n = 7 (sensitivities: radius 5 ft 5, radius 8 ft 21,
+      blowby 2, probe rule 36) vs 198 references; STUNT 104, COMMITTED 159, near reference 199;
+      published helpers 280 = 145 nearest, 33 last, 102 other; 90 recovered, 151 committed, 39
+      undefined. At 1.5 s, contrast kind minus reference: LONG +1.44 [-0.33, +2.98]
+      INCONCLUSIVE (n < 40; all four sensitivities INCONCLUSIVE by n too, three of them above
+      zero with n 2 to 21, the probe rule -0.36 [-1.56, +0.93]); NEAR-COMMITTED -0.63
+      [-1.25, -0.03] ABSENCE holds; published committed vs unhelped -0.31 [-0.90, +0.31]
+      ABSENCE. The stunt (no pre-registered reading) +0.56 [-0.01, +1.11]. References are not
+      at zero: LONG +0.85, NEAR -0.03, published unhelped -0.52. Mutation (closer-to-the-hoop
+      sign flipped in the path test): 3 tests fail, reverted, 9 pass. Files:
+      `src/scbasket/help_kinds.py`, `scripts/help_kinds.py`, `tests/test_help_kinds.py`,
+      `reports/help_kinds.csv`, `reports/help_kinds_summary.csv`, memoria v0.7 section 13
+      (the following sections are now 14 to 18).
 
 #### Phase B, 9 Nov to 29 Nov: the page (the finding on the court, in motion)
 - [x] B1 (DONE 2026-10-29; see the record) Kernel field into the package [sonnet]: move the field `help_figures.py` computes into
@@ -913,6 +928,10 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    (asserts its S0 rows equal `second_help_summary/contrast.csv`), `reports/matchup_coherence.csv`,
    `reports/second_help_matchup_check.csv`, `tests/test_matchup_check.py`, README Limits
    bullet, memoria 11.9 (v0.6).
+9. DONE 2026-10-30: A8 near and long help (memoria v0.7, section 13). Verdicts at 1.5 s:
+   LONG INCONCLUSIVE (7 drives; the thesis is neither extended to long help nor narrowed),
+   NEAR-COMMITTED ABSENCE holds, published committed helpers ABSENCE. README is deliberately
+   NOT updated yet: the author will rewrite it at the end.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
