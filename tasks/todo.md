@@ -1299,6 +1299,36 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       a 0,73)", "28 de las 246 ... LÍMITE". The old claim and 8.7 ft only in passages marked as
       history. ruff 0, pytest 369 passed. NEXT: Javier looks at figure 2 and the new scene 0
       (figure 1, the page's hook) before anything is pushed; then c.
+   c. DONE 2026-10-31 (local commit, NOT pushed; the spoken lines are a DRAFT awaiting Javier).
+      `tasks/video_script_wind.md`: scene 2 "steps toward it, away from his man", scene 4 "One of
+      them heads his way. A second and a half on, his nearest defender is the helper, 2.6 feet
+      away", scene 5 "Of 618 drives, 246 look like this. Against the other attackers, a placebo,
+      the three move no more toward the man left: minus 0.22 feet. The data rule out more than
+      0.13. Had one moved as far as the helper does, it would read 1.35"; scenes 1, 3, 6 as
+      approved; 129 words by the grep (13, 15, 9, 21, 49, 22; limit 140); every spoken number
+      grep'd in README (lines 9, 11, 19, 39, 3). Scene 4 facts from `near_committed_drives.csv`
+      and `near_committed_pairs.csv` for `drive-114243-1-1` (horizon 38): left_clear_0 4.52 ft,
+      left_clear_38 2.64 ft, nearest_who_38 helper; the three others move +5.3, +7.2, -5.0 ft
+      toward the man left and -0.2, +7.2, +0.3 toward the placebo (def_slots 0, 2, 4); "heads his
+      way" is true of the first only (the second moves as far toward the others). Guide voice
+      (en-GB-RyanNeural, not the entry's voice), line vs window: 5.23/6, 6.82/7, 4.80/5,
+      7.97/9, 23.40/24, 8.71/9 s, i.e. slack +0.77, +0.18, +0.20, +1.03, +0.60, +0.29; the
+      first draft (141 words) overflowed scenes 4 and 5, so words were cut and the windows moved
+      to 0:06-0:13, 0:13-0:18, 0:18-0:27, 0:27-0:51 (scenes 2 and 3 keep almost no slack and
+      the cliffhanger's silence is gone: Javier's pass decides). Re-rendered: ffprobe 60.000 s,
+      1500 frames (150, 175, 125, 225, 600, 225), 1920x1080, no audio, blackdetect 0; t_h 0.56 s
+      (JSON) and 0.559 s (`hookTime`); crop zoom 1.00 to 1.11 (median 1.07: the new drive fills
+      more of the frame); the ring and every tag asserted per frame. Scene 5 crops re-cut from
+      the 1440 x 3231 figure 2: dots panel with its colour key to 6.6 s, then the interval panel
+      with the dashed one-rotation line and the bound paragraph (cut 0.25 s before "Against" at
+      6.86 s in the guide's word boundaries). Caption: 246 of 618 and -0.22 ft (CI -0.58 to
+      0.13) read from `help_kinds_summary.csv`; a test moves the CSV mean +0.5 and the caption
+      follows while the old text is refused. Contact sheets and an 844 px sheet looked at:
+      tags legible, ring on the right man, crops complete. Also `drive_wind_page.py` now
+      reconfigures its own stdout to UTF-8 (one line in `main`). Memoria v0.16 (59 pages, new
+      16.5 on p. 47, read back). Limits: the renders ran at about 25 min; the guide voice is not
+      Javier's; zoom is small on this drive; the helper is a faint figure behind the backboard
+      in scene 3 (page unchanged).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

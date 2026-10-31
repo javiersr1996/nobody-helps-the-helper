@@ -226,11 +226,13 @@ def caption_text() -> str:
 # ---------------------------------------------------------------- scene 5: figure 2, held crops
 
 BAND = 90
-#: Crops of the README's PNG (1440 x 2678), x0, y0, x1, y1, and the second at which each is shown.
-#: Cut times come from the guide voice's word boundaries (edge-tts, en-GB-RyanNeural): the line
-#: "Compared with drives where the nearest defender stays home" starts 13.70 s in; the cut is
-#: 0.2 s earlier, since another voice will be slower or faster and an early cut is the safer.
-CROPS = [(0.0, (0, 0, 1440, 1240)), (13.5, (0, 1495, 1440, 2678))]
+#: Crops of the README's PNG (1440 x 3231), x0, y0, x1, y1, and the second at which each is shown:
+#: the dots panel with its colour key, then the interval panel with the dashed "one rotation"
+#: line and the bound paragraph. Cut times come from the guide voice's word boundaries (edge-tts,
+#: en-GB-RyanNeural): the sentence "Against the other attackers, a placebo, ..." starts 6.86 s in;
+#: the cut is 0.25 s earlier, since another voice will be slower or faster and an early cut is
+#: the safer.
+CROPS = [(0.0, (0, 290, 1440, 1520)), (6.6, (0, 1550, 1440, 2590))]
 DISSOLVE = 6
 
 

@@ -1728,6 +1728,8 @@ def check_landing(D: Data, browser, target: str, width: int) -> None:
 
 
 def main(argv: list[str]) -> int:
+    # failure details carry U+2212; a cp1252 console would crash printing them
+    sys.stdout.reconfigure(encoding="utf-8")
     arg = argv[1] if len(argv) > 1 else str(DEFAULT_PAGE)
     target = arg if re.match(r"^https?://", arg) else Path(arg).resolve().as_uri()
     D = Data()
