@@ -203,12 +203,12 @@ SOURCES: tuple[Source, ...] = (
            lambda d: (pass_count(d, "pass_in_window"), pass_count(d, "drives")),
            lambda v: f"{v[0]} of {v[1]}"),
     # The per-drive picture: the best mover.
-    Source("The absence is an average. In ", KINDS,
+    Source("Big moves cut both ways: in ", KINDS,
            _nearest("share_mover_left", COMMIT), pct0, False),
-    Source("the man left, and in ", KINDS, _nearest("share_mover_placebo", COMMIT), pct0, False),
-    Source("toward the comparison attackers on average (", KINDS,
+    Source("toward the man left, in ", KINDS, _nearest("share_mover_placebo", COMMIT), pct0, False),
+    Source("when the nearest stays home, ", KINDS,
            _nearest("share_mover_left", REF), pct0, False),
-    Source("toward the comparison attackers on average (34 % and ", KINDS,
+    Source("when the nearest stays home, 34 % and ", KINDS,
            _nearest("share_mover_placebo", REF), pct0, False),
     # The record and the robustness (help_kinds_summary.csv, near_sensitivity.csv,
     # near_robustness.csv).
