@@ -1410,6 +1410,13 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       drives CI does not), no more open, no more shots (138d48b). (3) competitor read at
       8bcdc821, no overlap (research D, in 945183c). (4) README lines done (999 words; cuts: fixed-targets sentence, bounce line, 3D phrase, ten-games bullet, module list; check_readme 47/47); see the README commit.
    g. Council 2026-10-31: 51/100 (5 advisors + 2 reviewers); communication is the weak criterion; README pass done in the commit 'Open the README with three plain sentences...'; voice (D3) still the cheapest lever; not published, waiting for the owner's 'publica' (local commits 945183c..HEAD).
+      Cold reader (fresh agent, judge with no coaching background, same five questions):
+      old README 5/10, first pass 5/10, pass with stakes sentence + glossary 6/10 (claim and
+      the "a tenth of one rotation" scale now land; stakes still read as implied; glossary
+      packed in one paragraph; commit hashes slow a non-expert). Open, for the owner: the
+      pass dropped both figure captions and the 1.0 s / 2.0 s results (README shows 1.5 s
+      only, which can read as a chosen window); my recommendation is to restore the windows
+      in one short sentence. Previews: scratchpad readme_before.md / readme_after.md.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
