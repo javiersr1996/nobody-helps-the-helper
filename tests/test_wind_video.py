@@ -34,7 +34,7 @@ def test_real_script_windows_are_contiguous_and_a_minute() -> None:
 
 
 def test_a_gap_between_windows_is_refused() -> None:
-    spoiled = TEXT.replace("[0:06-0:13]", "[0:07-0:13]")
+    spoiled = TEXT.replace("[0:06-0:14]", "[0:07-0:14]")
     assert spoiled != TEXT
     with pytest.raises(ValueError, match="starts at 7"):
         parse_script(spoiled)
@@ -69,8 +69,8 @@ def test_the_old_61_second_headers_are_refused() -> None:
 
 def test_scene_5_cuts_from_the_court_panel_to_the_intervals() -> None:
     assert crop_index(0.0) == 0
-    assert crop_index(6.5) == 0
-    assert crop_index(6.6) == 1
+    assert crop_index(4.8) == 0
+    assert crop_index(4.9) == 1
 
 
 def test_crops_contain_what_they_must_and_never_zoom_past_2x() -> None:

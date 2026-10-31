@@ -1329,6 +1329,20 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       16.5 on p. 47, read back). Limits: the renders ran at about 25 min; the guide voice is not
       Javier's; zoom is small on this drive; the helper is a faint figure behind the backboard
       in scene 3 (page unchanged).
+      ROUND 4 (2026-10-31): the script is APPROVED (Javier chose the short scene 5; scenes 2 and 4
+      were shown in the same question). Scene 5 is now "Of 618 drives, 246 look like this.
+      Against a placebo, the other attackers, the three move no more toward the man left. If one
+      of them rotated, it would read 1.35 feet; the data rule out more than 0.13." 119 words (13,
+      15, 9, 21, 39, 22). Windows 0:00-0:06, 0:06-0:14, 0:14-0:20, 0:20-0:30, 0:30-0:51,
+      0:51-1:00; guide line vs window 5.23/6, 6.82/8, 4.80/6, 7.97/10, 18.10/21, 8.71/9 s (slack
+      +0.77, +1.18, +1.20 of silence after scene 3, +2.03, +2.90, +0.29). Holds cut 0.22 s before
+      "Against" (5.12 s into the line), at 4.9 s. Re-rendered: ffprobe 60.000 s, 1500 frames (150,
+      200, 150, 250, 525, 225), blackdetect 0, zoom 1.00 to 1.11. Before that, the local page was
+      captured on the GPU at 390x844 (dpr 2) and 1440x900 (scratchpad `page_preview/`: two phone
+      sheets, a desktop sheet, an 8 s phone MP4): no overflow, targets >= 44 px, body min 13 px,
+      no stale -0.63 / 159 / 8.7 in the visible text (the old split's -0.634 stays in the HTML
+      payload data); players small in the lower quarter of the phone stage. Memoria v0.17
+      (16.6, 59 pages, read back).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

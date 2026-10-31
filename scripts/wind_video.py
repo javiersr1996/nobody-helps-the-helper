@@ -229,10 +229,10 @@ BAND = 90
 #: Crops of the README's PNG (1440 x 3231), x0, y0, x1, y1, and the second at which each is shown:
 #: the dots panel with its colour key, then the interval panel with the dashed "one rotation"
 #: line and the bound paragraph. Cut times come from the guide voice's word boundaries (edge-tts,
-#: en-GB-RyanNeural): the sentence "Against the other attackers, a placebo, ..." starts 6.86 s in;
-#: the cut is 0.25 s earlier, since another voice will be slower or faster and an early cut is
+#: en-GB-RyanNeural): the sentence "Against a placebo, the other attackers, ..." starts 5.12 s in;
+#: the cut is 0.22 s earlier, since another voice will be slower or faster and an early cut is
 #: the safer.
-CROPS = [(0.0, (0, 290, 1440, 1520)), (6.6, (0, 1550, 1440, 2590))]
+CROPS = [(0.0, (0, 290, 1440, 1520)), (4.9, (0, 1550, 1440, 2590))]
 DISSOLVE = 6
 
 
