@@ -465,7 +465,35 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
-- [ ] D2 `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: 1920x1080 slides
+- [x] D2 (DONE 2026-10-31, local commit, NOT pushed) `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: the page
+      itself filmed frame by frame at 1920x1080 (dpr 1, 25 fps, real GPU: ANGLE Intel Arc D3D11,
+      alone) from the console (`seek`, `flight`, `view`, `hookTime`; no wall clock), windows parsed
+      from the `[m:ss-m:ss]` headers of `tasks/video_script_wind.md`; the silent H.264 MP4 is
+      `reports/video/nobody_helps_the_helper.mp4` (gitignored). Read back with ffprobe: 61.000 s
+      (script windows sum to 61, inside 60 +- 1, at the edge), 1525 frames, 1920x1080, no audio
+      stream; blackdetect 0 black frames. Frames per scene 150, 225, 150, 250, 525, 225 (window x
+      25). Per frame, one evaluate: scene 0, t, view, camera type, the man left's projection (page
+      `project` vs the camera matrices < 0.5 px; JSON position < 0.01 ft; the page's own tag over
+      the ring), the camera never lowering while rising; `p` is not exposed by the page, so its
+      effect is asserted. t_h = 0.60 s from the JSON, 0.597 s from the page's `hookTime`
+      (`clockOf` is not exposed). Scene 2 stretches the page's clock 7.3x (1.236 s of wall to 9 s);
+      scene 3 ring on the man left added over the page's own tag and black ring (they stay);
+      scene 4: clip 4.8 s, hold 0.4, rise 2.8, plan 2.0 with bars and the 8.7 ft tile moved by
+      injected CSS beside the bars; scene 5: figure 2 is 1440x2678, so it is panned at its own
+      size under a caption (159 of 618, -0.63 ft, CI -1.25 to -0.03) whose numbers fail the build
+      if not in `help_kinds_summary.csv`; scene 6: page in plan at 1.52 s with the -0.63 ft tile
+      and the title card (chosen over a title slide: same image as the claim). Video-only changes
+      are CSS/DOM at capture time; page and template untouched. Tests
+      `tests/test_wind_video.py`, 8: windows contiguous and 60 +- 1 s, a gap (7 s), an 80 s cut,
+      and 160 / -0.64 / -0.30 on a caption each refused. Contact sheet (start, middle, end of
+      every scene) looked at: nothing clipped, no controls, ring on the right player, the rise
+      lands in plan with the bars. Limits: intermediate frames not looked at one by one; the
+      first 10 frames of scenes 5 and 6 are dissolves; the build took about 17 min.
+      Guide voice (scratchpad only, edge-tts en-GB-RyanNeural, NOT the entry's voice), line vs
+      window: 5.23/6, 7.08/9, 4.80/6, 7.87/10, 21.77/21 (over by 0.77), 10.49/9 (over by 1.49).
+      Memoria v0.13 (new section 16, Plan/Pendientes/Registro now 17-19; 51 pages, section on
+      p. 45, read back with pdftotext). ruff 0, pytest 354 passed. Original line kept below.
+      Was: `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: 1920x1080 slides
       (title; figure 1; figure 2; the record) and, per D8, the drive captured from the page
       itself, driven by `seek(t)` frame by frame at 1920x1080 (the 3D hook and the camera
       rising to the top-down view), so video and page show the same pixels from the same

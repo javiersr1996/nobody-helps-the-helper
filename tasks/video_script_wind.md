@@ -18,10 +18,6 @@ shares); it is in git history.
 - Done 2026-10-30: the page's four drives were re-picked among the 159 committed near helps
   (scene 0 is `drive-114243-1-4`) and figure 1 redrawn; figure 2 now shows committed near help
   against the near reference; the README carries every number below.
-- Scene 3 needs a mark on the man left at t_h: the page's highlight if it has one, else a ring
-  added by D2.
-- Scene 2 needs `clockOf(s).centre` (the centre of the slow-down around the helper's move) read
-  from the page.
 
 ---
 
