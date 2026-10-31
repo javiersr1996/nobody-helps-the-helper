@@ -19,9 +19,10 @@ the real GPU (SwiftShader or a second browser faked 3 timing failures). [[lesson
 
 ## A check that cannot fail has checked nothing
 **Why:** the drive-frame check compared `direction` with the sign of a lateral motion ALREADY
-mirrored to be positive, printed 1.000 and was reported as a validation; really 0.67 and 0.72.
-**How to apply:** before trusting a 100 %, name what would have made it 0 %; if nothing could,
-the quantity is being compared with itself.
+mirrored to be positive (1.000, really 0.67); the "committed" split read the man's position at
+2.0 s, the very point the measure aims at, and made the -0.63 headline (helper-only: -0.19, CI 0).
+**How to apply:** before trusting a 100 % or a group gap, name what would have made it vanish;
+a check or a split that reads the outcome's own quantity is comparing it with itself.
 
 ## Two runs at different times are not two targets
 **Why:** the URL's start-up failing where an earlier local run had passed was written up as
