@@ -33,8 +33,6 @@ import numpy as np
 import pandas as pd
 from playwright.sync_api import sync_playwright
 
-from scbasket.court import FIBA
-
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
 DEFAULT_PAGE = REPORTS / "nobody_helps_the_helper.html"
@@ -1165,7 +1163,6 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
     ctx, pg, _ = open_page(browser, target, width=width, height=900 if width > 600 else 844)
     out = []
     covered, tags_under, frames_seen = [], 0, 0
-    past_court = []
     for i in range(SCENES_N):
         go_broadcast(pg)
         while state(pg)["scene"] != i:
@@ -1182,8 +1179,6 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         worst = 1e9
         outside = 0
         room = 0.0
-        past = 0.0
-        band = max((k[3] for k in over), default=0.0)
         hoop_ok = True
         r = D.scenes[i]["roles"]
         story = [r["handler"], r["helper"], r["left"], *r["others"]]
@@ -1216,12 +1211,7 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
             room = max(room, (H - bottom) / H)
             hx, hy = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
             hoop_ok = hoop_ok and hy >= 0.6 * H and abs(hx - W / 2) <= 0.15 * W
-            # 2026-10-31, portrait: the share of the canvas between the title band and the far
-            # baseline, past the court (the stands' rows)
-            _, fy = pg.evaluate(PROJ_JS, [FIBA.half_length_ft, 0.0, 0.0])
-            past = max(past, max(0.0, fy - band) / H)
         out.append((i, outside, round(worst, 1), hoop_ok, round(room, 3)))
-        past_court.append((i, round(past, 3)))
         go_plan(pg)
         px, py = pg.evaluate(PROJ_JS, [D.hoop_x, 0.0, 0.0])
         out.append(
@@ -1245,14 +1235,6 @@ def check_framing(D: Data, browser, target: str, width: int) -> None:
         frames_seen == SCENES_N * (D.headline + 1) and not covered and tags_under == 0,
         f"{frames_seen} frames; points under an overlay {len(covered)} {covered[:4]}; tags under one {tags_under}",
     )
-    if H > W:
-        R.check(
-            f"portrait at {width}px: the spare height goes to the court, at most 10 % of the canvas between"
-            " the title band and the far baseline on frames 0..38 of all scenes in broadcast (the bottom rule,"
-            " mirrored)",
-            len(past_court) == SCENES_N and all(p <= 0.10 for _, p in past_court),
-            f"(scene, worst share) {past_court}",
-        )
     ctx.close()
 
 

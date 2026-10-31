@@ -1375,6 +1375,14 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       sheets, side-by-side and an 8 s MP4 (now cropped to the 390x844 page; the old recipe left
       it in the top-left quarter of a grey 780x1688 frame) in the session scratchpad
       `page_preview/after/`. Memoria v0.18 (14.7, 62 pages, read back).
+      REVERTED 2026-10-31 (portrait camera only): Javier chose the old 28-degree phone camera (43
+      shrinks the players and drops the crowd he had approved). `CAMERA.portrait` and B5's
+      past-court row removed (with 28 it could only fail); percentile rule, its test and the
+      16 px inline code kept. Identity: shotOf's 158 numbers per scene IDENTICAL as text to the
+      pre-5f9f340 build at 390x844, 360x800, 1440x900 and 1920x1080, all four scenes. B5 GPU
+      alone: 195/196 (only the known first-paint row, 1.33/1.21/1.12 s), then 196/196. ruff 0,
+      pytest 371 passed. Memoria v0.19 (14.7 says tried, measured, rejected and why; 62 pages,
+      read back).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
