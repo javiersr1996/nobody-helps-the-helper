@@ -1424,6 +1424,15 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       only implied. Next: drop the novice glossary (drive, help, CI need no definition for
       this judge), spend the words on an explicit stakes line and the 1.0 / 2.0 s results,
       then re-read with 3 expert readers per version, interleaved, before 'publica'.
+      DONE: glossary dropped, stakes line and 1.0 / 2.0 s back, the misread 43 % paragraph
+      rewritten ("a similar gap", the gaps are 4.9 and 5.5 points). Six expert readers,
+      interleaved: comm before 4, 5, 5 / after 6, 6, 5; overall 6 for all six. The README
+      lifts communication about one point; the overall is held by the content (a null, not
+      pre-registered, the withdrawn -0.63, HMM 79 %, few passes), honest and staying.
+      PUBLISHED 2026-11-01 on Javier's "Publica": main at c9238f4 (11 commits); raw README
+      on main carries the new text; the page is unchanged (served sha256 a8e73b3bf4d0... =
+      committed blob, last changed 4ac4b7c), HTTP 200. Next: D3 (Javier's voice), the
+      biggest lever left per the council.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
