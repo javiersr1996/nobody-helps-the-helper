@@ -1155,6 +1155,63 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    +140 ms on desktop; the 1.0 s row keeps failing when it fails, as a known limit). Open after
    it: the helper tag's contrast to >= 4.5; the two taste items; the unexplained slow cold
    loads; D1 (Javier reads the script aloud) and C5 (he reads the published README).
+   PUBLISHED 2026-10-31 on Javier's "publica" (867aa8c pushed; Pages serves sha256 d8b698f4...,
+   equal to the committed file, HTTP 200). B5 against the URL: 195/196, only the first-paint
+   row (1.36, 1.28, 0.70 s), the known limit above. D2 rounds 1-2 pushed the same day (e9937fc).
+13. THE REVIEW (V, run early on Javier's "ahora", 2026-10-31; `revisor-adversarial`, Opus, probes
+   in the session scratchpad `review/`). Its first finding REPRODUCED in the main session: the
+   near help's committed/recovered split (`help_kinds._recovered`) reads the man left's position
+   at 2.0 s, the same point the measure (`rotation`, target at the horizon) points to; a man who
+   cuts to the rim moves drives out of "committed" and makes the others look like rotating
+   (stunt minus reference +0.56 [0.00, 1.13]). Classified by the helper's own movement (his
+   distance at 2.0 s to the man's START spot > start distance + 1 ft): 246 committed of 263
+   movers; their pairs toward the man left minus placebo -0.22 [-0.58, +0.14] at 1.5 s,
+   reference -0.03 [-0.38, +0.34], contrast -0.19 [-0.69, +0.32]; leave-one-game-out contrast
+   -0.09 to -0.30, committed mean -0.12 to -0.34. The "-0.63, less than the reference" claim
+   is withdrawn: it came from the split. DECIDED by Javier 2026-10-31: the claim becomes the
+   measured absence (no more toward the man left than toward any other attacker, with the CI's
+   top as the bound); the title stays and the README's first sentence defines "nobody" as that
+   average. Seen before writing this, so NOT a pre-registration: say so in README and memoria.
+   Cascade, one agent at a time (they share the CSVs, the template, B5 and the GPU):
+   a. Analysis [opus]: reclassify in `help_kinds` (keep the old split as a sensitivity column);
+      headline CSV rows for the committed group's own mean and the reference; publish the near
+      sensitivity grid the docstring promises, leave-one-game-out, game-cluster bootstrap, fixed
+      targets, no pass before 1.52 s, fully detected only; the nearest's matchup coherence
+      (review 6: 111 of 159 under the old split); re-pick the four drives by the same rule in
+      the new class; figures 1 and 2 to the absence. Javier sees figure 2 before b.
+   b. Page, README, memoria [opus]: claim sentences with their scale; limits: scope narrowed
+      after the results and the reclassification after the review (review 4), long help with
+      its numbers (review 5: "none was looked for" is false), the matchups of the nearest,
+      `npm install -g docx` (review 8); `check_readme` orphans removed (review 9); the template's
+      line "the drop below 0 belongs to the near help that commits" removed; B5 on the GPU.
+   c. Video: script scenes 2 and 4-6 (review 7: "steps in to stop it" implies intent), Javier
+      approves the words; the dots hold gets its colour key; re-render, preview to his phone.
+   a2. PRE-REGISTERED 2026-10-31, written and committed BEFORE either measure below was run (the
+      literature review `docs/research/help_defense_literature.md`: doctrine assigns the
+      help-the-helper rotation to ONE defender, and times it on the pass). Population and
+      classes as in a (committed near help by the helper's own movement; reference: the nearest
+      moves < 1 ft toward the handler). Unit, placebo and bootstrap as `second_help` (per-drive
+      value, drives resampled, 4000 draws, seed 0, 95 % percentile CI); "lies above 0" means
+      ci_low > 0.
+      (i) DESIGNATED ROTATOR. Among the three others (neither the handler's matchup nor the
+      helper), R1 = the one closest to the man left at r0; R2 = the low man, the one closest to
+      the hoop (`scbasket.wind.HOOP`) at r0. For each, in the committed group and in the
+      reference: his own `to_left - placebo` (the same placebo the three use), mean, 95 % CI and
+      n at 1.0 / 1.5 / 2.0 s. READING at 1.5 s, per defender: if his committed CI lies ABOVE 0,
+      the absence claim is FALSE for that defender and the claim changes to say a rotation exists
+      by him (reported, not softened); if it contains 0 or lies below, the absence holds for him
+      too and his CI top is a second bound, stated next to the pooled one.
+      (ii) THE PASS. The window is the headline one, frames 0 to 38 (1.52 s) from the drive's
+      start. Count committed and reference drives with a pass of the drive's chance starting
+      inside it (any pass), and with one received by the man left. For drives with a pass, anchor
+      on the FIRST such pass's start frame (the release) and measure the three (their per-drive
+      mean) and R1 alone from the release over 1.0 s (25 frames, contiguous, same chance; a drive
+      without that window is dropped and counted): each defender's displacement from the release
+      projected toward the man left where he is 1.0 s after it, minus the same toward the placebo
+      targets (the set fixed at r0) where they are then. READING: n = committed drives with a
+      measurable post-pass window; if n < 30, a stated limit with its n and no claim; otherwise
+      the same reading (committed CI above 0: ROTATION, reported next to the claim; containing 0
+      or below: ABSENCE), for the three and for R1 separately.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
