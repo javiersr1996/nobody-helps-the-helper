@@ -28,3 +28,11 @@ def test_changed_bold_number_fails(tmp_path: Path) -> None:
     assert len(failed) == 1
     assert "rule out more than" in failed[0][0]
     assert "+0.12 ft" in failed[0][1] and "+0.13 ft" in failed[0][1]
+
+
+def test_code_tokens_count_toward_the_rendered_limit(tmp_path: Path) -> None:
+    text = README.read_text(encoding="utf-8")
+    copy = tmp_path / "README.md"
+    copy.write_text(text + "\n```bash\n" + "word " * 20 + "\n```\n", encoding="utf-8")
+    failed = [name for ok, name, _ in run(copy) if not ok]
+    assert failed == ["rendered"]

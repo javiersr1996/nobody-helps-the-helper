@@ -7,6 +7,8 @@ Three checks, one line each, exit 0 if all pass and 1 otherwise:
   words    at most 1000. A word is a whitespace-separated token of the prose left after
            removing fenced code blocks, HTML comments and the URL of every link and image
            (`[text](url)` keeps `[text]`).
+  rendered at most 1000 too, counting the tokens inside fenced code blocks as well (what a
+           judge sees who counts the rendered page, code included).
   images   exactly two images, the two figures in order, and both files exist.
   bold     every bold span (`**...**`) is a number the table SOURCES below maps to a CSV.
            Each entry names the text that must stand right before the bold span (its
@@ -50,6 +52,14 @@ def pct1(x: float) -> str:
 
 def span(pair: tuple[float, float]) -> str:
     return f"{pair[0]:+.2f} to {pair[1]:+.2f}"
+
+
+def points(x: float) -> str:
+    return f"{100 * x:.1f} points"
+
+
+def span_points(pair: tuple[float, float]) -> str:
+    return f"{100 * pair[0]:+.1f} to {100 * pair[1]:+.1f}"
 
 
 def plain(x: object) -> str:
@@ -176,8 +186,8 @@ SOURCES: tuple[Source, ...] = (
            lambda d: ci_of(near(d, "paired_diff", COMMIT, 1.52)), span),
     Source("the data rule out more than ", KINDS,
            lambda d: near(d, "paired_diff", COMMIT, 1.52)["ci_high"], sft),
-    Source("median step toward the ball is ", KINDS,
-           lambda d: near(d, "scale", COMMIT, 1.52, "helper_step")["median"], ft1, False),
+    Source("mean step toward the ball is ", KINDS,
+           lambda d: near(d, "scale", COMMIT, 1.52, "helper_step")["mean"], ft1, False),
     Source("At 1.0 s ", KINDS, lambda d: near(d, "paired_diff", COMMIT, 1.0)["mean"], ft, False),
     Source("At 1.0 s -0.22 ft (CI ", KINDS,
            lambda d: ci_of(near(d, "paired_diff", COMMIT, 1.0)), span, False),
@@ -186,10 +196,6 @@ SOURCES: tuple[Source, ...] = (
            lambda d: ci_of(near(d, "paired_diff", COMMIT, 2.0)), span, False),
     Source("the mean would read ", KINDS,
            lambda d: near(d, "scale", COMMIT, 1.52, "one_rotates")["mean"], sft),
-    Source("When the nearest stays home: ", KINDS,
-           lambda d: near(d, "paired_diff", REF, 1.52)["mean"], ft, False),
-    Source("When the nearest stays home: -0.03 ft (CI ", KINDS,
-           lambda d: ci_of(near(d, "paired_diff", REF, 1.52)), span, False),
     # 13 a2, pre-registered: the designated rotators and the pass (near_rotator.csv, _pass.csv).
     Source("the defender nearest the hoop alone reads ", "near_rotator.csv",
            lambda d: rotator(d, "R2")["mean"], sft, False),
@@ -206,9 +212,9 @@ SOURCES: tuple[Source, ...] = (
     Source("Big moves cut both ways: in ", KINDS,
            _nearest("share_mover_left", COMMIT), pct0, False),
     Source("toward the man left, in ", KINDS, _nearest("share_mover_placebo", COMMIT), pct0, False),
-    Source("when the nearest stays home, ", KINDS,
+    Source("with the nearest at home, ", KINDS,
            _nearest("share_mover_left", REF), pct0, False),
-    Source("when the nearest stays home, 34 % and ", KINDS,
+    Source("with the nearest at home, 34 % and ", KINDS,
            _nearest("share_mover_placebo", REF), pct0, False),
     # The record and the robustness (help_kinds_summary.csv, near_sensitivity.csv,
     # near_robustness.csv).
@@ -218,7 +224,7 @@ SOURCES: tuple[Source, ...] = (
     Source("a contrast of **-0.63 ft** (CI ", KINDS,
            lambda d: ci_of(near(d, "contrast", "near_committed_endpos", 1.52, "sensitivity")),
            span, False),
-    Source("under every check: all ", "near_sensitivity.csv",
+    Source("holds 0 in all ", "near_sensitivity.csv",
            lambda d: len(d) if (d["reading"] == "ABSENCE").all() else -1, plain),
     Source("(CI tops ", "near_sensitivity.csv",
            lambda d: (d["ci_high"].min(), d["ci_high"].max()), span, False),
@@ -231,6 +237,12 @@ SOURCES: tuple[Source, ...] = (
            lambda d: robust(d, "no_pass").iloc[0]["mean"], ft, False),
     Source("every player detected (", "near_robustness.csv",
            lambda d: robust(d, "detected").iloc[0]["mean"], ft, False),
+    Source("both groups lie below 0 (committed ", "near_robustness.csv",
+           lambda d: robust(d, "fixed_targets").iloc[0]["mean"], ft, False),
+    Source("-0.81 ft, CI ", "near_robustness.csv",
+           lambda d: ci_of(robust(d, "fixed_targets").iloc[0]), span, False),
+    Source("; reference ", "near_robustness.csv",
+           lambda d: robust(d, "fixed_targets", "reference").iloc[0]["mean"], ft, False),
     # Long help, the stated limit.
     Source("the drive's path: ", KINDS, lambda d: count(d, "flag", "long"), plain),
     Source("toward his man ", KINDS, lambda d: near(d, "contrast", "long", 1.52)["mean"], sft,
@@ -244,11 +256,19 @@ SOURCES: tuple[Source, ...] = (
            lambda d: hmm_agreement(d, "hmm"), pct0),
     Source("of these drives (", "hmm_matchups_summary.csv",
            lambda d: hmm_agreement(d, "hmm_1s_before"), pct0, False),
+    Source("the nearest-attacker rule in ", "hmm_matchups_summary.csv",
+           lambda d: float(one(d, section="agreement", config="baseline", group="committed",
+                               series="closest_attacker")["value"]), pct0, False),
     # The outcome of the man left (man_left_outcome_summary.csv): near help vs stays home.
     Source("the ball reaches the man left in ", "man_left_outcome_summary.csv",
            lambda d: outcome_reached(d)["mean_a"], pct1),
     Source("the ball reaches the man left in **12.9 %**, against ", "man_left_outcome_summary.csv",
            lambda d: outcome_reached(d)["mean_b"], pct1),
+    Source("The gap, ", "man_left_outcome_summary.csv",
+           lambda d: outcome_reached(d)["diff"], points, False),
+    Source("are resampled (CI ", "man_left_outcome_summary.csv",
+           lambda d: (outcome_reached(d)["ci_low_diff_drive"],
+                      outcome_reached(d)["ci_high_diff_drive"]), span_points, False),
     # The mirror (help_table.csv: provider_direction against the un-mirrored lateral sign).
     Source("direction agrees on ", "help_table.csv",
            lambda d: direction_agreement(d, "left"), pct0, False),
@@ -274,6 +294,18 @@ def body(text: str) -> str:
 def check_words(text: str) -> tuple[bool, str]:
     n = len(prose(text).split())
     return n <= MAX_WORDS, f"{n} words, limit {MAX_WORDS}"
+
+
+def rendered_words(text: str) -> int:
+    """Prose words plus the tokens of every fenced code block, fences and language tags out."""
+    code = sum(len(re.sub(r"^```\w*|```$", "", b).split())
+               for b in re.findall(r"```.*?```", text, flags=re.S))
+    return len(prose(text).split()) + code
+
+
+def check_rendered(text: str) -> tuple[bool, str]:
+    n = rendered_words(text)
+    return n <= MAX_WORDS, f"{n} words with code, limit {MAX_WORDS}"
 
 
 def check_images(text: str, root: Path) -> tuple[bool, str]:
@@ -312,7 +344,9 @@ def run(readme: Path, root: Path = ROOT) -> list[tuple[bool, str, str]]:
     text = readme.read_text(encoding="utf-8")
     words_ok, words_detail = check_words(text)
     images_ok, images_detail = check_images(text, root)
-    rows = [(words_ok, "words", words_detail), (images_ok, "images", images_detail)]
+    rend_ok, rend_detail = check_rendered(text)
+    rows = [(words_ok, "words", words_detail), (rend_ok, "rendered", rend_detail),
+            (images_ok, "images", images_detail)]
     rows.extend(check_bold(text, root / "reports"))
     return rows
 
