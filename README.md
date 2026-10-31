@@ -2,13 +2,15 @@
 
 A defender leaves his man to stop a drive to the basket: does anyone move to cover the man left open? On average, none of the other three defenders moves toward him more than toward any other attacker. The data rule out even a tenth of one defender's rotation toward him.
 
-Coaches teach the next defender to cover that man ("help the helper"); in these ten games, on average, that move does not show up.
+Coaches teach the next defender to cover that man ("help the helper"); in these ten games, on average, that rotation does not show up as a default, so it is something to check, and the measure runs on any tracking data with matchups (`scbasket`).
 
-Here "nobody" is that average, over ten SkillCorner basketball games with tracked positions, a PySport x SkillCorner Analytics Cup 2.0 entry. Everything is a displacement or a distance; nothing says why anyone moved. Terms: a drive is a dribble toward the basket; a help is a defender leaving his own man to stop it; the man left is the attacker he leaves; the reference is the drives where the nearest defender moves less than 1 ft toward the handler (199); the comparison attackers are the other off-ball attackers, not his own man; CI is the 95 % confidence interval. The page: [javiersr1996.github.io/nobody-helps-the-helper](https://javiersr1996.github.io/nobody-helps-the-helper/).
+Here "nobody" is that average, over ten SkillCorner basketball games with tracked positions, a PySport x SkillCorner Analytics Cup 2.0 entry. Everything is a displacement or a distance; nothing says why anyone moved. The page: [javiersr1996.github.io/nobody-helps-the-helper](https://javiersr1996.github.io/nobody-helps-the-helper/).
 
 ## How it is measured
 
-A help: the off-ball defender nearest the ball moves at least 2 ft toward the ball handler within 1.0 s and, at 2.0 s, stands more than 1 ft farther from where his man started than at the start (he did not go back). Only his own movement decides. There are **246 of 618** drives like that. The man left is the attacker he guarded at the start, per the provider's matchups. For each of the other three defenders: how far he moves toward the man left, minus how far he moves toward the comparison attackers. Negative means more toward the others.
+A help: the off-ball defender nearest the ball moves at least 2 ft toward the ball handler within 1.0 s and, at 2.0 s, stands more than 1 ft farther from where his man started than at the start (he did not go back). Only his own movement decides. There are **246 of 618** drives like that. The man left is the attacker he guarded at the start, per the provider's matchups. For each of the other three defenders: how far he moves toward the man left, minus how far he moves toward the comparison attackers, the other off-ball attackers, not his own man. Negative means more toward the others.
+
+The reference: the nearest defender moves less than 1 ft toward the handler (199 drives).
 
 ![Figure 1: one drive and how the measure works](reports/figures/wind_figure_1_one_drive.png)
 
@@ -16,7 +18,7 @@ A help: the off-ball defender nearest the ball moves at least 2 ft toward the ba
 
 ## The result
 
-At 1.5 s the mean difference of the other three is **-0.22 ft** (CI **-0.58 to +0.13**): no more toward the man left than toward the others. The interval's top is the bound: the data rule out more than **+0.13 ft**. For scale, the helpers' median step toward the ball is 4.2 ft; had one of the three moved toward the man left that far, the mean would read **+1.35 ft**. The bound is 0.098 of that, about a tenth: a narrow interval, not a wide one. When the nearest stays home: -0.03 ft (CI -0.41 to +0.33).
+At 1.5 s the mean difference of the other three is **-0.22 ft** (CI **-0.58 to +0.13**): no more toward the man left than toward the others. The interval's top is the bound: the data rule out more than **+0.13 ft**. For scale, the helpers' median step toward the ball is 4.2 ft; had one of the three moved toward the man left that far, the mean would read **+1.35 ft**. The bound is 0.098 of that, about a tenth: a narrow interval, not a wide one. At 1.0 s -0.22 ft (CI -0.46 to +0.01), at 2.0 s -0.18 ft (CI -0.65 to +0.27). When the nearest stays home: -0.03 ft (CI -0.41 to +0.33).
 
 Coaches teach it to one defender, on the pass (`docs/research/`). Two readings were fixed in git before running (`83e8d5d`): the defender nearest the hoop alone reads +0.21 ft (CI -0.33 to +0.73), and the one nearest the man left -1.11 ft (CI -1.78 to -0.47). Neither moves toward him more. A pass starts within 1.5 s in only **28 of 246** drives, too few to measure what follows: the window mostly sees the defence before any pass.
 
