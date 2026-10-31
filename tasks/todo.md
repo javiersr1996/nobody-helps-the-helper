@@ -1383,6 +1383,19 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       alone: 195/196 (only the known first-paint row, 1.33/1.21/1.12 s), then 196/196. ruff 0,
       pytest 371 passed. Memoria v0.19 (14.7 says tried, measured, rejected and why; 62 pages,
       read back).
+   PUBLISHED 2026-10-31 on Javier's "publica" (after he saw figure 2, the video v4 and the
+   phone page): main at 4ac4b7c; Pages serves sha256 a8e73b3bf4d0..., equal to the committed
+   page, HTTP 200; B5 against the URL 196/196 (82 s). The public entry no longer says -0.63.
+14. NEXT SESSION (left 2026-10-31). Open, in order:
+   a. D3: Javier records one pass over the silent cut (`reports/video/nobody_helps_the_helper.mp4`,
+      script approved, 119 words; guide pace fits every window). Then mux and ffprobe.
+   b. C5: Javier reads the published README on GitHub.
+   c. Optional, ranked in `docs/research/help_defense_literature.md` E.2: cross-check the
+      provider's matchups with an HMM in the manner of Franks et al. (review finding 6); the
+      pass-aligned rotation stays a limit (28 of 246 drives).
+   d. Not shipped: the helper tag's contrast (3.2-3.7 on the canvas); the phone hook cannot
+      show bigger players with this camera (14.7 of the memoria); slow cold loads.
+   e. Phase E: real devices, memoria v1.0, tag and form by 17 Dec. The ONE review is done (13).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
