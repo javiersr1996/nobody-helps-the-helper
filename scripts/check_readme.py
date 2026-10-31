@@ -45,6 +45,10 @@ def ft(x: float) -> str:
     return f"{x:.2f} ft"
 
 
+def pct1(x: float) -> str:
+    return f"{100 * x:.1f} %"
+
+
 def span(pair: tuple[float, float]) -> str:
     return f"{pair[0]:+.2f} to {pair[1]:+.2f}"
 
@@ -84,6 +88,17 @@ def direction_agreement(t: pd.DataFrame, label: str) -> float:
     ok = resolved(t)
     rows = ok[ok["provider_direction"] == label]
     return float(((rows["provider_direction"] == "left") == (rows["flip"] == 1)).mean())
+
+
+def hmm_agreement(df: pd.DataFrame, series: str) -> float:
+    """hmm_matchups_summary.csv: the HMM's agreement with the provider, committed drives."""
+    return float(one(df, section="agreement", config="frozen", group="committed",
+                     series=series)["value"])
+
+
+def outcome_reached(df: pd.DataFrame) -> pd.Series:
+    """man_left_outcome_summary.csv: the ball reaches the man left, near help vs stays home."""
+    return one(df, comparison="help_vs_reference", window="step", quantity="reached")
 
 
 @dataclass(frozen=True)
@@ -229,12 +244,6 @@ SOURCES: tuple[Source, ...] = (
            lambda d: robust(d, "no_pass").iloc[0]["mean"], ft),
     Source("every player detected (", "near_robustness.csv",
            lambda d: robust(d, "detected").iloc[0]["mean"], ft),
-    Source("it falls to ", "near_robustness.csv",
-           lambda d: robust(d, "fixed_targets").iloc[0]["mean"], ft),
-    Source("it falls to **-0.81 ft** (CI ", "near_robustness.csv",
-           lambda d: ci_of(robust(d, "fixed_targets").iloc[0]), span),
-    Source("but so does the reference (", "near_robustness.csv",
-           lambda d: robust(d, "fixed_targets", "reference").iloc[0]["mean"], ft),
     # Long help, the stated limit.
     Source("the drive's path: ", KINDS, lambda d: count(d, "flag", "long"), plain),
     Source("toward his man ", KINDS, lambda d: near(d, "contrast", "long", 1.52)["mean"], sft),
@@ -242,16 +251,18 @@ SOURCES: tuple[Source, ...] = (
     # The X-out of the pooled helper (second_help_closeouts.csv).
     Source("n = ", "second_help_closeouts.csv",
            lambda d: int(one(d, helped=True, receiver_is_left=True)["n"]), plain),
-    # The provider's matchups (matchup_coherence.csv, near_matchup_coherence.csv).
-    Source("is the nearest defender in ", "matchup_coherence.csv",
-           lambda d: one(d, metric="assigned defender is the nearest"),
-           lambda r: f"{r['n']} of {r['of']}"),
-    Source("own man at the start in ", "near_matchup_coherence.csv",
-           lambda d: one(d, group="committed"), lambda r: f"{r['n_coherent']} of {r['n']}"),
-    Source("committed drives (", "near_matchup_coherence.csv",
-           lambda d: one(d, group="reference"), lambda r: f"{r['n_coherent']} of {r['n']}"),
+    # The HMM cross-check of the provider's matchups (hmm_matchups_summary.csv).
+    Source("agrees on the man left in ", "hmm_matchups_summary.csv",
+           lambda d: hmm_agreement(d, "hmm"), pct0),
+    Source("of committed drives (", "hmm_matchups_summary.csv",
+           lambda d: hmm_agreement(d, "hmm_1s_before"), pct0),
+    # The outcome of the man left (man_left_outcome_summary.csv): near help vs stays home.
+    Source("the ball reaches the man left in ", "man_left_outcome_summary.csv",
+           lambda d: outcome_reached(d)["mean_a"], pct1),
+    Source("the ball reaches the man left in **12.9 %**, against ", "man_left_outcome_summary.csv",
+           lambda d: outcome_reached(d)["mean_b"], pct1),
     # The mirror (help_table.csv: provider_direction against the un-mirrored lateral sign).
-    Source("agrees with it on ", "help_table.csv",
+    Source("agrees on ", "help_table.csv",
            lambda d: direction_agreement(d, "left"), pct0),
     Source("left-labelled and ", "help_table.csv",
            lambda d: direction_agreement(d, "right"), pct0),

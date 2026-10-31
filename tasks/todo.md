@@ -1408,9 +1408,7 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       DONE 2026-10-31: (1) HMM agrees on 195 of 246 committed drives, 79.3 %, absence holds
       on them (945183c). (2) man left: ball reaches him 12.9 % vs 8.5 % (games CI excludes 0,
       drives CI does not), no more open, no more shots (138d48b). (3) competitor read at
-      8bcdc821, no overlap (research D, in 945183c). (4) NOT DONE: README is 997 words with 3
-      spare; the three approved lines need 99 more (drafts: HMM 38, outcome 50, metrics 14),
-      so 1099 against 1000; decision needed on what to cut. Memoria 0.21 carries 1 to 3.
+      8bcdc821, no overlap (research D, in 945183c). (4) README lines done (999 words; cuts: fixed-targets sentence, bounce line, 3D phrase, ten-games bullet, module list; check_readme 47/47); see the README commit.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
