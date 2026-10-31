@@ -22,7 +22,7 @@ Coaches give this rotation to one defender and teach it on the pass (`docs/resea
 
 The absence is an average. In **43 %** of these drives one of the three moves 4 ft or more toward the man left, and in **39 %** toward the others on average (**34 %** and **29 %** in the reference). At 1.5 s a third defender is the nearest to the man left in **15 %** (**15 %** in the reference).
 
-From the help step to +3 s, after any near help (263 drives, committed or not) the ball reaches the man left in **12.9 %**, against **8.5 %** in the 199 of the reference: the gap holds resampling games, not drives. Caught, he is no more open and shoots no more often.
+From the help step to +3 s, after any near help (263 drives, committed or not) the ball reaches the man left in **12.9 %**, against **8.5 %** in the reference (199): the gap holds resampling games, not drives. At the catch he is no more open and shoots no more often.
 
 ![Figure 2: who covers the man the helper leaves](reports/figures/wind_figure_2_who_covers.png)
 
