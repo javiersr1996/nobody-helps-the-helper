@@ -1417,6 +1417,13 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       pass dropped both figure captions and the 1.0 s / 2.0 s results (README shows 1.5 s
       only, which can read as a chosen window); my recommendation is to restore the windows
       in one short sentence. Previews: scratchpad readme_before.md / readme_after.md.
+      CORRECTION (owner): the judge is a basketball data analyst expert, not a novice (memory
+      jurado-analista-baloncesto). Re-read with that persona, one reader per version (n = 1
+      each, so the gap may be noise): before comm 6/10, overall 6.5; after comm 7/10, overall
+      7.5. Neither flagged the 1.5 s window as chosen. Both: "why a coach should care" still
+      only implied. Next: drop the novice glossary (drive, help, CI need no definition for
+      this judge), spend the words on an explicit stakes line and the 1.0 / 2.0 s results,
+      then re-read with 3 expert readers per version, interleaved, before 'publica'.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
