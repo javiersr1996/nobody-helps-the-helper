@@ -172,7 +172,7 @@ footer h3{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(
           margin:22px 0 6px}
 footer pre{background:var(--paper);border:1px solid var(--line);padding:12px 14px;font-family:var(--mono);
            font-size:14px;overflow-x:auto;margin:0}
-footer code{font-family:var(--mono);font-size:15px}
+footer code{font-family:var(--mono);font-size:16px}
 footer a{display:inline-block;padding:11px 0}
 
 @media (min-width:900px){
@@ -364,8 +364,18 @@ const BOARD_LOW = 9.51, BOARD_HIGH = 12.96, RIM_R = 0.74, RIM_Z = 10;
    hoop's base and the ball sits at BOTTOM below the centre (normalised device height) and the
    spare height goes to the top; choosing where to look along the axis, each unit of that shift
    costs SHIFT_COST of the camera's distance. FOV_PLAN: the narrowest field of view the rise
-   reaches before the swap to the orthographic camera. Degrees and feet. */
-const CAMERA = {wide: {pitch: 32, fov: 22}, square: {pitch: 28, fov: 22}};
+   reaches before the swap to the orthographic camera. Degrees and feet.
+   2026-10-31, portrait: a canvas taller than wide (a phone held upright) is width-limited, the six
+   span 85-89 % of its width at t = 0 whatever the field of view, so no camera on the axis can
+   draw them bigger; the spare height went up to the stands (29-33 % of the canvas past the far
+   baseline at 28 degrees, worst frame per scene). The portrait pitch spends it on the court:
+   the least whole degree at which, in every scene and frame 0..38 at 390x844 and 360x800, at
+   most 10 % of the canvas lies between the title band and the far baseline (the bottom rule's
+   10 %, mirrored; 42 degrees leaves 11 % in scene 3).
+   The bodies stand 15-20 % shorter on screen; the helper's step and the man he left's path read
+   1-47 % longer (the part along the court grows, the part across it does not). A canvas at least
+   as wide as tall keeps its camera exactly. */
+const CAMERA = {wide: {pitch: 32, fov: 22}, square: {pitch: 28, fov: 22}, portrait: {pitch: 43, fov: 22}};
 const FRAME_MARGIN = 0.03, HOOP_LOW = -0.3, SHIFT = 0.25, BODY_HALF = 1, PUSH_SMOOTH = 6, PUSH = 0.1;
 const SHIFT_V = 1.6, BOTTOM = 0.88, SHIFT_COST = 0.1;
 const LOOK_Z = 3, FOV_PLAN = 1;
@@ -1567,7 +1577,8 @@ function planFrame(s) {
 function shotOf(s) {
   const key = `${size.w}x${size.h}:${size.band}`;
   if (s.shot && s.shot.key === key) return s.shot;
-  const cam = CAMERA[size.square ? "square" : "wide"], p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
+  const cam = CAMERA[size.h > size.w ? "portrait" : size.square ? "square" : "wide"];
+  const p = cam.pitch * DEG, t0 = Math.tan(cam.fov * DEG / 2);
   const inner = 1 - 2 * FRAME_MARGIN, A = t0 * size.w / size.h, roof = inner - 2 * size.band / size.h;
   const fx = Math.cos(p), fz = -Math.sin(p), ux = Math.sin(p), uz = Math.cos(p);
   const r = s.roles, story = [r.handler, r.helper, r.left, ...r.others];
@@ -2308,6 +2319,17 @@ canvas.addEventListener("pointerdown", ev => {
 /* ==========================================================================
    The measure (storyboard 4.1, 4.2). Only ever visible in plan.
    ========================================================================== */
+/* Where the shown drive sits among all the near helps that commit, in words, from its percentile
+   (the share of them at or below its paired mean, as printed). Inside the quartiles (25 to 75,
+   the middle half) it is a typical one; below the lower quartile more than three quarters lie
+   above it, so it is clearer than most; above the upper one more than three quarters lie at or
+   below it, so it is less clear than most. Only outside the middle half is "not typical" true. */
+const QUARTILE = 25;
+function standing(pct) {
+  if (pct < QUARTILE) return "clearer than most, not typical.";
+  if (pct > 100 - QUARTILE) return "less clear than most, not typical.";
+  return "in the middle half, a typical one.";
+}
 function renderMeasure() {
   if (measure.hidden) return;
   const s = SCENES[st.scene], among = s.paired_mean_1_5s_among_helped, si = st.scene;
@@ -2333,7 +2355,7 @@ function renderMeasure() {
     + ` every condition). This drive sits at percentile `
     + q(among.percentile, among.percentile.toFixed(0), J, `scenes.${si}.paired_mean_1_5s_among_helped.percentile`)
     + ` of ${among.n_helped} near helps that commit: `
-    + (among.percentile < 50 ? "clearer than most, not typical." : "less clear than most, not typical.")
+    + standing(Number(among.percentile.toFixed(0)))
     + ` Below, the result over all of them.`;
 
   // Who covers him, over all committed near helps at the headline horizon (figure 2's key).

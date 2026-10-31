@@ -1343,6 +1343,38 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       no stale -0.63 / 159 / 8.7 in the visible text (the old split's -0.634 stays in the HTML
       payload data); players small in the lower quarter of the phone stage. Memoria v0.17
       (16.6, 59 pages, read back).
+   d. Page polish DONE 2026-10-31 (local commit, NOT pushed; Javier looks at the phone sheets and
+      the MP4 first). (1) Portrait camera: `CAMERA.portrait` pitch 43 for a canvas taller than
+      wide (was the square 28). Width-limited: the six span 85-89 % of the width at t = 0 for any
+      fov 14-80, so players cannot grow on the axis camera; dropping the push-in gains 3 %. Pitch =
+      the least whole degree with at most 10 % of the canvas between the band and the far
+      baseline on every frame 0..38 of every scene at 390x844 and 360x800 (bottom rule mirrored;
+      42 leaves 11 % in scene 3; 28 left 29-33 %). Story box / stage height at t0 and t_h, 390:
+      s0 21->25 / 19->21 %, s1 28->35 / 25->30, s2 28->35 / 23->28, s3 16->19 / 18->20; median
+      story-player height px t0 / t_h: 61->49 / 70->58, 64->53 / 67->57, 71->58 / 70->59, 55->44 /
+      59->48 (360x800 the same shares within 1 point, heights 41-55 after); bodies -15..-20 %,
+      helper's step and the man left's path +1..+47 %. The action still sits low: the crowd's
+      rows are now empty far court. Landscape: shotOf's 158 numbers per scene IDENTICAL as text
+      at 1440x900 and 1920x1080, all four scenes (the video needs no re-render); the same compare
+      sees the phones differ. B5 new row (390, portrait only): past-court share <= 10 % on
+      frames 0..38: new worst 0.096, old 0.331 FAIL, pitch-42 mutant 0.112 FAIL. (2) The
+      percentile words: `standing()` splits at the quartiles (25..75 "in the middle half, a
+      typical one"; < 25 clearer / > 75 less clear than most, "not typical"), on the printed
+      integer; scene 0 (54) and 3 (67) change, 1 (80) and 2 (86) do not; node test of the
+      template's own rule, fails on the old 50-split at 54. (3) The payload's -0.634 is NOT the
+      old split's contrast (-0.6345 absent; no near_committed_endpos row ships): it is
+      `second_help_summary.csv` helped=False 2.0 s mean_diff -0.634193, a table the page ships
+      whole but reads only at 1.52 s; left as is (the line in c above was wrong). (4) Smallest
+      text 12 px (SVG `.small`: "black − grey", "n = 246"); 13 px tags, scrubber ticks, chart
+      labels, eyebrows, band-key numbers; 14 "1/2/3" tags, legends and wind keys, footer h3 and
+      pre; 15 buttons and footer inline code. No p/li/summary/td under 16; the inline code is
+      running text, 15 -> 16 px, and B5's body-size row now reads inline code with its
+      paragraph's length (fails on the old page, 4 rows). B5 GPU alone on the final build:
+      197/197 twice (first paint 0.54/0.50/0.51, 0.53/0.46/0.48 s); before a comment-only
+      rebuild 196/197 twice, only the known first-paint row. ruff 0, pytest 371 passed. Phone
+      sheets, side-by-side and an 8 s MP4 (now cropped to the 390x844 page; the old recipe left
+      it in the top-left quarter of a grey 780x1688 frame) in the session scratchpad
+      `page_preview/after/`. Memoria v0.18 (14.7, 62 pages, read back).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

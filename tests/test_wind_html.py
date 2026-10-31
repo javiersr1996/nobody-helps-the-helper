@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -277,6 +278,25 @@ def test_the_template_types_no_number_with_a_unit():
     assert TYPED.search("the helper moves 5.5 ft")  # the pattern itself can fire
     assert TYPED.search("58.3 %")
     assert TYPED.findall(TEMPLATE.read_text(encoding="utf-8")) == []
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not on the PATH")
+def test_the_drive_is_called_typical_only_inside_the_quartiles():
+    """The words after "This drive sits at percentile N", run from the template's own rule: inside
+    25..75 a typical one, outside it "not typical" on the side it lies. The rule before
+    2026-10-31 (split at 50) called scene 0's percentile 54 "less clear than most, not typical"."""
+    template = TEMPLATE.read_text(encoding="utf-8")
+    rule = re.search(r"^const QUARTILE = .*?^function standing\(pct\) \{.*?^\}$", template,
+                     re.M | re.S)
+    assert rule
+    pcts = [0, 10, 24, 25, 50, 54, 75, 76, 90, 100]
+    run = rule.group(0) + f"\nconsole.log(JSON.stringify({pcts}.map(standing)));"
+    out = subprocess.run(["node", "-e", run], capture_output=True, text=True, check=True).stdout
+    said = dict(zip(pcts, json.loads(out), strict=True))
+    typical = "in the middle half, a typical one."
+    assert all(said[p] == typical for p in (25, 50, 54, 75))
+    assert all(said[p] == "clearer than most, not typical." for p in (0, 10, 24))
+    assert all(said[p] == "less clear than most, not typical." for p in (76, 90, 100))
 
 
 def test_the_vendored_three_is_the_pinned_file_and_exports_what_the_page_uses(tmp_path):
