@@ -22,7 +22,7 @@ At 1.5 s the mean difference of the other three is **-0.22 ft** (CI **-0.58 to +
 
 Coaches teach it to one defender, on the pass (`docs/research/`). Two readings were fixed in git before running (`83e8d5d`): the defender nearest the hoop alone reads +0.21 ft (CI -0.33 to +0.73), and the one nearest the man left -1.11 ft (CI -1.78 to -0.47). Neither moves toward him more. A pass starts within 1.5 s in only **28 of 246** drives, too few to measure what follows: the window mostly sees the defence before any pass.
 
-Big moves cut both ways: in 43 % of drives one of them moves 4 ft or more toward the man left, in 39 % toward the comparison attackers on average; when the nearest stays home, 34 % and 29 %, five points apart both times: no excess toward him.
+Big moves cut both ways: in 43 % of drives one of them moves 4 ft or more toward the man left, in 39 % toward the comparison attackers on average; when the nearest stays home, 34 % and 29 %, a similar gap both times: no excess toward him.
 
 Afterwards, as context: from the help step to +3 s, after any near step in (263 drives, whether or not he stayed in) the ball reaches the man left in **12.9 %**, against **8.5 %** in the reference (199): the gap holds resampling games, not drives. At the catch he is no more open and shoots no more often.
 
