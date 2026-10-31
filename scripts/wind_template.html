@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nobody helps the helper</title>
-<meta name="description" content="On a drive, one defender steps toward the ball, and nobody moves toward the man he leaves. One drive of SkillCorner's open ACB tracking from the broadcast camera, then measured from above; every number is read from a reports/*.csv in the repository.">
+<meta name="description" content="On a drive, one defender steps toward the ball, and on average nobody moves toward the man he leaves more than toward anyone else. One drive of SkillCorner's open ACB tracking from the broadcast camera, then measured from above; every number is read from a reports/*.csv in the repository.">
 <style>
 :root{
   --bg:#fbfaf7; --paper:#ffffff; --ink:#2b2b2b; --court:#555555; --dim:#4a4a4a; --faint:#6b6b6b;
@@ -203,8 +203,8 @@ footer a{display:inline-block;padding:11px 0}
       <canvas id="court" role="img" aria-label="one drive, ten players on the court"></canvas>
       <div class="tags" id="tags" aria-hidden="true"></div>
       <p class="no-gl" id="no-gl" hidden>This browser has no WebGL, so the drive cannot be drawn
-        here. What it shows: on a drive, one defender steps toward the ball, and nobody moves
-        toward the man he leaves. The README's two figures draw the same drive and the result;
+        here. What it shows: on a drive, one defender steps toward the ball, and on average
+        nobody moves toward the man he leaves more than toward anyone else. The README's two figures draw the same drive and the result;
         the measures below this box need no GPU and still work.</p>
     </div>
     <div class="controls" id="controls">
@@ -248,7 +248,7 @@ footer a{display:inline-block;padding:11px 0}
         <div class="chart" id="strip"></div>
         <p class="limit" id="limit-chosen"></p>
 
-        <h2 class="second">Nobody else moves toward the man the helper left</h2>
+        <h2 class="second">Nobody moves toward the man the helper left more than toward anyone else</h2>
         <div class="result" id="result-tile"></div>
         <div class="tile" id="tile"></div>
         <h3 id="all-title"></h3>
@@ -263,6 +263,8 @@ footer a{display:inline-block;padding:11px 0}
         <p id="claim"></p>
         <p class="limit" id="limit-ci"></p>
         <p class="limit" id="ref-note"></p>
+        <p id="rotators"></p>
+        <p id="near-robust"></p>
         <details>
           <summary id="details-title"></summary>
           <div class="scroll" id="details"></div>
@@ -463,7 +465,7 @@ const summaryRow = (horizon, helped) =>
 const sq = (horizon, helped, col, text) =>
   q(summaryRow(horizon, helped)[col], text, SUMMARY, col, `horizon=${horizon};helped=${helped ? "True" : "False"}`);
 /* The headline's rows: committed near help (the nearest moves toward the handler and is not back
-   with his man) and its reference (the nearest stays home), from help_kinds_summary.csv. */
+   by where his man started) and its reference (the nearest stays home), from help_kinds_summary.csv. */
 const NEARS = "help_kinds_summary.csv";
 const nearRow = (frames, committed) =>
   D.near.rows.find(r => r.frames === frames && r.kind === (committed ? "near_committed" : "near_committed_ref"));
@@ -2316,7 +2318,7 @@ function renderMeasure() {
     + q(s.helper_help_move, s.helper_help_move.toFixed(1) + NB + "ft", J, `scenes.${si}.helper_help_move`)
     + ` toward the ball handler within ${sec(F_NAMED)} (the rule asks `
     + q(N.step_ft, N.step_ft.toFixed(0) + NB + "ft", HK, "NEAR_STEP_FT")
-    + ` or more) and at ${N.outcome_s.toFixed(1)}${NB}s is not back with his man; at ${sec(F_END)} the man he was guarding is `
+    + ` or more) and at ${N.outcome_s.toFixed(1)}${NB}s is not back by where his man started; at ${sec(F_END)} the man he was guarding is `
     + q(s.clearance_ft["1.5s"], s.clearance_ft["1.5s"].toFixed(1) + NB + "ft", J, `scenes.${si}.clearance_ft.1.5s`)
     + ` from the nearest defender. For each of the three other defenders: how far he moves toward`
     + ` that man, against how far toward the other attackers off the ball.`;
@@ -2350,26 +2352,53 @@ function renderMeasure() {
   at("who-dist").innerHTML = `The reference is the ${nq(h, false, "n", base.n)} drives where the nearest defender`
     + ` moves less than ${q(N.stay_ft, N.stay_ft.toFixed(0) + NB + "ft", HK, "NEAR_STAY_FT")} toward the handler within ${sec(F_NAMED)}: he stays home.`;
 
-  // The result over all drives, the section's big number (help_kinds_summary.csv, the contrast at
-  // the headline horizon); the live tile below it is one drive.
-  at("result-tile").innerHTML = `<div class="num">${ncq(F_END, "mean")}${NB}ft</div>`
-    + `<div class="ci">95% CI ${ncq(F_END, "ci_low")} to ${ncq(F_END, "ci_high")}${NB}ft, at ${sec(F_END)}</div>`
-    + `<p>After a near help that commits, the three other defenders move this much less toward the man he left`
-    + ` than when the nearest defender stays home, each net of how far they move toward the other attackers:`
-    + ` the mean over ${nq(h, true, "n", head.n)} drives against ${nq(h, false, "n", base.n)}.</p>`;
-  const cn = N.contrast;
-  at("claim").innerHTML = `Near help that commits minus the reference, mean (95% CI): `
+  // The result over all drives, the section's big number (help_kinds_summary.csv, the committed
+  // near help's own paired difference at the headline horizon); the live tile below it is one drive.
+  const SC = "measure=scale;kind=near_committed", sc = N.scale;
+  at("result-tile").innerHTML = `<div class="num">${nq(h, true, "mean", signed(head.mean, 2))}${NB}ft</div>`
+    + `<div class="ci">95% CI ${nq(h, true, "ci_low", signed(head.ci_low, 2))} to ${nq(h, true, "ci_high", signed(head.ci_high, 2))}${NB}ft, at ${sec(F_END)}</div>`
+    + `<p>After a near help that commits, how much more the three other defenders move toward the man he left`
+    + ` than toward the other attackers (negative: less), the mean over ${nq(h, true, "n", head.n)} drives. The data rule out`
+    + ` more than ${nq(h, true, "ci_high", signed(head.ci_high, 2) + NB + "ft")}; had one of the three moved toward him as far as`
+    + ` the helper stepped toward the ball, it would read ${q(sc.one_rotates, signed(sc.one_rotates, 2) + NB + "ft", NEARS, "mean", `${SC};variant=one_rotates;horizon=1.52`)}.</p>`;
+  const cn = N.contrast, rs = N.rows.filter(r => r.kind === "near_committed");
+  at("claim").innerHTML = `Near help that commits, mean (95% CI): `
+    + rs.map(r => `${sec(r.frames)} ${nq(r.frames, true, "mean", signed(r.mean, 2))} (${nq(r.frames, true, "ci_low", signed(r.ci_low, 2))}`
+      + ` to ${nq(r.frames, true, "ci_high", signed(r.ci_high, 2))})`).join("; ")
+    + `. Every interval holds 0: over these drives the three others move toward the man he left no more than toward`
+    + ` the other attackers. The reading is ${N.reading}, and it is an average: in`
+    + ` ${nq(h, true, "share_mover_left", pct(head.share_mover_left))} of the drives one of the three moves`
+    + ` ${q(D.pooled_help_ft, D.pooled_help_ft.toFixed(0) + NB + "ft", "scbasket.wind", "HELP_FT")} or more toward him, in`
+    + ` ${nq(h, true, "share_mover_placebo", pct(head.share_mover_placebo))} toward the others on average.`;
+  at("limit-ci").innerHTML = `The bound is the CI's top at ${sec(F_END)}, ${nq(h, true, "ci_high", signed(head.ci_high, 2) + NB + "ft")};`
+    + ` the helpers' median step toward the ball is ${q(sc.step_median, sc.step_median.toFixed(1) + NB + "ft", NEARS, "median", `${SC};variant=helper_step;horizon=1.52`)}.`
+    + ` Committed minus the reference, reported and not claimed: `
     + cn.map(r => `${sec(r.frames)} ${ncq(r.frames, "mean")} (${ncq(r.frames, "ci_low")} to ${ncq(r.frames, "ci_high")})`).join("; ")
-    + `. Every interval is below 0: after a near help that commits, the three others move toward the man he left`
-    + ` less than toward the other attackers, and less than when the nearest stays home. The reading fixed before`
-    + ` the run, ${N.reading} (nobody covers him), holds at ${sec(F_END)}.`;
-  at("limit-ci").innerHTML = `The CI tops (${cn.map(r => ncq(r.frames, "ci_high")).join(", ")}${NB}ft at`
-    + ` ${cn.map(r => sec(r.frames)).join(", ")}) are as near to no difference as the data comes: clear of 0, but`
-    + ` only just at ${sec(cn[0].frames)} and ${sec(F_END)}. It is a result on ${nq(h, true, "n", head.n)} drives from ten games.`;
+    + `. Not pre-registered: this reading was written after the numbers were seen, the scope was narrowed to near help`
+    + ` after the first results, and the commits / stays-home split was redrawn after a review found the old one read where`
+    + ` the man ran. It is a result on ${nq(h, true, "n", head.n)} drives from ten games.`;
   at("ref-note").innerHTML = `The grey series sits on 0: when the nearest stays home, the three others move toward the man`
     + ` left as much as toward the other attackers (${sec(F_END)}: ${nq(h, false, "mean", signed(base.mean, 2))}, 95% CI`
-    + ` ${nq(h, false, "ci_low", signed(base.ci_low, 2))} to ${nq(h, false, "ci_high", signed(base.ci_high, 2))}, n${NB}=${NB}${nq(h, false, "n", base.n)}).`
-    + ` The drop below 0 belongs to the near help that commits, not to the metric.`;
+    + ` ${nq(h, false, "ci_low", signed(base.ci_low, 2))} to ${nq(h, false, "ci_high", signed(base.ci_high, 2))}, n${NB}=${NB}${nq(h, false, "n", base.n)}).`;
+  const RO = "near_rotator.csv", NP = "near_pass.csv", ro = N.rotators;
+  const rq = (name, col) => q(ro[name][col], signed(ro[name][col], 2), RO, col, `rotator=${name};group=committed;horizon=1.52`);
+  const pq2 = who => q(N.pass[who], N.pass[who], NP, "n", `measure=count;who=${who};group=committed`);
+  at("rotators").innerHTML = `Coaches give the rotation to one defender, and teach it on the pass. Measured alone, with`
+    + ` readings fixed before the run: the low man, the other defender nearest the hoop,`
+    + ` ${rq("R2", "mean")}${NB}ft (${rq("R2", "ci_low")} to ${rq("R2", "ci_high")}); the one nearest the man left,`
+    + ` ${rq("R1", "mean")}${NB}ft (${rq("R1", "ci_low")} to ${rq("R1", "ci_high")}). Neither moves toward him more than toward`
+    + ` the others. A pass starts within ${sec(F_END)} in ${pq2("pass_in_window")} of ${pq2("drives")} drives`
+    + ` (${pq2("pass_to_man_left")} to the man left): too few to measure what follows it, a stated limit.`;
+  const NR = "near_robustness.csv", NS = "near_sensitivity.csv", ck = N.checks;
+  const cq = (name, col) => q(ck[name][col], signed(ck[name][col], 2), NR, col, `check=${name};group=committed;horizon=1.52`);
+  at("near-robust").innerHTML = `The committed interval holds 0 or lies below it in`
+    + ` ${q(N.grid.absent, N.grid.absent, NS, "rows", "reading=ABSENCE")} of ${q(N.grid.n, N.grid.n, NS, "rows")} combinations of the three`
+    + ` thresholds around their values, with each of the ${q(N.logo.n, N.logo.n, NR, "rows", "check=leave_one_out;group=committed;horizon=1.52")} games left out,`
+    + ` resampling games (${cq("game_cluster", "ci_low")} to ${cq("game_cluster", "ci_high")}), without the drives`
+    + ` with a pass in the first ${sec(F_END)} (${cq("no_pass", "mean")}, ${cq("no_pass", "ci_low")} to ${cq("no_pass", "ci_high")}),`
+    + ` with every player detected (${cq("detected", "mean")}, ${cq("detected", "ci_low")} to ${cq("detected", "ci_high")}) and with`
+    + ` every target fixed where it stood at the start (${cq("fixed_targets", "mean")}, ${cq("fixed_targets", "ci_low")} to ${cq("fixed_targets", "ci_high")};`
+    + ` the reference falls too, to ${q(N.fixed_ref, signed(N.fixed_ref, 2), NR, "mean", "check=fixed_targets;group=reference;horizon=1.52")}, so that variant leans negative on its own).`;
 
   // Context: the pooled helper (every helper, the largest mover at 4 ft or more), as published before the scope narrowed.
   const P = summaryRow(F_END, true), PB = summaryRow(F_END, false);
@@ -2378,8 +2407,8 @@ function renderMeasure() {
   at("pooled").innerHTML = `The earlier, wider helper is the largest mover toward where the ball ends up, `
     + `${q(D.pooled_help_ft, D.pooled_help_ft.toFixed(0) + NB + "ft", "scbasket.wind", "HELP_FT")} or more, whoever he is: `
     + `${sq(F_END, true, "n_drives", P.n_drives)} drives at ${sec(F_END)}. Against the drives with no such helper the three others move toward the man he left`
-    + ` ${pcq("contrast_mean")} ft (${pcq("contrast_ci_low")} to ${pcq("contrast_ci_high")}): the interval holds 0, an absence`
-    + ` too, but the weaker one; the narrow definition above is the claim.`;
+    + ` ${pcq("contrast_mean")} ft (${pcq("contrast_ci_low")} to ${pcq("contrast_ci_high")}): the interval holds 0, no extra rotation`
+    + ` either; the narrower definition above is the claim.`;
   at("open").innerHTML = `Nobody within ${q(D.open_ft, D.open_ft.toFixed(0) + NB + "ft", "scbasket.wind", "OPEN_FT")}: `
     + `${sq(F_END, true, "left_open_share", pct(P.left_open_share))} of the men the pooled helper left at ${sec(F_END)}, against `
     + `${sq(F_END, false, "left_open_share", pct(PB.left_open_share))} of the comparable man in drives with no`
@@ -2404,10 +2433,12 @@ function renderMeasure() {
     + ` (n${NB}=${NB}${pq("n_left_got_it", ps.n_left_got_it)}), when it did not,`
     + ` ${pq("left_clear_when_not", ps.left_clear_when_not.toFixed(1) + NB + "ft")}`
     + ` (n${NB}=${NB}${pq("n_left_missed", ps.n_left_missed)}).`;
+  const LC = "measure=contrast;kind=long;variant=primary;horizon=1.52", lq2 = col => q(N.long[col], signed(N.long[col], 2), NEARS, col, LC);
   at("long-limit").innerHTML = `Long help is a stated limit, not a result: when the defender farthest from the ball jumps into the`
     + ` drive's path, ${q(N.counts.long, N.counts.long, NEARS, "n", "measure=count;kind=flag;variant=long")} of`
-    + ` ${q(N.counts.resolved, N.counts.resolved, NEARS, "n", "measure=count;kind=drives;variant=resolved")} resolved drives qualify, too few to`
-    + ` test; coaches teach a rotation behind it, and this page does not look for one.`;
+    + ` ${q(N.counts.resolved, N.counts.resolved, NEARS, "n", "measure=count;kind=drives;variant=resolved")} resolved drives qualify.`
+    + ` Against the drives where he stays home, the three others move toward his man ${lq2("mean")}${NB}ft more`
+    + ` (${lq2("ci_low")} to ${lq2("ci_high")}): the direction coaches teach, on too few drives to read.`;
 
   // The same at the other two horizons, for the sensitivity.
   const others = cn.map(r => r.frames).filter(x => x !== F_END);
@@ -2419,7 +2450,7 @@ function renderMeasure() {
     ["near helps that commit", x => cell(x, true, "n", v => v)],
     ["toward him minus placebo, commits (95% CI)", x => ci(x, true)],
     ["the same, the nearest stays home (95% CI)", x => ci(x, false)],
-    ["commits minus stays home (95% CI)", con],
+    ["commits minus stays home, reported (95% CI)", con],
     ["median pair, commits", x => cell(x, true, "median", v => signed(v, 2))],
     ["pairs above 0, commits", x => cell(x, true, "share_pos", v => pct(v))],
     ["nearest is the helper (stays home: his own defender)", x => `${cell(x, true, "nearest_helper", v => pct(v))} (${cell(x, false, "nearest_helper", v => pct(v))})`],
@@ -2534,7 +2565,8 @@ function renderResult() {
   const {svg, w} = fit(host, H);
   const left = 46, colW = Math.min(64, Math.floor((w - 200) / 3)), right = w - 3 * colW - 14;
   const all = hs.flatMap(h => [true, false].flatMap(b => [nearRow(h, b).ci_low, nearRow(h, b).ci_high]));
-  const lo = Math.min(...all) - 0.1, hi = Math.max(0, ...all) + 0.1;
+  const rot = D.near.scale.one_rotates;   // one of the three moving as far as the helper stepped
+  const lo = Math.min(...all) - 0.1, hi = Math.max(0, rot, ...all) + 0.1;
   const x = v => left + (v - lo) / (hi - lo) * (right - left);
   ["mean", "median", "pairs > 0"].forEach((name, i) =>
     svg.appendChild(el("text", {x: right + 14 + i * colW, y: 14, class: "small"}, name)));
@@ -2570,6 +2602,8 @@ function renderResult() {
   });
   const axisY = top + hs.length * rowH + 4;
   svg.appendChild(el("line", {x1: x(0), x2: x(0), y1: top - 4, y2: axisY, stroke: C.court}));
+  svg.appendChild(el("line", {x1: x(rot), x2: x(rot), y1: top - 4, y2: axisY, stroke: C.ink, "stroke-dasharray": "5 3"}));
+  svg.appendChild(el("text", {x: x(rot) - 4, y: axisY - 6, "text-anchor": "end", class: "small"}, "one rotation"));
   svg.appendChild(el("line", {x1: left, x2: right, y1: axisY, y2: axisY, stroke: C.court}));
   for (const t of ticks(lo, hi, 3)) {
     svg.appendChild(el("text", {x: x(t), y: axisY + 16, "text-anchor": "middle", class: "small"}, t === 0 ? "0" : signed(t, 1)));
@@ -2777,7 +2811,7 @@ function renderStatic() {
   const HS = L.horizon_s.toFixed(0) + NB + "s";
   at("eyebrow").textContent = `SkillCorner open ACB tracking · ${tb.n_games} games · the second help`;
   at("watch").innerHTML = `The broadcast camera behind the basket, in slow motion, slowest as the helper steps.`
-    + ` Watch the helper (orange ring) step toward the ball, and the man he left (black ring) drift free.`
+    + ` Watch the helper (orange ring) step toward the ball, and where the man he left (black ring) goes.`
     + ` When the clip ends the camera rises: the measure is taken from above, where feet on the`
     + ` floor are not distorted. Every number waits for that view.`;
   at("key").innerHTML = [[C.ink, "ball handler and the man he left"], [C.orange, "helper"],
@@ -2847,10 +2881,10 @@ function renderStatic() {
     `The ball is drawn at the height the provider gives. That height is a smoothed curve: a sibling`
       + ` audit of this bundle found its bounces fall slower than gravity allows. Nothing on this page`
       + ` is measured from it; every measure is on the floor.`,
-    `The absence is measured against a placebo and against a reference, not as a rotation away from him:`
+    `The absence is measured against a placebo, not as a rotation away from him:`
       + ` the typical pair sits near the placebo (median`
       + ` ${nq(F_END, true, "median", signed(nearRow(F_END, true).median, 2) + NB + "ft")} at ${sec(F_END)}), the mean is pulled by the`
-      + ` tails, and the contrast's CI tops bound what the data cannot rule out. <span class="src">(help_kinds_summary.csv)</span>`,
+      + ` tails, and the CI's top bounds what the data cannot rule out. <span class="src">(help_kinds_summary.csv)</span>`,
     `With the pooled helper (the wind map's), ${lq("share_with_helper", pct(L.share_with_helper))} of drives have one, and`
       + ` ${lq("helper_above_ball", pct(L.helper_above_ball))} of helpers start above the ball, where sinking`
       + ` counts as help. <span class="src">(help_sensitivity.csv)</span>`,

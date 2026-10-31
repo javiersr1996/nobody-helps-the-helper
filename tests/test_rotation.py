@@ -57,6 +57,26 @@ def test_a_rotation_of_five_feet_toward_the_man_left_is_the_best_mover():
     assert mover["placebo"] == pytest.approx(expected, abs=1e-4)
 
 
+def test_fixed_targets_read_where_the_man_left_started_not_where_he_ran():
+    # Defender slot 2 walks 5 ft at where attacker 1, the man left, STARTS; attacker 1 runs
+    # 12 ft across that line. At the horizon the walk points partly elsewhere; with fixed
+    # targets it is 5.0.
+    end = END.copy()
+    end[7] = _toward(START[7], START[1], 5.0)
+    across = np.array([32.0, 12.0]) / np.hypot(32.0, 12.0)  # normal to the line (12, -32)
+    end[1] = START[1] + 12.0 * across
+    frames, drives = _scene(end=end), _drives()
+    table = help_table(frames, drives)
+    moving, _ = rotation_table(frames, drives, table, (HORIZON_FRAMES,))
+    fixed, out = rotation_table(frames, drives, table, (HORIZON_FRAMES,), fixed_targets=True)
+    mover_fixed = fixed[fixed["def_slot"] == 2].iloc[0]
+    assert out.iloc[0]["left_id"] == 5002
+    assert mover_fixed["to_left"] == pytest.approx(5.0, abs=1e-4)
+    assert moving[moving["def_slot"] == 2].iloc[0]["to_left"] < 4.9
+    expected = np.mean([_proj(START[7], end[7], START[a]) for a in (3, 4)])
+    assert mover_fixed["placebo"] == pytest.approx(expected, abs=1e-4)
+
+
 # (b) ------------------------------------------------- sinking only: the paired difference is 0
 
 LEFT_Y, PLACEBO_Y = -8.0, 8.0  # the man left and the placebo attackers, mirrored across y = 0

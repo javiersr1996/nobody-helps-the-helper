@@ -1212,6 +1212,93 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       measurable post-pass window; if n < 30, a stated limit with its n and no claim; otherwise
       the same reading (committed CI above 0: ROTATION, reported next to the claim; containing 0
       or below: ABSENCE), for the three and for R1 separately.
+   a. DONE 2026-10-31 (local commit, NOT pushed). `help_kinds`: committed iff at 2.0 s the
+      helper's distance to where his man STARTED > his start distance + RECOVER_FT (new columns
+      `near_dist0`, `near_dist2_start`, `near_dist2_man`; the old split kept as
+      `near_committed_endpos` / `helper_stance_endpos` and as the summary's sensitivity analysis
+      `near_committed_endpos`, which reproduces -0.66 [-1.14, -0.20] and the contrast -0.63
+      [-1.25, -0.03], n 159). New test: the helper steps 5 ft and stays, his man cuts to 1 ft of
+      him: committed, old rule a stunt; with the rule switched back to the man's position it
+      fails (`near_committed` False). Counts: 246 committed, 17 stunts, 199 reference; published
+      helpers 218 committed / 23 recovered / 39 undefined (old 151 / 90 / 39), `pub_committed`
+      contrast -0.27 [-0.81, +0.24], still ABSENCE. Headline rows (`help_kinds_summary.csv`):
+      committed own 1.0 s -0.22 [-0.46, +0.01], 1.5 s -0.22 [-0.58, +0.13] ABSENCE (the reading
+      now sits on this `paired_diff` row; written after the numbers were seen), 2.0 s -0.18
+      [-0.65, +0.27], n 246; reference +0.02 / -0.03 [-0.41, +0.33] / -0.04, n 199; contrast
+      -0.24 / -0.19 [-0.71, +0.32] / -0.14, reported with no reading. SCALE chosen: `one_rotates`,
+      the group mean if in every drive one of the three had moved toward the man left as far as
+      that drive's helper stepped toward the handler (placebo unchanged, + step / k per drive):
+      +1.35 ft at 1.5 s, in the claim's own unit, so it sits beside the bound (+0.13) on the same
+      axis; `helper_step` median 4.2 ft (mean 4.7) printed with it. Per drive (new columns
+      `share_mover_left` / `_placebo`): the best of the three moves >= 4 ft toward the man left in
+      43 % (toward the others 39 %), reference 34 % (29 %); a third defender nearest at 1.5 s
+      15 % vs 15 %. `scripts/near_robustness.py` (new; asserts its primary and old-split rows
+      equal the summary to 1e-9; `rotation_table(fixed_targets=)` added with a test): grid 48 of
+      48 ABSENCE, every committed CI holds 0, tops +0.08 to +0.35; leave one game out committed
+      -0.34 to -0.12 (tops <= +0.27), contrast -0.30 to -0.09; game cluster committed [-0.51,
+      +0.11], contrast [-0.55, +0.15]; fixed targets committed -0.81 [-1.15, -0.48] but the
+      reference -0.43 [-0.77, -0.10] too (the variant leans negative by itself); no pass by
+      1.52 s -0.21 [-0.56, +0.14] n 218; fully detected -0.13 [-0.47, +0.21] n 231; coherent
+      matchup -0.25 [-0.72, +0.20] n 146. Matchup coherence (`near_matchup_coherence.csv`): the
+      nearest is his man's closest defender at r0 in 146 / 246 committed, 121 / 199 reference,
+      111 / 159 old split (review 6 reproduced). a2 RESULTS (`near_rotator.csv`,
+      `near_pass.csv`): R1 committed -1.11 [-1.78, -0.47] ABSENCE (1.0 s -0.76, 2.0 s -1.39); R2
+      (low man) +0.21 [-0.33, +0.73] ABSENCE, a second bound; the absence holds for each
+      designated rotator. Pass by 1.52 s in 28 of 246 committed drives (8 to the man left), 27
+      measurable: < 30, LIMIT (after it, reported only: three -0.84 [-2.10, +0.25], R1 -1.03);
+      reference 4 of 199. Scenes re-picked by the 11a rule: scene 0 is now `drive-114243-1-1`
+      (a pull-up whose man cut toward the helper, committed only under the new rule): helper
+      4.53 ft, man left 4.52 / 3.17 / 2.64 ft at 0 / 1.0 / 1.5 s, nearest at 1.5 s the helper,
+      paired mean +0.07 (+5.5, 0.0, -5.3), percentile 54 of 246 (median -0.05); scenes 1-3
+      unchanged (80, 86, 68). `check_scene` refuses a helper back by where his man started.
+      Figure 1 percentile 54, two labels moved off the trails; figure 2 to the absence, a dashed
+      line at one rotation, the rotators and the pass beside the claim, guards (committed
+      reading ABSENCE, no committed CI above 0, reference holds 0, bound < scale, R1 / R2
+      ABSENCE, pass LIMIT) each shown refusing a spoiled source (scratchpad `fig2_guards.py`).
+   b. DONE 2026-10-31 (same local commit, NOT pushed). Page: the result tile is the committed
+      own 1.5 s mean (-0.22, CI -0.58 to +0.13) with its bound and the one-rotation scale; the
+      claim lists the three horizons and the per-drive picture; the contrast is reported, not
+      claimed, next to the not-pre-registered note; "The drop below 0 belongs to ..." and
+      "(nobody covers him)" removed; "drift free" (false for the new scene 0) now "where the man
+      he left goes"; new paragraphs for the a2 rotators and pass and for the robustness (each
+      number injected from `near_rotator.csv`, `near_pass.csv`, `near_robustness.csv`,
+      `near_sensitivity.csv`); a dashed one-rotation line in the result chart. Build guards: the
+      contrast-below-0 guard dropped; refused now if a committed CI lies above 0 or below 0, the
+      reference excludes 0, the reading is not ABSENCE, the bound is not below the scale, a grid
+      cell is not ABSENCE, a check's committed CI lies above 0, R1 / R2 read ROTATION, the pass
+      is not LIMIT, or the fixed-target reference is not below 0 (tests spoil each: 27 passed).
+      B5 (`check_hierarchy` now names the committed mean's row): 196 / 196 on the first build;
+      on the final build twice 195 / 196, only the known first-paint row (1.28, 1.29, 1.07 s;
+      then 0.96, 0.94, 1.06 s), 178 file-sourced numbers all equal to their cells; a copy
+      with the committed 1.5 s mean +0.05 in the payload fails the 4 rows tied to it (injected
+      value, digits shown, the result as largest number at 1440 and 390 px). Found: the driver
+      crashes printing a failure detail with U+2212 under cp1252 (`check_numbers ran to the end`
+      FAIL); run it with PYTHONIOENCODING=utf-8 (not fixed). README rewritten: first sentence
+      defines "nobody", the claim with its bound and scale, the a2 results, the average and the
+      per-drive picture, "How solid it is" (not pre-registered, the two forking paths with
+      shas, the withdrawn -0.63, every robustness check), a related-work sentence citing only
+      the sources with link status 200 in the research file (HoopTactics and Cleaning the
+      Glass dropped: no status recorded), long help with its numbers, the nearest's coherence,
+      `npm install -g docx`, `near_robustness.py` in the pipeline; the pooled-helper section
+      and its pass bullet cut for words. 997 words, `check_readme.py` exit 0 (49 rows); its
+      orphans `_helped_games`, `_excludes_zero`, `_s2_contrast` removed, and `_y_band`, `pct1`
+      left unused by the rewrite; the tamper test now changes the bound. `wind_video.py`'s
+      caption reads the committed mean (its test updated); the video is not re-rendered (c).
+      `video_script_wind.md`: Pending lists the false lines and the numbers c needs (spoken
+      lines untouched). Memoria v0.15 (subagent, opus): new section 17 "La revisión y la
+      reclasificación" (17.1-17.9: what broke, before / after from the CSVs, the claim with
+      bound and scale and the per-drive picture, "No es un pre-registro" with both forking
+      paths, robustness, the a2 readings and results, long help with its numbers, the new
+      scene 0, what changed elsewhere); Plan / Pendientes / Registro now 18 / 19 / 20; 9.1, 9.2,
+      9.3, 13.1-13.7 (the A8 near verdict kept and marked superseded), 14.5-14.6, 15.1-15.5,
+      16.1-16.4 corrected; guards replaced (the four that threw) and added (reading ABSENCE,
+      contrast unread, old split still -0.63, bound < scale, grid, checks, R1 / R2, pass
+      LIMIT, scene 0 a stunt under the old rule). 58 pages, PDF exported with LibreOffice and
+      read back with pdftotext: "Versión 0.15", 17.3 "-0,22 (-0,58 a 0,13) ft sobre 246
+      penetraciones, con lectura AUSENCIA", 17.6 "R1: -1,11 (-1,78 a -0,47) ... R2: 0,21 (-0,33
+      a 0,73)", "28 de las 246 ... LÍMITE". The old claim and 8.7 ft only in passages marked as
+      history. ruff 0, pytest 369 passed. NEXT: Javier looks at figure 2 and the new scene 0
+      (figure 1, the page's hook) before anything is pushed; then c.
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

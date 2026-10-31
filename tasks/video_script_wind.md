@@ -18,6 +18,29 @@ shares); it is in git history.
 - Done 2026-10-30: the page's four drives were re-picked among the 159 committed near helps
   (scene 0 is `drive-114243-1-4`) and figure 1 redrawn; figure 2 now shows committed near help
   against the near reference; the README carries every number below.
+- OPEN 2026-10-31 (item 13 c; the spoken lines below are NOT rewritten, Javier approves the
+  words). After the review the committed class is the helper's own movement, the claim is the
+  measured absence and scene 0 changed. Lines that became FALSE: the scope paragraph above
+  ("nobody covers the man he leaves": now an average, no more toward him than toward any other
+  attacker); scene 4 "his man is still 8.7 feet from the nearest defender" (scene 0 is now
+  `drive-114243-1-4` -> `drive-114243-1-1`, a pull-up; his man is 2.6 ft from the nearest
+  defender at 1.5 s, and that defender is the helper himself; "one of them heads his way" still
+  holds: defender 1 moves +5.3 ft toward him, -0.2 toward the others); scene 5 "159 drives out
+  of 618" (246) and "compared with drives where the nearest defender stays home, that falls by
+  0.63 feet, the whole interval below zero" (withdrawn: the contrast is now -0.19 ft, CI -0.71
+  to +0.32, reported and not claimed). Scene 2 "steps in to stop it" implies intent (review 7).
+  Scene 6 still holds (seven long helps; "nobody" read as the README's average).
+  Numbers the new script will need, all printed in `README.md` by `check_readme.py` (1.5 s):
+  n **246 of 618**; the committed mean **-0.22 ft** (CI **-0.58 to +0.13**); the bound, the CI's
+  top, **+0.13 ft**; its scale, the helpers' median step **4.2 ft**, or **+1.35 ft** had one of
+  the three moved that far; the reference **-0.03 ft**; scene 0's man-left clearance **2.6 ft**
+  (percentile 54 of 246, on figure 1, not in the README); the designated rotators (pre-registered,
+  83e8d5d): low man **+0.21 ft** (CI -0.33 to +0.73), nearest to the man left **-1.11 ft**
+  (CI -1.78 to -0.47); a pass within 1.5 s in **28 of 246**; long help **7**, **+1.44 ft**
+  (CI -0.33 to +2.98).
+  For the picture (D2): `wind_video.py`'s caption now reads the committed mean (-0.22, CI -0.58
+  to 0.13) instead of the contrast; its scene-5 crops are pixel boxes of the OLD figure 2
+  (1440 x 2678); the new one is 1440 x 3231, so `CROPS` must be re-cut before re-rendering.
 
 ---
 

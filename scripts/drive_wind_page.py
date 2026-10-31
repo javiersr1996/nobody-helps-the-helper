@@ -7,7 +7,7 @@ Run (needs the `page` extra and one browser download)::
 
 The default target is `reports/nobody_helps_the_helper.html`; C1b points the same driver at
 the published GitHub Pages URL. The expected values come from `tasks/wind_page.md` and the
-files it names (`reports/wind_scenes.json`, `reports/near_committed_*.csv`, `reports/second_help_*.csv`, `reports/help_*.csv`),
+files it names (`reports/wind_scenes.json`, `reports/near_*.csv`, `reports/second_help_*.csv`, `reports/help_*.csv`),
 read here, never typed; the page's own source is not read. One line per check, exit 0 if every
 check passes and 1 otherwise.
 
@@ -1651,9 +1651,10 @@ def check_layout(D: Data, browser, target: str, width: int) -> None:
 
 
 def check_hierarchy(D: Data, pg, tag: str) -> None:
-    """Fix 4: the largest number in #measure is the result over all drives, the 1.5 s contrast of
-    `help_kinds_summary.csv`, and it is that cell's value as printed."""
-    row = f"measure=contrast;kind=near_committed;variant=primary;horizon={D.headline / D.fps:g}"
+    """Fix 4: the largest number in #measure is the result over all drives, since the review of
+    2026-10-31 the committed near help's own 1.5 s mean in `help_kinds_summary.csv` (before it,
+    the contrast with the reference), and it is that cell's value as printed."""
+    row = f"measure=paired_diff;kind=near_committed;variant=primary;horizon={D.headline / D.fps:g}"
     got = pg.evaluate(
         """(row) => { const m = document.getElementById('measure'), fs = e => parseFloat(getComputedStyle(e).fontSize);
           const own = e => [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('');
@@ -1670,8 +1671,8 @@ def check_hierarchy(D: Data, pg, tag: str) -> None:
     want = source_value(D, "help_kinds_summary.csv", row, "mean")
     shown = shown_matches(got["text"], want)[0] if got["text"] else False
     R.check(
-        f"{tag}: results: the largest number in #measure is the result over all drives (the 1.5 s contrast"
-        " mean of help_kinds_summary.csv), printed as the file has it",
+        f"{tag}: results: the largest number in #measure is the result over all drives (the committed near"
+        " help's 1.5 s mean in help_kinds_summary.csv), printed as the file has it",
         got["value"] is not None and abs(got["value"] - want) < 1e-9 and shown and got["fs"] > got["next"]["fs"],
         (f"{got['text']!r} at {got['fs']} px; the next largest {got['next']['fs']} px ({got['next']['what']});"
          f" file {want:.4f}").replace("−", "-").encode("ascii", "replace").decode(),

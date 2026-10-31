@@ -67,6 +67,25 @@ def test_a_nearest_who_steps_three_feet_and_stays_is_committed():
     assert row["near_committed"] and not row["near_stunt"] and not row["near_ref"]
 
 
+def test_a_man_who_cuts_to_his_helper_leaves_the_help_committed_and_flips_only_the_old_rule():
+    # The helper steps 5 ft toward the handler and stays; his man (attacker 3) cuts to within
+    # 1 ft of him by 2.0 s. Only the helper's own movement decides: he is far from where his man
+    # started, so committed. The rule before the review read the man at 2.0 s and called it a
+    # stunt, which let the man's run, the measure's own target, pick the class.
+    p0 = tuple(START[5 + NEAR])
+    step = _step_toward_handler(5.0)
+    near_man = np.asarray(step) + np.array([1.0, 0.0])
+    frames = _track({5 + NEAR: [(0, p0), (12, step), (N, step)],
+                     NEAR: [(0, tuple(START[NEAR])), (25, tuple(START[NEAR])),
+                            (50, tuple(near_man)), (N, tuple(near_man))]})
+    row = _kinds(frames)
+    assert row["near_move"] == pytest.approx(5.0, abs=1e-6)
+    assert row["near_dist2_man"] == pytest.approx(1.0, abs=1e-6)
+    assert row["near_dist2_start"] > row["near_dist0"] + 1.0
+    assert row["near_committed"] and not row["near_stunt"]
+    assert not row["near_committed_endpos"]
+
+
 def test_a_nearest_who_stays_put_is_the_near_reference_and_neither_kind():
     row = _kinds(_track({}))
     assert row["near_move"] == pytest.approx(0.0, abs=1e-9)

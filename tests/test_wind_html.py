@@ -99,6 +99,12 @@ def test_the_near_rows_are_the_csv_rows(built):
         assert row["mean"] == pytest.approx(want.iloc[0]["mean"], abs=1e-12)
         assert row["frames"] == round(row["horizon"] * 25)
     assert built["near"]["counts"] == {"resolved": 618, "long": 7}
+    grid = pd.read_csv(REPORTS / "near_sensitivity.csv")
+    assert built["near"]["grid"] == {"n": len(grid), "absent": sum(grid["reading"] == "ABSENCE")}
+    robust = pd.read_csv(REPORTS / "near_robustness.csv")
+    cluster = robust[(robust["check"] == "game_cluster") & (robust["group"] == "committed")
+                     & np.isclose(robust["horizon"], 1.52)].iloc[0]
+    assert built["near"]["checks"]["game_cluster"]["ci_high"] == pytest.approx(cluster["ci_high"])
 
 
 def test_the_counted_sentences_are_counted_from_their_csv(built):
@@ -162,11 +168,38 @@ def _contrast(reports: Path) -> None:
     contrast.to_csv(reports / "second_help_contrast.csv", index=False)
 
 
-def _near_contrast(reports: Path) -> None:
+def _near_committed(reports: Path) -> None:
     kinds = pd.read_csv(reports / "help_kinds_summary.csv")
-    kinds.loc[(kinds["measure"] == "contrast") & (kinds["kind"] == "near_committed")
-              & (kinds["variant"] == "primary") & (kinds["horizon"] == 1.0), "ci_high"] = 0.01
+    kinds.loc[(kinds["measure"] == "paired_diff") & (kinds["kind"] == "near_committed")
+              & (kinds["variant"] == "primary") & (kinds["horizon"] == 1.0), "ci_low"] = 0.01
     kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _near_below(reports: Path) -> None:
+    kinds = pd.read_csv(reports / "help_kinds_summary.csv")
+    kinds.loc[(kinds["measure"] == "paired_diff") & (kinds["kind"] == "near_committed")
+              & (kinds["variant"] == "primary") & (kinds["horizon"] == 2.0), "ci_high"] = -0.01
+    kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _near_scale(reports: Path) -> None:
+    kinds = pd.read_csv(reports / "help_kinds_summary.csv")
+    kinds.loc[(kinds["measure"] == "scale") & (kinds["variant"] == "one_rotates"), "mean"] = 0.05
+    kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _near_grid(reports: Path) -> None:
+    grid = pd.read_csv(reports / "near_sensitivity.csv")
+    grid.loc[0, "reading"] = "ROTATION"
+    grid.to_csv(reports / "near_sensitivity.csv", index=False)
+
+
+def _near_robust(reports: Path) -> None:
+    robust = pd.read_csv(reports / "near_robustness.csv")
+    hit = ((robust["check"] == "leave_one_out") & (robust["group"] == "committed")
+           & (robust["horizon"] == 1.52))
+    robust.loc[robust.index[hit][0], "ci_low"] = 0.01
+    robust.to_csv(reports / "near_robustness.csv", index=False)
 
 
 def _near_reference(reports: Path) -> None:
@@ -180,6 +213,20 @@ def _near_reading(reports: Path) -> None:
     kinds = pd.read_csv(reports / "help_kinds_summary.csv")
     kinds["reading"] = kinds["reading"].replace("ABSENCE", "INCONCLUSIVE")
     kinds.to_csv(reports / "help_kinds_summary.csv", index=False)
+
+
+def _rotator(reports: Path) -> None:
+    rot = pd.read_csv(reports / "near_rotator.csv")
+    rot.loc[(rot["rotator"] == "R2") & (rot["group"] == "committed")
+            & (rot["horizon"] == 1.52), "reading"] = "ROTATION"
+    rot.to_csv(reports / "near_rotator.csv", index=False)
+
+
+def _pass(reports: Path) -> None:
+    passed = pd.read_csv(reports / "near_pass.csv")
+    passed.loc[(passed["measure"] == "after_pass") & (passed["who"] == "three")
+               & (passed["group"] == "committed"), "reading"] = "ABSENCE"
+    passed.to_csv(reports / "near_pass.csv", index=False)
 
 
 def _corner(reports: Path) -> None:
@@ -206,9 +253,15 @@ def _not_finite(reports: Path) -> None:
     (_nearest, "would name"),
     (_clearance, "left_clear_38"),
     (_contrast, "every interval contains 0"),
-    (_near_contrast, "every interval is below 0"),
+    (_near_committed, "no more than toward the others"),
+    (_near_below, "every interval holds 0"),
     (_near_reference, "sits on the placebo"),
-    (_near_reading, "pre-registered reading"),
+    (_near_reading, "reading of the committed near help"),
+    (_near_scale, "does not rule out one rotation"),
+    (_near_grid, "do not read ABSENCE"),
+    (_near_robust, "lies above 0 at 1.5 s"),
+    (_rotator, "R2's pre-registered reading is ROTATION"),
+    (_pass, "the page states a limit"),
     (_corner, "too few to say"),
     (_field, "MIN_WEIGHT"),
     (_not_finite, "left_clear_when_got_it"),

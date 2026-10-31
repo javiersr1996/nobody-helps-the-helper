@@ -49,7 +49,7 @@ def test_a_cut_of_the_wrong_length_is_refused() -> None:
 
 def test_caption_numbers_are_cells_of_the_csv() -> None:
     text = caption_text()
-    assert check_slide_numbers(text, caption_cells()) == ["159", "618", "-0.63", "-1.25", "-0.03"]
+    assert check_slide_numbers(text, caption_cells()) == ["246", "618", "-0.22", "-0.58", "0.13"]
 
 
 @pytest.mark.parametrize(

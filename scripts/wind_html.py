@@ -84,6 +84,10 @@ SOURCES = {
     "near_committed_pairs.csv": "help_kinds",
     "near_committed_drives.csv": "help_kinds",
     "help_kinds_summary.csv": "help_kinds",
+    "near_sensitivity.csv": "near_robustness",
+    "near_robustness.csv": "near_robustness",
+    "near_rotator.csv": "near_robustness",
+    "near_pass.csv": "near_robustness",
     "second_help_summary.csv": "second_help",
     "second_help_contrast.csv": "second_help",
     "second_help_contrast_sensitivity.csv": "second_help",
@@ -223,13 +227,19 @@ def check_finite(value, where: str = "payload") -> None:
         raise Refused(f"{where} is missing")
 
 
-def near_payload(summary: pd.DataFrame) -> dict:
-    """The headline's rows of `help_kinds_summary.csv`: committed near help, its reference (the
-    nearest stays home), and their contrast, at the three horizons. Refuse unless the sentences
-    the page writes over them are true: every contrast interval below 0, the reference's
-    intervals holding 0, the pre-registered reading ABSENCE."""
+def near_payload(summary: pd.DataFrame, grid: pd.DataFrame, robust: pd.DataFrame,
+                 rot: pd.DataFrame, passed: pd.DataFrame) -> dict:
+    """The headline's rows of `help_kinds_summary.csv`: committed near help (the claim, its own
+    paired difference), its reference (the nearest stays home), and their contrast (reported,
+    not claimed), at the three horizons; the scale the bound is held against; long help's
+    contrast; and the robustness counts of `near_sensitivity.csv` / `near_robustness.csv`.
+    Refuse unless the sentences the page writes over them are true: no committed interval above
+    0 ("no more than"), the reference's intervals holding 0, the reading ABSENCE, the bound below
+    one rotation as long as the helper's step, and every robustness cell's committed interval
+    holding 0 or below it."""
     primary = summary[summary["variant"] == "primary"]
     cols = ["horizon", "n", "mean", "ci_low", "ci_high", "median", "share_pos",
+            "share_mover_left", "share_mover_placebo",
             "nearest_helper", "nearest_handler_def", "nearest_third"]
     rows = []
     for kind in ("near_committed", "near_committed_ref"):
@@ -242,23 +252,78 @@ def near_payload(summary: pd.DataFrame) -> dict:
            for r in records(contrast[["horizon", "n", "n_ref", "mean", "ci_low", "ci_high"]])]
     if sorted(r["frames"] for r in out) != sorted(ROTATION_HORIZONS):
         raise Refused(f"help_kinds_summary.csv contrast horizons {[r['horizon'] for r in out]}")
-    for r in out:
-        if not r["ci_high"] < 0:
-            raise Refused(f"near-committed contrast at {r['horizon']} s is ({r['ci_low']:+.2f} to "
-                          f"{r['ci_high']:+.2f}): 'every interval is below 0' would be false")
     for r in rows:
+        if r["kind"] == "near_committed" and r["ci_low"] > 0:
+            raise Refused(f"the committed near help at {r['horizon']} s is ({r['ci_low']:+.2f} to "
+                          f"{r['ci_high']:+.2f}): 'no more than toward the others' would be false")
+        if r["kind"] == "near_committed" and r["ci_high"] < 0:
+            raise Refused(f"the committed near help at {r['horizon']} s lies below 0: 'every "
+                          "interval holds 0' would be false")
         if r["kind"] == "near_committed_ref" and not r["ci_low"] <= 0 <= r["ci_high"]:
             raise Refused(f"the reference at {r['horizon']} s excludes 0: 'sits on the placebo' "
                           "would be false")
-    reading = contrast[contrast["horizon"] == 1.52]["reading"].tolist()
+    claim = primary[(primary["measure"] == "paired_diff") & (primary["kind"] == "near_committed")]
+    reading = claim[claim["horizon"] == 1.52]["reading"].tolist()
     if reading != ["ABSENCE"]:
-        raise Refused(f"the pre-registered reading at 1.5 s is {reading}, not ['ABSENCE']")
+        raise Refused(f"the reading of the committed near help at 1.5 s is {reading}, not "
+                      "['ABSENCE']")
+    scale = summary[(summary["measure"] == "scale") & (summary["kind"] == "near_committed")]
+    one_rot = one(scale[(scale["variant"] == "one_rotates") & (scale["horizon"] == 1.52)],
+                  "help_kinds_summary.csv scale one_rotates 1.52")
+    step = one(scale[scale["variant"] == "helper_step"], "help_kinds_summary.csv scale helper_step")
+    head = next(r for r in rows
+                if r["kind"] == "near_committed" and r["frames"] == HEADLINE_HORIZON)
+    if not head["ci_high"] < one_rot["mean"]:
+        raise Refused(f"the bound {head['ci_high']:+.2f} does not rule out one rotation as long "
+                      f"as the helper's step ({one_rot['mean']:+.2f})")
+    long_c = one(primary[(primary["measure"] == "contrast") & (primary["kind"] == "long")
+                         & (primary["horizon"] == 1.52)], "help_kinds_summary.csv contrast long")
     count = summary[summary["measure"] == "count"]
     counts = {}
     for name, kind, variant in (("resolved", "drives", "resolved"), ("long", "flag", "long")):
         got = count[(count["kind"] == kind) & (count["variant"] == variant)]
         counts[name] = int(one(got, f"help_kinds_summary.csv count {kind} {variant}")["n"])
+    absent = int((grid["reading"] == "ABSENCE").sum())
+    if absent != len(grid):
+        raise Refused(f"near_sensitivity.csv: {len(grid) - absent} of {len(grid)} cells do not "
+                      "read ABSENCE: 'in every cell' would be false")
+    committed = robust[(robust["group"] == "committed") & (robust["horizon"] == 1.52)]
+    if (committed["ci_low"] > 0).any():
+        raise Refused("near_robustness.csv: a check's committed interval lies above 0 at 1.5 s")
+    checks = {name: {k: v for k, v in one(committed[committed["check"] == name],
+                                         f"near_robustness.csv {name}").items()
+                     if k in ("n", "mean", "ci_low", "ci_high")}
+              for name in ("game_cluster", "fixed_targets", "no_pass", "detected")}
+    fixed_ref = one(robust[(robust["check"] == "fixed_targets") & (robust["group"] == "reference")
+                           & (robust["horizon"] == 1.52)], "near_robustness.csv fixed reference")
+    if not fixed_ref["mean"] < 0:
+        raise Refused("near_robustness.csv: with fixed targets the reference is not below 0: "
+                      "'the reference falls too' would be false")
+    logo = committed[committed["check"] == "leave_one_out"]
+    # 13 a2, pre-registered: the designated rotators alone, and the pass
+    rotators = {}
+    for name in ("R1", "R2"):
+        r = one(rot[(rot["rotator"] == name) & (rot["group"] == "committed")
+                    & (rot["horizon"] == 1.52)], f"near_rotator.csv {name}")
+        if r["reading"] != "ABSENCE":
+            raise Refused(f"near_rotator.csv: {name}'s pre-registered reading is {r['reading']}: "
+                          "'neither moves toward him more' would be false")
+        rotators[name] = {k: r[k] for k in ("n", "mean", "ci_low", "ci_high")}
+    after = one(passed[(passed["measure"] == "after_pass") & (passed["who"] == "three")
+                       & (passed["group"] == "committed")], "near_pass.csv three committed")
+    if after["reading"] != "LIMIT":
+        raise Refused(f"near_pass.csv: the pass reading is {after['reading']}, the page states a "
+                      "limit")
+    counts_p = {f"{w}": int(one(passed[(passed["measure"] == "count") & (passed["who"] == w)
+                                       & (passed["group"] == "committed")],
+                                f"near_pass.csv count {w}")["n"])
+                for w in ("drives", "pass_in_window", "pass_to_man_left", "post_pass_window")}
     return {"rows": rows, "contrast": out, "reading": reading[0], "counts": counts,
+            "scale": {"one_rotates": one_rot["mean"], "step_median": step["median"]},
+            "long": {k: long_c[k] for k in ("n", "n_ref", "mean", "ci_low", "ci_high")},
+            "grid": {"n": len(grid), "absent": absent}, "checks": checks,
+            "logo": {"n": len(logo)}, "rotators": rotators, "fixed_ref": fixed_ref["mean"],
+            "pass": counts_p,
             "step_ft": NEAR_STEP_FT, "stay_ft": NEAR_STAY_FT, "outcome_s": OUTCOME_FRAMES / 25}
 
 
@@ -294,7 +359,9 @@ def payload(reports: Path) -> dict:
                           "would be false")
     if sorted(contrast["horizon"]) != sorted(ROTATION_HORIZONS):
         raise Refused(f"second_help_contrast.csv horizons {sorted(contrast['horizon'])}")
-    near = near_payload(near_all)
+    near = near_payload(near_all, read(reports, "near_sensitivity.csv"),
+                        read(reports, "near_robustness.csv"), read(reports, "near_rotator.csv"),
+                        read(reports, "near_pass.csv"))
     contain = (sweep["contrast_ci_low"] <= 0) & (sweep["contrast_ci_high"] >= 0)
     below = sweep[sweep["contrast_ci_high"] < 0]
 

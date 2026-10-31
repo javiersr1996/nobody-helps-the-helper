@@ -1,0 +1,15 @@
+measure,who,group,horizon,n,n_ref,mean,ci_low,ci_high,reading
+count,drives,committed,,246,,,,,
+count,pass_in_window,committed,,28,,,,,
+count,pass_to_man_left,committed,,8,,,,,
+count,post_pass_window,committed,,27,,,,,
+count,drives,reference,,199,,,,,
+count,pass_in_window,reference,,4,,,,,
+count,pass_to_man_left,reference,,1,,,,,
+count,post_pass_window,reference,,4,,,,,
+after_pass,three,committed,1.0,27,,-0.8357403313969476,-2.0957687063979678,0.24699886846347605,LIMIT
+after_pass,three,reference,1.0,4,,0.27870635932363197,-2.7385957830462933,2.5900465937384904,
+after_pass,three,contrast,1.0,27,4.0,-1.1144466907205794,-3.792517239662082,1.9739124182718646,
+after_pass,R1,committed,1.0,27,,-1.0270476710458654,-3.2753859222394315,1.0027161391968518,LIMIT
+after_pass,R1,reference,1.0,4,,-1.778594583899646,-6.542057047909891,2.538050302684722,
+after_pass,R1,contrast,1.0,27,4.0,0.7515469128537806,-4.14540801614294,6.170326917676983,

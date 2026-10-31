@@ -188,16 +188,17 @@ def parse_script(text: str) -> list[Scene]:
 
 
 def caption_cells() -> dict[str, float]:
-    """The values a caption may quote, each read from help_kinds_summary.csv."""
+    """The values a caption may quote, each read from help_kinds_summary.csv: since the review
+    of 2026-10-31 the committed near help's own 1.5 s mean (the claim), not its contrast."""
     df = pd.read_csv(SUMMARY)
-    c = df[(df.measure == "contrast") & (df.kind == "near_committed") & (df.variant == "primary")
-           & np.isclose(df.horizon, 1.52)]
+    c = df[(df.measure == "paired_diff") & (df.kind == "near_committed")
+           & (df.variant == "primary") & np.isclose(df.horizon, 1.52)]
     if len(c) != 1:
         raise ValueError("help_kinds_summary.csv: no single near_committed primary row at 1.52 s")
     r = c.iloc[0]
     n_all = df[(df.measure == "count") & (df.kind == "drives") & (df.variant == "resolved")]
     return {"flagged drives": float(r.n), "resolved drives": float(n_all.n.iloc[0]),
-            "contrast mean": float(r["mean"]), "ci low": float(r.ci_low), "ci high": float(r.ci_high)}
+            "mean": float(r["mean"]), "ci low": float(r.ci_low), "ci high": float(r.ci_high)}
 
 
 NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
@@ -217,7 +218,7 @@ def check_slide_numbers(text: str, cells: dict[str, float]) -> list[str]:
 def caption_text() -> str:
     c = caption_cells()
     text = (f"{c['flagged drives']:.0f} of {c['resolved drives']:.0f} drives look like this"
-            f"      {c['contrast mean']:.2f} ft (CI {c['ci low']:.2f} to {c['ci high']:.2f})")
+            f"      {c['mean']:.2f} ft (CI {c['ci low']:.2f} to {c['ci high']:.2f})")
     check_slide_numbers(text, c)
     return text
 

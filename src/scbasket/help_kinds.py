@@ -11,8 +11,10 @@ The coach separates two things the published "helper" pools:
 - **Long help.** The handler beats his defender and the LAST defender (the off-ball defender
   farthest from the ball) is in the drive's path. The question is who rotates to the last's man.
 
-Definitions, fixed once in module constants and reported with a sensitivity. All at the
-drive's start frame r0 unless said; the horizons are those of `rotation`, headline 1.5 s.
+Definitions, fixed once in module constants and reported with a sensitivity (the near grid,
+leave-one-game-out, the game-cluster bootstrap and the other checks are written by
+`scripts/near_robustness.py`). All at the drive's start frame r0 unless said; the horizons are
+those of `rotation`, headline 1.5 s.
 
 - **Off-ball defenders.** The four who are not the handler's matchup (with fallback).
 - **NEAREST / LAST.** The off-ball defender nearest / farthest from the ball at r0. Each one's
@@ -27,12 +29,18 @@ drive's start frame r0 unless said; the horizons are those of `rotation`, headli
 - **LONG reference.** Not BEATEN and the last moves less than STAY_FT toward the handler in
   1.0 s (stays home).
 - **NEAR help.** The nearest moves at least NEAR_STEP_FT toward the handler within 1.0 s (the
-  `wind` help-movement projection, best frame). STUNT if at 2.0 s his distance to his man is at
-  most his distance at r0 plus RECOVER_FT; COMMITTED otherwise. Undefined (counted, excluded)
-  without the 2.0 s window or without his man. **NEAR reference.** The nearest moves less than
-  NEAR_STAY_FT toward the handler, on the same population.
+  `wind` help-movement projection, best frame). STUNT if at 2.0 s his distance to where his man
+  STARTED (r0) is at most his distance to him at r0 plus RECOVER_FT; COMMITTED otherwise. Only
+  the helper's own movement decides: where the man is at 2.0 s is never read, because the
+  measure (`rotation`) points the three others at where the man is at each horizon, and a man
+  who cuts toward the helper would otherwise turn a committed help into a "stunt" on the very
+  quantity measured (the review of 2026-10-31). The rule before that review, his distance at
+  2.0 s to where the man IS, is kept as `near_committed_endpos`, a sensitivity. Undefined
+  (counted, excluded) without the 2.0 s window or without his man. **NEAR reference.** The
+  nearest moves less than NEAR_STAY_FT toward the handler, on the same population.
 - **Published helper class.** LAST / NEAREST / OTHER by who `wind.help_table` named, and
-  recovered / committed by the same 2.0 s rule applied to his own raw man.
+  recovered / committed by the same 2.0 s rule applied to his own raw man (the old rule in
+  `helper_stance_endpos`).
 """
 
 from __future__ import annotations
@@ -71,6 +79,7 @@ ANALYSES = {
     "long_move4": ("long_move4", "long_ref", "last"),
     "near_stunt": ("near_stunt", "near_ref", "near"),
     "near_committed": ("near_committed", "near_ref", "near"),
+    "near_committed_endpos": ("near_committed_endpos", "near_ref", "near"),
 }
 
 STATUSES = ("ok", "no_man", "man_is_handler", "no_window")
@@ -90,12 +99,18 @@ def _status(man: int, handler: int, window: int, need: int) -> str:
     return "ok" if window >= need else "no_window"
 
 
-def _recovered(xy: np.ndarray, r0: int, defender: int, man: int) -> bool:
-    """At 2.0 s the defender is no farther from his man than at r0 plus RECOVER_FT."""
-    start = float(np.linalg.norm(xy[r0, N_SIDE + defender] - xy[r0, man]))
-    end = float(np.linalg.norm(xy[r0 + OUTCOME_FRAMES, N_SIDE + defender]
-                               - xy[r0 + OUTCOME_FRAMES, man]))
-    return end <= start + RECOVER_FT
+def _distances(xy: np.ndarray, r0: int, defender: int, man: int) -> tuple[float, float, float]:
+    """The defender's distance to his man at r0, then at 2.0 s his distance to where the man
+    STARTED (the rule) and to where the man IS (the rule before the review, a sensitivity)."""
+    end = xy[r0 + OUTCOME_FRAMES, N_SIDE + defender]
+    return (float(np.linalg.norm(xy[r0, N_SIDE + defender] - xy[r0, man])),
+            float(np.linalg.norm(end - xy[r0, man])),
+            float(np.linalg.norm(end - xy[r0 + OUTCOME_FRAMES, man])))
+
+
+def _stance(start: float, back: float) -> str:
+    """Recovered if at 2.0 s he is no farther than his start distance plus RECOVER_FT."""
+    return "recovered" if back <= start + RECOVER_FT else "committed"
 
 
 def drive_kinds(frames: GameFrames, drives: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
@@ -130,15 +145,17 @@ def drive_kinds(frames: GameFrames, drives: pd.DataFrame, table: pd.DataFrame) -
             "helper_slot": helper, "helper_man": helper_man,
             "helper_class": ("last" if helper == last
                              else "nearest" if helper == near else "other"),
-            "helper_stance": "",
+            "helper_stance": "", "helper_stance_endpos": "",
             "last_slot": last, "last_man": last_man, "last_status": last_status,
             "near_slot": near, "near_man": near_man, "near_status": near_status,
             "beaten_geo": False, "path5": False, "path6": False, "path8": False,
             "last_move": np.nan, "near_move": np.nan,
+            "near_dist0": np.nan, "near_dist2_start": np.nan, "near_dist2_man": np.nan,
         }
         if helper_man >= 0 and helper_man != s and window >= OUTCOME_FRAMES:
-            row["helper_stance"] = ("recovered" if _recovered(xy, r0, helper, helper_man)
-                                    else "committed")
+            start, back, end = _distances(xy, r0, helper, helper_man)
+            row["helper_stance"] = _stance(start, back)
+            row["helper_stance_endpos"] = _stance(start, end)
         if last_status == "ok":
             ts = range(BEAT_FRAMES + 1)
             handler_hoop = [float(np.linalg.norm(xy[r0 + t, s] - HOOP)) for t in ts]
@@ -155,6 +172,8 @@ def drive_kinds(frames: GameFrames, drives: pd.DataFrame, table: pd.DataFrame) -
             row["near_move"] = max(
                 _projection(xy[r0, N_SIDE + near], xy[r0 + t, N_SIDE + near], xy[r0 + t, s])
                 for t in range(1, MOVE_FRAMES + 1))
+            row["near_dist0"], row["near_dist2_start"], row["near_dist2_man"] = _distances(
+                xy, r0, near, near_man)
         rows.append(row)
     out = pd.DataFrame(rows)
     if out.empty:
@@ -170,11 +189,10 @@ def drive_kinds(frames: GameFrames, drives: pd.DataFrame, table: pd.DataFrame) -
     out["long_ref"] = stays & ~beaten
     out["long_ref_blowby"] = stays & ~out["blowby"]
     moves = ok_near & (out["near_move"] >= NEAR_STEP_FT)
-    recovered = np.array([_recovered(xy, _row_of(frames.frame_idx, int(r.start_frame)),
-                                     int(r.near_slot), int(r.near_man)) if ok else False
-                          for r, ok in zip(out.itertuples(), ok_near, strict=True)], bool)
-    out["near_stunt"] = moves & recovered
-    out["near_committed"] = moves & ~recovered
+    away = out["near_dist2_start"] > out["near_dist0"] + RECOVER_FT
+    out["near_stunt"] = moves & ~away
+    out["near_committed"] = moves & away
+    out["near_committed_endpos"] = moves & (out["near_dist2_man"] > out["near_dist0"] + RECOVER_FT)
     out["near_ref"] = ok_near & (out["near_move"] < NEAR_STAY_FT)
     return out
 

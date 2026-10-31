@@ -20,10 +20,11 @@ def test_real_readme_passes() -> None:
 
 def test_changed_bold_number_fails(tmp_path: Path) -> None:
     text = README.read_text(encoding="utf-8")
-    assert "**45.3 %**" in text
+    assert "more than **+0.13 ft**" in text  # the claim's bound
     copy = tmp_path / "README.md"
-    copy.write_text(text.replace("**45.3 %**", "**46.3 %**"), encoding="utf-8")
+    copy.write_text(text.replace("more than **+0.13 ft**", "more than **+0.12 ft**"),
+                    encoding="utf-8")
     failed = [(name, detail) for ok, name, detail in run(copy) if not ok]
     assert len(failed) == 1
-    assert "appears in" in failed[0][0]
-    assert "46.3 %" in failed[0][1] and "45.3 %" in failed[0][1]
+    assert "rule out more than" in failed[0][0]
+    assert "+0.12 ft" in failed[0][1] and "+0.13 ft" in failed[0][1]

@@ -70,11 +70,15 @@ def rotation_table(
     drives: pd.DataFrame,
     help_table: pd.DataFrame,
     horizons: tuple[int, ...] = ROTATION_HORIZONS,
+    fixed_targets: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """The three others' rotation toward the man left and toward the placebo, per drive.
 
     `help_table` is `wind.help_table` of the same game; only the drives of `drives` that
-    resolved with a man left are measured. Returns `(pairs, drives_out)`:
+    resolved with a man left are measured. `fixed_targets` (a sensitivity) reads every target,
+    the man left and the placebo attackers, where it stands at `startFrame` instead of at the
+    horizon, so no attacker's run after the start can move `to_left` or `placebo`; it changes
+    nothing in `drives_out`. Returns `(pairs, drives_out)`:
 
     - `pairs`: one row per (drive, other defender, horizon) with `to_left` and `placebo` (NaN
       when the defender has no placebo target).
@@ -120,12 +124,13 @@ def rotation_table(
             row[f"left_x_{horizon}"] = float(xy[r1, left, 0])
             row[f"left_y_{horizon}"] = float(xy[r1, left, 1] * d.flip)  # the drive frame
             best_left, best_placebo = -np.inf, -np.inf
+            rt = r0 if fixed_targets else r1  # where the targets are read
             for x in others:
                 p0, p1 = xy[r0, N_SIDE + x], xy[r1, N_SIDE + x]
-                to_left = _projection(p0, p1, xy[r1, left])
+                to_left = _projection(p0, p1, xy[rt, left])
                 own = set(np.flatnonzero(raw_matchup == x).tolist())
                 targets = [a for a in range(N_SIDE) if a not in (slot, left) and a not in own]
-                placebo = (float(np.mean([_projection(p0, p1, xy[r1, a]) for a in targets]))
+                placebo = (float(np.mean([_projection(p0, p1, xy[rt, a]) for a in targets]))
                            if targets else np.nan)
                 pairs.append({"drive_id": d.drive_id, "game": int(d.game),
                               "helped": bool(d.has_helper), "horizon": horizon,

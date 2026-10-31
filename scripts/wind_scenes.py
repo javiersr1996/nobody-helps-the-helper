@@ -19,7 +19,8 @@ The choice is a rule, not a search: games in `dataset.game_ids` order, and in ea
 helped drive (in the game's `drives` order) whose man left has a provider matchup and whose
 2 s window (frames 0 to 50 from `startFrame`) is contiguous inside one chance with the ten
 players DETECTED on every frame. "Helped" is `help_kinds`' `near_committed` (the nearest
-moves >= 2 ft toward the handler within 1.0 s and is not back with his man at 2.0 s); until
+moves >= 2 ft toward the handler within 1.0 s and at 2.0 s is not back by where his man
+started; until the review of 2026-10-31, not back with where his man then was); until
 2026-10-30 it was `help_table`'s `has_helper`, the pooled largest mover. The other conditions
 are unchanged. The first `--games` games that have one are taken. Nothing looks at how good a
 drive is to watch, and the per-game counts of each condition (over the game's committed near
@@ -38,8 +39,8 @@ never decisions.
 Every scene is checked against its table row before it is written (`check_scene`): the
 helper's movement within 1.0 s (`help_kinds`' `near_move`) and the man left's clearance at 0
 and 1.0 s are recomputed from the scene's own arrays and must equal the row within
-TOLERANCE_FT, and the helper must not be back with his man at 2.0 s, or the script raises
-ValueError.
+TOLERANCE_FT, and the helper must not be back by where his man started at 2.0 s, or the
+script raises ValueError.
 
 Writes {out} (default `reports/wind_scenes.json`), which the page inlines.
 """
@@ -220,8 +221,9 @@ def check_scene(scene: dict, row: pd.Series) -> None:
     recomputed from the scene's own `xy` (what the page would draw) and compared with the
     row's `helper_help_move`, `left_nearest0` and `left_nearest1` (`near_committed_table`);
     the stored scalars and the handler's position at 1.0 s are held to the same row. The
-    helper must also be committed in the scene: back within his 0 s distance to his man plus
-    RECOVER_FT at 2.0 s is a stunt (`help_kinds`' rule), and is refused.
+    helper must also be committed in the scene: at 2.0 s back within his 0 s distance to his
+    man plus RECOVER_FT, measured to where the man STARTED, is a stunt (`help_kinds`' rule),
+    and is refused.
     """
     xy = np.asarray(scene["xy"], dtype=float)
     roles = scene["roles"]
@@ -238,10 +240,11 @@ def check_scene(scene: dict, row: pd.Series) -> None:
     }
     bad = [f"{name}: scene {got:.3f} vs table {want:.3f}"
            for name, (got, want) in claims.items() if abs(got - want) > TOLERANCE_FT]
-    start, end = (float(np.linalg.norm(xy[t, roles["helper"]] - xy[t, roles["left"]]))
+    start, end = (float(np.linalg.norm(xy[t, roles["helper"]] - xy[0, roles["left"]]))
                   for t in (0, OUTCOME_FRAMES))
     if end <= start + RECOVER_FT:
-        bad.append(f"helper back with his man at 2.0 s: {end:.3f} ft, {start:.3f} at 0 s")
+        bad.append(f"helper back by where his man started at 2.0 s: {end:.3f} ft, "
+                   f"{start:.3f} at 0 s")
     if bad:
         raise ValueError(f"scene {scene['drive_id']} disagrees with help_table: " + "; ".join(bad))
 

@@ -178,7 +178,8 @@ def test_a_scene_whose_helper_is_back_with_his_man_is_refused(shipped):
     row = _near_row(shipped["scenes"][0]["drive_id"])
     scene = copy.deepcopy(shipped["scenes"][0])
     xy = np.asarray(scene["xy"])
-    xy[50, scene["roles"]["helper"]] = xy[50, scene["roles"]["left"]]  # on his man at 2.0 s
+    # at 2.0 s on the spot his man started from (the rule reads the helper, not the man)
+    xy[50, scene["roles"]["helper"]] = xy[0, scene["roles"]["left"]]
     scene["xy"] = xy.tolist()
-    with pytest.raises(ValueError, match="back with his man"):
+    with pytest.raises(ValueError, match="back by where his man started"):
         check_scene(scene, row)
