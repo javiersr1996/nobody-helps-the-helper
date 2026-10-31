@@ -1396,6 +1396,15 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
    d. Not shipped: the helper tag's contrast (3.2-3.7 on the canvas); the phone hook cannot
       show bigger players with this camera (14.7 of the memoria); slow cold loads.
    e. Phase E: real devices, memoria v1.0, tag and form by 17 Dec. The ONE review is done (13).
+   f. From the research (2026-10-31), ranked by value for the score: (1) cross-check the
+      provider's matchups with an HMM in the manner of Franks et al. 2015 on our frames,
+      agreement for the helper's man (review finding 6, methodology); (2) what happens to the
+      man left: share of committed drives where the ball reaches him, his clearance at the
+      catch and the shot taken, against the reference (relevance; the review found no outcome;
+      Lucey et al. 2014 and Chang et al. 2014 for open-shot value); (3) read the competitor
+      repo `dmolins/analytics-cup-2027-basketball` to keep ours distinct; (4) README: "no
+      public metric (NBA.com, Second Spectrum, BBall Index) measures the second rotation",
+      within 1000 words (`check_readme.py`).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

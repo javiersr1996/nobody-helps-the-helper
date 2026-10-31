@@ -136,3 +136,24 @@ Search coverage: arXiv, PLOS ONE, Scientific Reports, Sloan, JQAS, J Sports Sci,
 - **Literatura.** No encontré ningún trabajo que mida la rotación al hombre dejado por el ayudante desde tracking. Lo más cercano: Supola, Hoch y Baca (PLOS ONE, 2023, huecos defensivos en penetraciones), Franks et al. (2015, emparejamientos) y Keshri et al. (2019, asignaciones defensivas). Úsalos para validar los emparejamientos del proveedor.
 - **Concurso.** Cinco criterios al 20% (relevancia, metodología, originalidad, comunicación, potencial open source), README de 1000 palabras con máximo dos figuras o tablas y vídeo de un minuto. Estos datos vienen de una copia hecha por otro participante de la página oficial; hay que reconfirmarlos en la web oficial, que no pude leer.
 - **Límites de esta búsqueda.** No pude abrir el manual de FIBA (no resuelve el dominio desde este equipo), ni los artículos de Chang et al. 2014 ni Franks et al. "Counterpoints"; quedan marcados como no verificados.
+
+---
+
+## (F) Public metrics related to help defense (searched 2026-10-31)
+
+Link status is the first line of `curl -sI <url>` on 2026-10-31 (HTTP status only; the page content was not re-read for this section). Sources: nba.com/stats/help/glossary; africa.espn.com/nba/insider/story/_/id/33584857/the-new-advanced-metrics-show-on-nba-all-defense-teams-2021-22; bball-index.com/defensive-roles/; bball-index.com/lebron-introduction/; cleaningtheglass.com/stats/guide/player_def_reb; hhj.scouting4u.com/euroleague-scouting-analytics; pr.nba.com/nba-announces-multiyear-partnership-sportradar-second-spectrum/.
+
+| Metric | Who | What it measures | Captures help / second rotation? | Public | Link status |
+|---|---|---|---|---|---|
+| Hustle stats (deflections, contested shots incl. closeouts, charges drawn, loose balls, box outs) | NBA.com | Effort counts | Only the closeout, indirectly; no help, no rotation | Yes | nba.com glossary: 200 |
+| DFG% at the rim; Helped Blocks / Received | NBA.com | FG% allowed near the rim; blocks on a player who is not your matchup | First help at the rim, not the second rotation | Yes | nba.com glossary: 200 |
+| DEF MU% / matchups | NBA.com | Share of possessions guarding each attacker | No: matchups, not movements | Yes | nba.com glossary: 200 |
+| Closeout defense, eFG% allowed as nearest defender, switch efficiency | Second Spectrum (via ESPN) | Points after closeouts; effect of switching | Closeout only; no help or rotation metric listed | Partial (which are on NBA.com: unverified) | ESPN: 200; pr.nba.com (Second Spectrum partnership): 200 |
+| Defensive roles ("Helper") | BBall Index | Describes rotation ("help the helper") as a role quality | Names it, no defined grade on the page | Partial (registration, paid) | 200 |
+| D-LEBRON | BBall Index | Box-score prior + RAPM, no tracking | No: help only through team outcome | Partial | 200 |
+| STL%, BLK%, FOUL%, on/off | Cleaning the Glass | Box-score rates | No | Partial | 200 |
+| "Help rotation metrics" (EuroLeague) | Scouting4U | Advertised, undefined | Claimed, cannot be assessed | Paid (from 2,000 EUR/season) | 200 |
+
+Unverified: Synergy (search excerpts only), DRAPTOR / D-RAPM. Nothing found for Liga ACB.
+
+**Conclusion.** No public metric among those opened measures the second rotation; the closest are the closeout and the helped block, both first-help. The entry's measure (each other defender's move toward the man the helper left, minus a placebo) starts from positions, not counts or outcomes; to our knowledge it has no public equivalent.

@@ -22,7 +22,7 @@ const REPORTS = path.join(ROOT, "reports");
 const FIGURES = path.join(REPORTS, "figures");
 const OUT = path.join(__dirname, "memoria_nobody_helps_the_helper.docx");
 
-const VERSION = "0.19";
+const VERSION = "0.20";
 const DATE = "31 de octubre de 2026";
 const HOOP_X = -40.76; // scbasket.court.HOOP_X
 const HELP_FT = 4.0;
@@ -396,6 +396,32 @@ const s4 = [
   p("Actualización del 28 de octubre de 2026: ninguna de las dos se presenta. Esta es la única entrada de baloncesto (sección 10), y las dos previas quedan como trabajo previo, con su código como infraestructura que esta entrada ya usa."),
   p("De las dos se heredan tres reglas que esta entrada conserva: la intención no se puede reclamar desde el tracking (se publican definiciones, nunca detectores); un número sin código detrás no es un hallazgo; y lo que se mueve se verifica conduciéndolo, no mirándolo. Y se hereda también la razón estructural por la que casi todo lo demás murió en diez partidos: entre la geometría medida y el resultado que el dato registra suele mediar la decisión de otro, segundos después. Lo que funciona es lo que se decide de inmediato por la geometría misma."),
   source("README.md del repositorio y tasks/todo.md de ambos proyectos."),
+  h2("4.1 Estado del arte: lo publicado sobre la defensa con tracking"),
+  p("No se encontró ningún trabajo que mida, desde tracking, la rotación hacia el hombre que deja el ayudante (la búsqueda cubrió arXiv, PLOS ONE, Scientific Reports, Sloan, JQAS y J Sports Sci; es ausencia en mis búsquedas, no prueba de que no exista). Lo más cercano, con su relación con esta entrada:"),
+  bullet([bold("Franks, Miller, Bornn y Goldsberry (2015)"), run(", Annals of Applied Statistics 9(1), 94-121, arXiv:1405.0231. Un modelo oculto de Markov infiere quién guarda a quién en cada fotograma sin etiquetas de emparejamiento. Sirve para contrastar los emparejamientos del proveedor; no mide rotaciones.")]),
+  bullet([bold("Keshri, Oh, Zhang e Iyengar (2019)"), run(", Journal of Quantitative Analysis in Sports 15(2), 141-154, doi:10.1515/jqas-2017-0126. Asignación defensiva por energía con modelos ocultos de Markov y detección de eventos (pantallas, penetraciones). Otro contraste posible de los emparejamientos.")]),
+  bullet([bold("Supola, Hoch y Baca (2023)"), run(", PLOS ONE 18(2): e0281467, doi:10.1371/journal.pone.0281467. Huecos defensivos cuando un compañero corta en una penetración, con SportVU. Es lo más próximo; no se define la ayuda, no controla con un placebo y no sigue al hombre dejado.")]),
+  bullet([bold("Lucey, Bialkowski, Carr, Yue y Matthews (2014)"), run(", MIT Sloan Sports Analytics Conference, \"How to Get an Open Shot\". Los cambios de rol defensivo en los 3 s previos al tiro predicen tiros abiertos; es la magnitud más cercana a una rotación, pero por equipo y sin ligarla a una ayuda.")]),
+  bullet([bold("Chang y otros (2014)"), run(", MIT Sloan Sports Analytics Conference, \"Quantifying Shot Quality in the NBA\". Valor esperado del tiro según posición y distancia del defensor. No verificado (solo un extracto de búsqueda); citar tras abrirlo.")]),
+  h2("4.2 Métricas públicas de la ayuda defensiva (búsqueda del 31 de octubre de 2026)"),
+  p("Los siete enlaces consultados respondieron HTTP 200 el 31 de octubre de 2026 (solo el código de estado; el contenido de las páginas es el que se leyó en la búsqueda)."),
+  grid(
+    ["Métrica", "Quién", "Qué mide", "¿Capta ayuda o segunda rotación?", "Pública"],
+    [
+      ["Hustle stats (desvíos, tiros disputados con closeouts, cargas, balones sueltos, cortes de rebote)", "NBA.com", "Conteos de esfuerzo", "Solo el closeout, de forma indirecta; ni ayuda ni rotación", "Sí"],
+      ["DFG% en el aro; bloqueos ayudados / recibidos", "NBA.com", "% de tiro permitido cerca del aro; tapones a un jugador que no es tu emparejamiento", "La primera ayuda en el aro, no la segunda rotación", "Sí"],
+      ["DEF MU% / emparejamientos", "NBA.com", "Parte de las posesiones que se guarda a cada atacante", "No: emparejamientos, no movimientos", "Sí"],
+      ["Defensa de closeout, eFG% permitido como defensor más cercano, eficiencia de los cambios", "Second Spectrum (vía ESPN)", "Puntos tras closeouts; efecto del cambio", "Solo el closeout; ninguna métrica de ayuda ni de rotación", "Parcial (cuáles están en NBA.com: sin verificar)"],
+      ["Roles defensivos (\"Helper\")", "BBall Index", "Describe la rotación (\"help the helper\") como cualidad del rol", "La nombra, sin nota definida en la página", "Parcial (registro, de pago)"],
+      ["D-LEBRON", "BBall Index", "A priori de boxscore más RAPM, sin tracking", "No: la ayuda solo a través del resultado del equipo", "Parcial"],
+      ["STL%, BLK%, FOUL%, con/sin", "Cleaning the Glass", "Tasas de boxscore", "No", "Parcial"],
+      ["\"Help rotation metrics\" (EuroLeague)", "Scouting4U", "Anunciada, sin definir", "Afirmada, no se puede evaluar", "De pago (desde 2.000 EUR por temporada)"],
+    ],
+    [2300, 1300, 2100, 2200, 1126],
+  ),
+  source("Fuentes: nba.com/stats/help/glossary; africa.espn.com/nba/insider/story/_/id/33584857; bball-index.com/defensive-roles y /lebron-introduction; cleaningtheglass.com/stats/guide/player_def_reb; hhj.scouting4u.com/euroleague-scouting-analytics; pr.nba.com (alianza con Second Spectrum). Detalle en docs/research/help_defense_literature.md, apartado (F)."),
+  p("Sin verificar: Synergy (solo extractos de búsqueda), DRAPTOR y D-RAPM. Para la Liga ACB no se encontró nada."),
+  p("Conclusión: ninguna métrica pública de las que se abrieron mide la segunda rotación; las más cercanas son el closeout y el bloqueo ayudado, ambas de primera ayuda. La medida de esta entrada (el movimiento de cada otro defensor hacia el hombre que deja el ayudante, menos un placebo) parte de posiciones, no de conteos ni de resultados, y hasta donde sabemos no tiene equivalente público."),
 ];
 
 const s5 = [
@@ -1032,6 +1058,7 @@ const s14 = [
     ["0.17", "31 de octubre de 2026", "Sección 16.6: guion aprobado por Javier (escena 5 corta; 119 palabras), ventanas de 6, 8, 6, 10, 21 y 9 s con un segundo de silencio tras la escena 3, recortes de la figura 2 recolocados, MP4 vuelto a grabar (60,000 s, 1500 fotogramas) y la vista previa de la página en el móvil y el escritorio."],
     ["0.18", "31 de octubre de 2026", "Sección 14.7 nueva: la cámara del móvil en vertical (43 grados, la menor inclinación que deja como mucho un 10 % del lienzo pasada la línea de fondo lejana; cuerpos un 15 a 20 % más bajos, pasos sobre la pista hasta un 47 % más largos, la cámara apaisada idéntica bit a bit), la fila nueva de la consola y su copia estropeada, la frase del percentil partida en los cuartiles, el -0,634 de los datos (no es la partición antigua) y la letra más pequeña de la página."],
     ["0.19", "31 de octubre de 2026", "Sección 14.7: Javier rechaza la cámara de 43 grados en vertical (encoge a los jugadores y quita el público que había aprobado); la página vuelve a los 28 grados, idéntica bit a bit en vertical y en apaisado a la de antes del intento, y se quita la fila de la consola. Se quedan la frase del percentil y la letra del código a 16 píxeles."],
+    ["0.20", "31 de octubre de 2026", "Secciones 4.1 y 4.2 nuevas: estado del arte (Franks, Keshri, Supola, Lucey, Chang) y tabla de métricas públicas de la ayuda defensiva (NBA.com, Second Spectrum, BBall Index, Cleaning the Glass, Scouting4U); ninguna mide la segunda rotación."],
   ], [1200, 2200, 5626]),
 ];
 
