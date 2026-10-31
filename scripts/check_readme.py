@@ -18,7 +18,6 @@ Three checks, one line each, exit 0 if all pass and 1 otherwise:
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from collections.abc import Callable
@@ -103,12 +102,13 @@ def outcome_reached(df: pd.DataFrame) -> pd.Series:
 
 @dataclass(frozen=True)
 class Source:
-    """One bold number: the text before it, where it comes from and how it is printed."""
+    """One number: the text before it, where it comes from and how it is printed."""
 
     anchor: str
     csv: str
     select: Callable[[pd.DataFrame], object]
     fmt: Callable[[object], str]
+    bold: bool = True  # False: plain text, still matched and checked
 
 
 def sft(x: float) -> str:
@@ -156,12 +156,6 @@ def ci_of(row: pd.Series) -> tuple[float, float]:
     return row["ci_low"], row["ci_high"]
 
 
-def _scene0_clearance(df: pd.DataFrame) -> float:
-    """The headline clearance of the drive figure 1 draws (the first scene of the JSON)."""
-    first = json.loads((REPORTS / "wind_scenes.json").read_text(encoding="utf-8"))
-    return one(df, drive_id=first["scenes"][0]["drive_id"])[f"left_clear_{HEADLINE}"]
-
-
 def _nearest(who: str, kind: str) -> Callable[[pd.DataFrame], float]:
     return lambda d: near(d, "paired_diff", kind, 1.52)[who]
 
@@ -174,9 +168,7 @@ SOURCES: tuple[Source, ...] = (
     Source("There are ", KINDS,
            lambda d: (count(d, "flag", "near_committed"), count(d, "drives", "resolved")),
            lambda v: f"{v[0]} of {v[1]}"),
-    Source("toward the handler (", KINDS, lambda d: count(d, "flag", "near_ref"), plain),
-    Source("the man left is ", "near_committed_drives.csv", _scene0_clearance,
-           lambda v: f"{v:.1f} ft"),
+    Source("toward the handler (", KINDS, lambda d: count(d, "flag", "near_ref"), plain, False),
     # The claim: the committed near help's own paired difference, its bound and its scale.
     Source("of the other three is ", KINDS,
            lambda d: near(d, "paired_diff", COMMIT, 1.52)["mean"], ft),
@@ -185,44 +177,33 @@ SOURCES: tuple[Source, ...] = (
     Source("the data rule out more than ", KINDS,
            lambda d: near(d, "paired_diff", COMMIT, 1.52)["ci_high"], sft),
     Source("median step toward the ball is ", KINDS,
-           lambda d: near(d, "scale", COMMIT, 1.52, "helper_step")["median"], ft1),
+           lambda d: near(d, "scale", COMMIT, 1.52, "helper_step")["median"], ft1, False),
     Source("the mean would read ", KINDS,
            lambda d: near(d, "scale", COMMIT, 1.52, "one_rotates")["mean"], sft),
-    Source("At 1.0 s it is ", KINDS, lambda d: near(d, "paired_diff", COMMIT, 1.0)["mean"], ft),
-    Source("At 1.0 s it is **-0.22 ft** (CI ", KINDS,
-           lambda d: ci_of(near(d, "paired_diff", COMMIT, 1.0)), span),
-    Source("at 2.0 s ", KINDS, lambda d: near(d, "paired_diff", COMMIT, 2.0)["mean"], ft),
-    Source("at 2.0 s **-0.18 ft** (CI ", KINDS,
-           lambda d: ci_of(near(d, "paired_diff", COMMIT, 2.0)), span),
     Source("When the nearest stays home: ", KINDS,
-           lambda d: near(d, "paired_diff", REF, 1.52)["mean"], ft),
-    Source("When the nearest stays home: **-0.03 ft** (CI ", KINDS,
-           lambda d: ci_of(near(d, "paired_diff", REF, 1.52)), span),
-    Source("reported and not claimed: ", KINDS,
-           lambda d: near(d, "contrast", COMMIT, 1.52)["mean"], ft),
-    Source("reported and not claimed: **-0.19 ft** (CI ", KINDS,
-           lambda d: ci_of(near(d, "contrast", COMMIT, 1.52)), span),
+           lambda d: near(d, "paired_diff", REF, 1.52)["mean"], ft, False),
+    Source("When the nearest stays home: -0.03 ft (CI ", KINDS,
+           lambda d: ci_of(near(d, "paired_diff", REF, 1.52)), span, False),
     # 13 a2, pre-registered: the designated rotators and the pass (near_rotator.csv, _pass.csv).
-    Source("the hoop) reads ", "near_rotator.csv", lambda d: rotator(d, "R2")["mean"], sft),
-    Source("the hoop) reads **+0.21 ft** (CI ", "near_rotator.csv",
-           lambda d: ci_of(rotator(d, "R2")), span),
-    Source("the one nearest the man left ", "near_rotator.csv",
-           lambda d: rotator(d, "R1")["mean"], sft),
-    Source("the one nearest the man left **-1.11 ft** (CI ", "near_rotator.csv",
-           lambda d: ci_of(rotator(d, "R1")), span),
+    Source("the defender nearest the hoop alone reads ", "near_rotator.csv",
+           lambda d: rotator(d, "R2")["mean"], sft, False),
+    Source("the defender nearest the hoop alone reads +0.21 ft (CI ", "near_rotator.csv",
+           lambda d: ci_of(rotator(d, "R2")), span, False),
+    Source("and the one nearest the man left ", "near_rotator.csv",
+           lambda d: rotator(d, "R1")["mean"], sft, False),
+    Source("and the one nearest the man left -1.11 ft (CI ", "near_rotator.csv",
+           lambda d: ci_of(rotator(d, "R1")), span, False),
     Source("within 1.5 s in only ", "near_pass.csv",
            lambda d: (pass_count(d, "pass_in_window"), pass_count(d, "drives")),
            lambda v: f"{v[0]} of {v[1]}"),
-    # The per-drive picture: the best mover, and who is nearest to the man left at 1.5 s.
+    # The per-drive picture: the best mover.
     Source("The absence is an average. In ", KINDS,
-           _nearest("share_mover_left", COMMIT), pct0),
-    Source("the man left, and in ", KINDS, _nearest("share_mover_placebo", COMMIT), pct0),
-    Source("toward the others on average (", KINDS, _nearest("share_mover_left", REF), pct0),
-    Source("toward the others on average (**34 %** and ", KINDS,
-           _nearest("share_mover_placebo", REF), pct0),
-    Source("the nearest to the man left in ", KINDS, _nearest("nearest_third", COMMIT), pct0),
-    Source("the nearest to the man left in **15 %** (", KINDS, _nearest("nearest_third", REF),
-           pct0),
+           _nearest("share_mover_left", COMMIT), pct0, False),
+    Source("the man left, and in ", KINDS, _nearest("share_mover_placebo", COMMIT), pct0, False),
+    Source("toward the comparison attackers on average (", KINDS,
+           _nearest("share_mover_left", REF), pct0, False),
+    Source("toward the comparison attackers on average (34 % and ", KINDS,
+           _nearest("share_mover_placebo", REF), pct0, False),
     # The record and the robustness (help_kinds_summary.csv, near_sensitivity.csv,
     # near_robustness.csv).
     Source("a contrast of ", KINDS,
@@ -230,42 +211,43 @@ SOURCES: tuple[Source, ...] = (
            ft),
     Source("a contrast of **-0.63 ft** (CI ", KINDS,
            lambda d: ci_of(near(d, "contrast", "near_committed_endpos", 1.52, "sensitivity")),
-           span),
+           span, False),
     Source("under every check: all ", "near_sensitivity.csv",
            lambda d: len(d) if (d["reading"] == "ABSENCE").all() else -1, plain),
     Source("(CI tops ", "near_sensitivity.csv",
-           lambda d: (d["ci_high"].min(), d["ci_high"].max()), span),
+           lambda d: (d["ci_high"].min(), d["ci_high"].max()), span, False),
     Source("(means ", "near_robustness.csv",
            lambda d: (robust(d, "leave_one_out")["mean"].min(),
-                      robust(d, "leave_one_out")["mean"].max()), span),
+                      robust(d, "leave_one_out")["mean"].max()), span, False),
     Source("games resampled (CI ", "near_robustness.csv",
-           lambda d: ci_of(robust(d, "game_cluster").iloc[0]), span),
+           lambda d: ci_of(robust(d, "game_cluster").iloc[0]), span, False),
     Source("in the first 1.5 s (", "near_robustness.csv",
-           lambda d: robust(d, "no_pass").iloc[0]["mean"], ft),
+           lambda d: robust(d, "no_pass").iloc[0]["mean"], ft, False),
     Source("every player detected (", "near_robustness.csv",
-           lambda d: robust(d, "detected").iloc[0]["mean"], ft),
+           lambda d: robust(d, "detected").iloc[0]["mean"], ft, False),
     # Long help, the stated limit.
     Source("the drive's path: ", KINDS, lambda d: count(d, "flag", "long"), plain),
-    Source("toward his man ", KINDS, lambda d: near(d, "contrast", "long", 1.52)["mean"], sft),
-    Source("more (CI ", KINDS, lambda d: ci_of(near(d, "contrast", "long", 1.52)), span),
-    # The X-out of the pooled helper (second_help_closeouts.csv).
+    Source("toward his man ", KINDS, lambda d: near(d, "contrast", "long", 1.52)["mean"], sft,
+           False),
+    Source("more (CI ", KINDS, lambda d: ci_of(near(d, "contrast", "long", 1.52)), span, False),
+    # The rotation after the pass (second_help_closeouts.csv).
     Source("n = ", "second_help_closeouts.csv",
-           lambda d: int(one(d, helped=True, receiver_is_left=True)["n"]), plain),
+           lambda d: int(one(d, helped=True, receiver_is_left=True)["n"]), plain, False),
     # The HMM cross-check of the provider's matchups (hmm_matchups_summary.csv).
     Source("agrees on the man left in ", "hmm_matchups_summary.csv",
            lambda d: hmm_agreement(d, "hmm"), pct0),
-    Source("of committed drives (", "hmm_matchups_summary.csv",
-           lambda d: hmm_agreement(d, "hmm_1s_before"), pct0),
+    Source("of these drives (", "hmm_matchups_summary.csv",
+           lambda d: hmm_agreement(d, "hmm_1s_before"), pct0, False),
     # The outcome of the man left (man_left_outcome_summary.csv): near help vs stays home.
     Source("the ball reaches the man left in ", "man_left_outcome_summary.csv",
            lambda d: outcome_reached(d)["mean_a"], pct1),
     Source("the ball reaches the man left in **12.9 %**, against ", "man_left_outcome_summary.csv",
            lambda d: outcome_reached(d)["mean_b"], pct1),
     # The mirror (help_table.csv: provider_direction against the un-mirrored lateral sign).
-    Source("agrees on ", "help_table.csv",
-           lambda d: direction_agreement(d, "left"), pct0),
-    Source("left-labelled and ", "help_table.csv",
-           lambda d: direction_agreement(d, "right"), pct0),
+    Source("direction agrees on ", "help_table.csv",
+           lambda d: direction_agreement(d, "left"), pct0, False),
+    Source("% (left) and ", "help_table.csv",
+           lambda d: direction_agreement(d, "right"), pct0, False),
 )
 
 BOLD = re.compile(r"\*\*(.+?)\*\*")
@@ -300,6 +282,12 @@ def check_bold(text: str, reports: Path) -> list[tuple[bool, str, str]]:
     rows: list[tuple[bool, str, str]] = []
     claimed: set[int] = set()
     for src in SOURCES:
+        want = src.fmt(src.select(csv(src.csv, reports)))
+        if not src.bold:
+            n = text.count(src.anchor + want)
+            rows.append((n == 1, f"plain after {src.anchor!r} <- {src.csv}",
+                         f"{n} places print {want!r} here, need 1"))
+            continue
         hits = list(re.finditer(re.escape(src.anchor) + r"\*\*(.+?)\*\*", text))
         label = f"bold after {src.anchor!r} <- {src.csv}"
         if len(hits) != 1:
@@ -307,7 +295,6 @@ def check_bold(text: str, reports: Path) -> list[tuple[bool, str, str]]:
             continue
         printed = hits[0].group(1)
         claimed.add(hits[0].start(1))
-        want = src.fmt(src.select(csv(src.csv, reports)))
         rows.append((printed == want, label, f"README {printed!r}, CSV {want!r}"))
     for m in BOLD.finditer(text):
         if m.start(1) not in claimed:

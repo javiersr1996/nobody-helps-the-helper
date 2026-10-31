@@ -1409,6 +1409,7 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       on them (945183c). (2) man left: ball reaches him 12.9 % vs 8.5 % (games CI excludes 0,
       drives CI does not), no more open, no more shots (138d48b). (3) competitor read at
       8bcdc821, no overlap (research D, in 945183c). (4) README lines done (999 words; cuts: fixed-targets sentence, bounce line, 3D phrase, ten-games bullet, module list; check_readme 47/47); see the README commit.
+   g. Council 2026-10-31: 51/100 (5 advisors + 2 reviewers); communication is the weak criterion; README pass done in the commit 'Open the README with three plain sentences...'; voice (D3) still the cheapest lever; not published, waiting for the owner's 'publica' (local commits 945183c..HEAD).
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.
