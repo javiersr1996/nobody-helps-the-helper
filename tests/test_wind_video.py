@@ -16,8 +16,9 @@ from wind_video import (  # noqa: E402
     caption_cells,
     caption_text,
     check_slide_numbers,
-    pan_offset,
+    crop_index,
     parse_script,
+    plan_crops,
 )
 
 TEXT = SCRIPT.read_text(encoding="utf-8")
@@ -28,19 +29,19 @@ def test_real_script_windows_are_contiguous_and_a_minute() -> None:
     assert [s.n for s in scenes] == [1, 2, 3, 4, 5, 6]
     assert scenes[0].start == 0
     assert all(a.end == b.start for a, b in zip(scenes, scenes[1:], strict=False))
-    assert abs(scenes[-1].end - 60) <= 1
+    assert 59 <= scenes[-1].end <= 60
     assert all(s.line for s in scenes)
 
 
 def test_a_gap_between_windows_is_refused() -> None:
-    spoiled = TEXT.replace("[0:06-0:15]", "[0:07-0:15]")
+    spoiled = TEXT.replace("[0:06-0:14]", "[0:07-0:14]")
     assert spoiled != TEXT
     with pytest.raises(ValueError, match="starts at 7"):
         parse_script(spoiled)
 
 
 def test_a_cut_of_the_wrong_length_is_refused() -> None:
-    spoiled = TEXT.replace("[0:52-1:01]", "[0:52-1:20]")
+    spoiled = TEXT.replace("[0:51-1:00]", "[0:51-1:20]")
     assert spoiled != TEXT
     with pytest.raises(ValueError, match="add up to 80"):
         parse_script(spoiled)
@@ -59,6 +60,25 @@ def test_a_number_not_in_the_csv_is_refused(bad: str) -> None:
         check_slide_numbers(bad, caption_cells())
 
 
-def test_pan_ends_where_the_figure_does() -> None:
-    assert pan_offset(0) == 0
-    assert pan_offset(21) == 2678 - 990
+def test_the_old_61_second_headers_are_refused() -> None:
+    spoiled = TEXT.replace("[0:51-1:00]", "[0:51-1:01]")
+    assert spoiled != TEXT
+    with pytest.raises(ValueError, match="add up to 61"):
+        parse_script(spoiled)
+
+
+def test_scene_5_cuts_from_the_court_panel_to_the_intervals() -> None:
+    assert crop_index(0.0) == 0
+    assert crop_index(13.4) == 0
+    assert crop_index(13.5) == 1
+
+
+def test_crops_contain_what_they_must_and_never_zoom_past_2x() -> None:
+    boxes = [(800.0, 300.0, 1100.0, 600.0)] * 40 + [(100.0, 200.0, 1700.0, 1000.0)] * 40
+    crops = plan_crops(boxes)
+    assert (1920 / crops[:, 2]).max() <= 2.0 + 1e-9
+    for (x0, y0, w), b in zip(crops, boxes, strict=True):
+        h = w * 9 / 16
+        assert x0 <= b[0] and y0 <= b[1] and x0 + w >= b[2] and y0 + h >= b[3]
+        assert x0 >= -1e-6 and y0 >= -1e-6 and x0 + w <= 1920 + 1e-6 and y0 + h <= 1080 + 1e-6
+    assert (crops[1:, 2] - crops[:-1, 2]).max() < 60  # no jump when the need changes

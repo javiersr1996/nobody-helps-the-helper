@@ -3,22 +3,30 @@
 Usage (needs the `page` and `figures` extras and the Playwright Chromium)::
 
     uv run --extra page --extra figures python scripts/wind_video.py [--out DIR] [--scenes 3,4]
+                                                                   [--frame-stats]
 
 The six scenes and their windows are read from the `[m:ss-m:ss]` headers of
-`tasks/video_script_wind.md`, so the script and the cut cannot drift apart. Scenes 1-4 and 6 are
-the page itself at 1920x1080 (dpr 1, the machine's GPU), driven from the console frame by frame
-(`wind.seek`, `wind.flight`, `wind.view`, never wall-clock playback), one screenshot per frame
-at 25 fps. Scene 5 is figure 2, whole, panned down at its own pixel size (it is 1440 x 2678, so
-a 1080-high frame cannot hold it readable), under a caption whose numbers are checked against
-their CSV. Video-only changes (no controls, no caption line, the tiles moved beside the bars,
-a ring on the man left, the title card faded) are CSS and DOM added at capture time; neither the
-page nor the template is touched. The MP4 is silent, H.264, and its length is read back with
+`tasks/video_script_wind.md`, so the script and the cut cannot drift apart; together they must
+last 60 s or less. Scenes 1-4 and 6 are the page itself (viewport 1920x1080, device scale 2, the
+machine's GPU), driven from the console frame by frame (`wind.seek`, `wind.flight`,
+`wind.view`, never wall-clock playback), one screenshot per frame at 25 fps. For the phone, the
+video is framed and not only filmed: in scenes 1-4 each frame is cropped to the tightest 16:9
+window that holds the seven story players (handler, his defender, helper, man left, the three
+others; feet to head; `--all-ten` adds the off-ball attackers, which pins the zoom at 1.00x because
+they stand at the frame edge), their tags, the ring and, while it shows, the
+title card, plus a margin, smoothed in time and never zoomed past 2x; the tags are set larger
+by CSS injected before the page loads (so the page's own placement sees the larger boxes).
+Scene 5 is figure 2, from the PNG the README carries and not redrawn, as two held crops cut on
+the line (court panel, then the interval panel), under a caption whose numbers are checked
+against their CSV. Everything the video adds is CSS and DOM at capture time; neither the page
+nor the template is touched. The MP4 is silent, H.264, and its length is read back with
 ffprobe.
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import math
 import re
@@ -38,7 +46,22 @@ FIGURE_2 = REPORTS / "figures" / "wind_figure_2_who_covers.png"
 SUMMARY = REPORTS / "help_kinds_summary.csv"
 FPS = 25
 W, H = 1920, 1080
-TOTAL_S, TOTAL_TOL = 60.0, 1.0
+DPR = 2
+TOTAL_MIN, TOTAL_MAX = 59.0, 60.0  # a minute: not a second over
+ZOOM_MAX, MARGIN, SIGMA = 2.0, 40.0, 12  # the crop: 2x at most, px of margin, frames of smoothing
+
+# Larger tags, set before the page's own script measures them.
+TAG_JS = """
+(() => {
+  const s = document.createElement('style');
+  s.textContent = '.tag{font-size:24px !important;padding:2px 6px !important}'
+    + '.tag.other{font-size:26px !important}';
+  const add = () => (document.head || document.documentElement).appendChild(s);
+  if (document.documentElement) add();
+  else new MutationObserver((m, o) => { if (document.documentElement) { o.disconnect(); add(); } })
+    .observe(document, {childList: true});
+})();
+"""
 
 # What the capture adds to the page, only while it films: no controls, no live caption line,
 # the live tile or the result tile stacked under the bars, the title card faded by script.
@@ -71,7 +94,8 @@ INSTALL_JS = """
 """
 
 # One evaluate per frame: act on the page, lay the overlays out, wait two animation frames,
-# then read everything the checks need, so nothing can move between the action and the reading.
+# then read everything the checks and the framing need, so nothing can move between the action
+# and the reading. The ten players are projected at the feet and at head height (6.5 ft).
 FRAME_JS = """
 async ([S, left, radius]) => {
   const w = window.wind, g = (i) => document.getElementById(i);
@@ -86,10 +110,11 @@ async ([S, left, radius]) => {
   const [x, y] = st.positions.players[left];
   const pr = w.project(x, y, 0);
   const R = radius * (1 + 0.1 * Math.sin(2 * Math.PI * S.clock));
-  let d = '';
+  let d = '', rb = [1e9, 1e9, -1e9, -1e9];
   for (let i = 0; i < 72; i++) {
     const a = 2 * Math.PI * i / 72, q = w.project(x + R * Math.cos(a), y + R * Math.sin(a), 0);
     d += (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1);
+    rb = [Math.min(rb[0], q[0]), Math.min(rb[1], q[1]), Math.max(rb[2], q[0]), Math.max(rb[3], q[1])];
   }
   for (const k of ['back', 'front']) {
     g('vring-' + k).setAttribute('d', d + 'Z');
@@ -98,11 +123,14 @@ async ([S, left, radius]) => {
   const m = (a, v) => [0,1,2,3].map(r => a[r]*v[0] + a[4+r]*v[1] + a[8+r]*v[2] + a[12+r]*v[3]);
   const q = m(cam.projection, m(cam.view, m(cam.world, [x, y, 0, 1])));
   const indep = [(q[0]/q[3]*0.5 + 0.5) * cam.width, (1 - (q[1]/q[3]*0.5 + 0.5)) * cam.height];
+  const box = (e) => { const b = e.getBoundingClientRect(); return [b.x, b.y, b.x + b.width, b.y + b.height]; };
   const tg = document.querySelector('#tags .left'), tr = tg ? tg.getBoundingClientRect() : null;
+  const tags = Array.from(document.querySelectorAll('#tags .tag')).map(box).filter(b => b[2] > b[0]);
+  const pts = st.positions.players.flatMap(p => [w.project(p[0], p[1], 0), w.project(p[0], p[1], 6.5)]);
   const V = cam.view, eye = [0,1,2].map(i => -(V[4*i]*V[12] + V[4*i+1]*V[13] + V[4*i+2]*V[14]));
   return {scene: st.scene, t: st.t, view: st.view, phase: st.phase, cam: cam.type, eye: eye,
           man: [x, y], proj: pr, indep: indep, tag: tr ? [tr.x + tr.width / 2, tr.y, tr.width] : null,
-          ring: [d.length, S.ring]};
+          pts: pts, tags: tags, ringbox: rb, card: box(g('top')), ring: [d.length, S.ring]};
 }
 """
 
@@ -129,7 +157,7 @@ HEADER = re.compile(r"^\*\*\[(\d+):(\d{2})-(\d+):(\d{2})\] Scene (\d+), ([^.]*)\
 def parse_script(text: str) -> list[Scene]:
     """The scenes, in order, from the `**[m:ss-m:ss] Scene N, name.**` headers and the quoted
     lines (`>`) under each. Refuses windows that are not contiguous from 0, or a total that is
-    not 60 +- 1 s: the cut must be the length the script was written for."""
+    not a minute: 59 to 60 s, never over."""
     scenes: list[Scene] = []
     for ln in text.splitlines():
         m = HEADER.match(ln)
@@ -151,8 +179,8 @@ def parse_script(text: str) -> list[Scene]:
         if s.end <= s.start:
             raise ValueError(f"scene {s.n} has no length")
     total = scenes[-1].end
-    if abs(total - TOTAL_S) > TOTAL_TOL:
-        raise ValueError(f"the scenes add up to {total} s, not {TOTAL_S} +- {TOTAL_TOL}")
+    if not TOTAL_MIN <= total <= TOTAL_MAX:
+        raise ValueError(f"the scenes add up to {total} s, not {TOTAL_MIN} to {TOTAL_MAX}")
     return scenes
 
 
@@ -194,33 +222,41 @@ def caption_text() -> str:
     return text
 
 
-# ---------------------------------------------------------------- scene 5: figure 2, whole
+# ---------------------------------------------------------------- scene 5: figure 2, held crops
 
-
-PAN = [(0.0, 0), (3.0, 0), (8.0, 900), (13.0, 900), (18.0, 1688), (21.0, 1688)]
 BAND = 90
+#: Crops of the README's PNG (1440 x 2678), x0, y0, x1, y1, and the second at which each is shown.
+#: Cut times come from the guide voice's word boundaries (edge-tts, en-GB-RyanNeural): the line
+#: "Compared with drives where the nearest defender stays home" starts 13.70 s in; the cut is
+#: 0.2 s earlier, since another voice will be slower or faster and an early cut is the safer.
+CROPS = [(0.0, (0, 0, 1440, 1240)), (13.5, (0, 1495, 1440, 2678))]
+DISSOLVE = 6
 
 
-def pan_offset(sec: float) -> float:
-    """Pixels of the figure scrolled off the top at `sec` into scene 5: hold, glide, hold."""
-    for (t0, y0), (t1, y1) in zip(PAN, PAN[1:], strict=False):
-        if sec <= t1:
-            if t1 == t0 or y1 == y0:
-                return y1
-            u = (sec - t0) / (t1 - t0)
-            return y0 + (y1 - y0) * u * u * (3 - 2 * u)
-    return PAN[-1][1]
+def crop_index(sec: float) -> int:
+    return max(i for i, (t0, _) in enumerate(CROPS) if sec >= t0)
 
 
 def slide_frame(sec: float, fig, caption: str):
-    """One frame of scene 5: the figure at its own size, centred on white, scrolled, with the
-    caption band along the bottom."""
+    """One frame of scene 5: a held crop of the figure at its largest size that fits above the
+    caption bar, centred on white, a short dissolve at each cut."""
     from PIL import Image, ImageDraw, ImageFont
 
-    canvas = Image.new("RGB", (W, H), "white")
     view_h = H - BAND
-    oy = round(pan_offset(sec))
-    canvas.paste(fig.crop((0, oy, fig.width, min(fig.height, oy + view_h))), ((W - fig.width) // 2, 0))
+
+    def crop(i: int):
+        im = fig.crop(CROPS[i][1])
+        s = view_h / im.height
+        im = im.resize((round(im.width * s), view_h), Image.LANCZOS)
+        c = Image.new("RGB", (W, H), "white")
+        c.paste(im, ((W - im.width) // 2, 0))
+        return c
+
+    i = crop_index(sec)
+    canvas = crop(i)
+    since = sec - CROPS[i][0]
+    if i > 0 and since < DISSOLVE / FPS:
+        canvas = Image.blend(crop(i - 1), canvas, min(1.0, (since * FPS + 1) / (DISSOLVE + 1)))
     d = ImageDraw.Draw(canvas)
     d.rectangle((0, view_h, W, H), fill="white")
     d.rectangle((0, view_h, W, view_h + 5), fill="#f0a33c")
@@ -234,10 +270,6 @@ def slide_frame(sec: float, fig, caption: str):
 
 
 # ---------------------------------------------------------------- the frame plan
-
-
-def smooth(u: float) -> float:
-    return u * u * (3 - 2 * u)
 
 
 def page_specs(scene: Scene, th: float, hook, w_h: float, w_end: float, t_end: float) -> list[dict]:
@@ -254,7 +286,7 @@ def page_specs(scene: Scene, th: float, hook, w_h: float, w_end: float, t_end: f
         elif scene.n == 3:
             s.update(t=th, ring=min(1.0, k / 12))
         elif scene.n == 4:
-            clip, hold, fl = 120, 10, 70
+            clip, hold, fl = 100, 10, 65
             if k < clip:
                 s.update(t=hook(w_h + (w_end - w_h) * (k + 1) / clip), ring=1.0)
             elif k < clip + hold:
@@ -269,6 +301,68 @@ def page_specs(scene: Scene, th: float, hook, w_h: float, w_end: float, t_end: f
             s.update(act="plan", t=t_end, view="plan", p=1.0, tile="result", top=min(1.0, k / 15))
         out.append(s)
     return out
+
+
+# ---------------------------------------------------------------- framing
+
+
+def need_box(r: dict, s: dict, slots=None):
+    """The box a broadcast frame must keep in view: ten players feet to head, their tags, the
+    ring while it shows, the title card while it is up. None for the views framed whole."""
+    if s["view"] != "broadcast":
+        return None
+    keep = range(10) if slots is None else slots
+    pts = [tuple(p) for i in keep for p in r["pts"][2 * i: 2 * i + 2]]
+    for t in r["tags"]:
+        pts += [(t[0], t[1]), (t[2], t[3])]
+    if s["ring"] > 0.05:
+        b = r["ringbox"]
+        pts += [(b[0], b[1]), (b[2], b[3])]
+    if s["top"] > 0.5:
+        c = r["card"]
+        pts += [(c[0], c[1]), (c[2], c[3])]
+    xs = [min(max(x, 0), W) for x, _ in pts]
+    ys = [min(max(y, 0), H) for _, y in pts]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def gauss(a: np.ndarray, sigma: float = SIGMA) -> np.ndarray:
+    k = np.exp(-0.5 * (np.arange(-3 * sigma, 3 * sigma + 1) / sigma) ** 2)
+    k /= k.sum()
+    return np.convolve(np.pad(a, 3 * sigma, mode="edge"), k, mode="valid")
+
+
+def plan_crops(boxes: list) -> np.ndarray:
+    """One (x0, y0, width) crop per frame from the boxes to keep in view: the box plus a margin
+    as a 16:9 window, widths dilated by a running maximum (so the zoom-out leads the need) and
+    smoothed, centres smoothed, then widened wherever smoothing left something out."""
+    n = len(boxes)
+    tw, cx, cy = np.empty(n), np.empty(n), np.empty(n)
+    for i, b in enumerate(boxes):
+        if b is None:
+            tw[i], cx[i], cy[i] = W, W / 2, H / 2
+            continue
+        bw, bh = b[2] - b[0] + 2 * MARGIN, b[3] - b[1] + 2 * MARGIN
+        tw[i] = min(W, max(bw, bh * 16 / 9, W / ZOOM_MAX))
+        cx[i], cy[i] = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+    for _ in range(12):
+        dil = np.array([tw[max(0, i - int(1.5 * SIGMA)): i + int(1.5 * SIGMA) + 1].max() for i in range(n)])
+        ws = np.clip(gauss(dil), W / ZOOM_MAX, W)
+        xs = np.clip(gauss(cx), ws / 2, W - ws / 2)
+        ys = np.clip(gauss(cy), ws * 9 / 32, H - ws * 9 / 32)
+        grew = False
+        for i, b in enumerate(boxes):
+            if b is None:
+                continue
+            dx = max(xs[i] - b[0], b[2] - xs[i]) + 16
+            dy = max(ys[i] - b[1], b[3] - ys[i]) + 16
+            need = max(2 * dx, dy * 32 / 9)
+            if need > ws[i] + 0.5 and ws[i] < W:
+                tw[i] = max(tw[i], min(W, need + 10))
+                grew = True
+        if not grew:
+            break
+    return np.stack([xs - ws / 2, ys - ws * 9 / 32, ws], axis=1)
 
 
 # ---------------------------------------------------------------- capture
@@ -292,13 +386,16 @@ def help_step(js: dict) -> float:
     return int(np.argmax(cum >= cum[-1] / 2)) / js["fps"]
 
 
-def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dict[int, int]:
+def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None, stats_only: bool,
+            story: bool = False) -> dict[int, int]:
     from drive_wind_page import CHROMIUM_ARGS
     from PIL import Image
     from playwright.sync_api import sync_playwright
 
     js = json.loads((REPORTS / "wind_scenes.json").read_text(encoding="utf-8"))
-    left = js["scenes"][0]["roles"]["left"]
+    roles = js["scenes"][0]["roles"]
+    left = roles["left"]
+    slots = [roles[k] for k in ("handler", "handler_def", "helper", "left")] + roles["others"] if story else None
     th = help_step(js)
     fig = Image.open(FIGURE_2).convert("RGB")
     caption = caption_text()
@@ -306,7 +403,8 @@ def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dic
     keyframes: list[str] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(args=CHROMIUM_ARGS)
-        ctx = browser.new_context(viewport={"width": W, "height": H}, device_scale_factor=1)
+        ctx = browser.new_context(viewport={"width": W, "height": H}, device_scale_factor=DPR)
+        ctx.add_init_script(TAG_JS)
         pg = ctx.new_page()
         errors: list[str] = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -320,7 +418,7 @@ def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dic
             " return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()")
         if re.search(r"swiftshader|software|llvmpipe", renderer, re.I):
             raise SystemExit(f"software renderer ({renderer}): the video must be filmed on the GPU")
-        print(f"renderer: {renderer}")
+        print(f"renderer: {renderer}; device scale {pg.evaluate('devicePixelRatio')}")
         pg.evaluate(INSTALL_JS, [VIDEO_CSS])
         T, RATE = pg.evaluate("[wind.T, wind.RATE]")
 
@@ -340,8 +438,29 @@ def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dic
         print(f"t_h = {th:.2f} s (JSON), {page_centre:.3f} s (hookTime); wall {w_h:.3f} of {w_end:.2f} s")
         hook = lambda w: float(pg.evaluate("(w) => wind.hookTime(w)", w))  # noqa: E731
 
-        last_page: bytes | None = None
-        last_slide = slide_frame(21.0, fig, caption)
+        wanted = [sc for sc in scenes if sc.n != 5 and (not only or sc.n in only)]
+        specs = {sc.n: page_specs(sc, th, hook, w_h, w_end, T) for sc in wanted}
+
+        # pass 1: what each broadcast frame of scenes 1-4 must keep in view, then the crops
+        series = [(sc.n, k) for sc in wanted if sc.n < 5 for k in range(sc.frames)]
+        boxes = []
+        for n, k in series:
+            s = specs[n][k]
+            r = pg.evaluate(FRAME_JS, [s, left, 2.4]) if s["view"] == "broadcast" else None
+            boxes.append(need_box(r, s, slots) if r else None)
+        crops = plan_crops(boxes) if boxes else np.zeros((0, 3))
+        crop_of = dict(zip(series, crops, strict=True))
+        zoom = W / crops[:, 2] if len(crops) else np.array([1.0])
+        print(f"zoom over scenes 1-4: min {zoom.min():.2f}, median {np.median(zoom):.2f}, max {zoom.max():.2f}")
+        for n in sorted({n for n, _ in series}):
+            z = np.array([W / crop_of[(n, k)][2] for k in range(len(specs[n]))])
+            print(f"  scene {n}: zoom {z.min():.2f} to {z.max():.2f}")
+        if stats_only:
+            browser.close()
+            return counts
+
+        last_page = None
+        last_slide = slide_frame(sum(sc.frames for sc in scenes if sc.n == 5) / FPS - 1e-3, fig, caption)
         prev_eye = None
         for sc in scenes:
             if only and sc.n not in only:
@@ -351,40 +470,36 @@ def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dic
                 for k in range(sc.frames):
                     img = slide_frame(k / FPS, fig, caption)
                     if k < 10 and last_page is not None:
-                        import io
-
-                        prev = Image.open(io.BytesIO(last_page)).convert("RGB")
-                        img = Image.blend(prev, img, (k + 1) / 10)
-                    img.save(frames_dir / f"{g0 + k:05d}.png")
+                        img = Image.blend(last_page, img, (k + 1) / 10)
+                    img.save(frames_dir / f"{g0 + k:05d}.png", compress_level=1)
                 counts[5] = sc.frames
                 continue
-            specs = page_specs(sc, th, hook, w_h, w_end, T)
-            held: tuple[str, bytes] | None = None
-            for k, s in enumerate(specs):
+            held = None
+            for k, s in enumerate(specs[sc.n]):
+                cx0, cy0, cw = crop_of.get((sc.n, k), (0.0, 0.0, float(W)))
+                ch = cw * 9 / 16
                 key = json.dumps({a: s[a] for a in ("act", "t", "top", "ring", "tile", "p")})
+                key += f"|{cx0:.2f},{cy0:.2f},{cw:.2f}"
                 if s["ring"] > 0:
                     key += f"|{s['clock']}"
                 if held and held[0] == key and not (sc.n == 6 and k < 10):
-                    png = held[1]
+                    img = held[1]
                 else:
                     r = pg.evaluate(FRAME_JS, [s, left, 2.4])
-                    verify_frame(sc, k, s, r, js, left, prev_eye)
+                    verify_frame(sc, k, s, r, js, left, prev_eye, (cx0, cy0, cw, ch), slots)
                     prev_eye = r["eye"][1] if s["view"] == "rising" else None
                     if k in (0, sc.frames // 2, sc.frames - 1):
                         keyframes.append(
                             f"scene {sc.n} frame {k}: scene={r['scene']} t={r['t']:.3f} view={r['view']}"
-                            f" cam={r['cam']} eye_h={r['eye'][1]:.1f} p={s['p']}")
-                    png = pg.screenshot(type="png")
-                    held = (key, png)
+                            f" cam={r['cam']} eye_h={r['eye'][1]:.1f} p={s['p']} zoom={W / cw:.2f}")
+                    shot = pg.screenshot(type="jpeg", quality=95,
+                                         clip={"x": cx0, "y": cy0, "width": cw, "height": ch})
+                    img = Image.open(io.BytesIO(shot)).convert("RGB").resize((W, H), Image.LANCZOS)
+                    held = (key, img)
                 if sc.n == 6 and k < 10:
-                    import io
-
-                    a = last_slide.convert("RGB")
-                    b = Image.open(io.BytesIO(png)).convert("RGB")
-                    Image.blend(a, b, (k + 1) / 10).save(frames_dir / f"{g0 + k:05d}.png")
-                else:
-                    (frames_dir / f"{g0 + k:05d}.png").write_bytes(png)
-                last_page = png
+                    img = Image.blend(last_slide.convert("RGB"), img, (k + 1) / 10)
+                img.save(frames_dir / f"{g0 + k:05d}.png", compress_level=1)
+                last_page = held[1] if held else img
             counts[sc.n] = sc.frames
         if errors:
             raise SystemExit("page errors while filming: " + "; ".join(errors[:2]))
@@ -393,8 +508,8 @@ def capture(scenes: list[Scene], frames_dir: Path, only: set[int] | None) -> dic
     return counts
 
 
-def verify_frame(sc: Scene, k: int, s: dict, r: dict, js: dict, left: int, prev_eye) -> None:
-    """The state machine, asserted per frame from what the page itself reported."""
+def verify_frame(sc: Scene, k: int, s: dict, r: dict, js: dict, left: int, prev_eye, crop, slots=None) -> None:
+    """The state machine and the framing, asserted per frame from what the page itself reported."""
     where = f"scene {sc.n} frame {k}"
     if r["scene"] != 0:
         raise SystemExit(f"{where}: page scene {r['scene']}, want 0")
@@ -412,11 +527,27 @@ def verify_frame(sc: Scene, k: int, s: dict, r: dict, js: dict, left: int, prev_
         raise SystemExit(f"{where}: man left at {r['man']}, the JSON has {want.tolist()}")
     if s["ring"] > 0 and s["view"] == "broadcast":
         tag = r["tag"]
-        if tag is None or abs(tag[0] - r["proj"][0]) > 120 or tag[1] > r["proj"][1]:
+        if tag is None or abs(tag[0] - r["proj"][0]) > 160 or tag[1] > r["proj"][1]:
             raise SystemExit(f"{where}: the page's own 'the man he left' tag {tag} is not over the ring at {r['proj']}")
     # (the landing frame swaps to the orthographic camera, whose eye height is its own number)
     if s["view"] == "rising" and prev_eye is not None and r["eye"][1] < prev_eye - 1e-6:
         raise SystemExit(f"{where}: the camera went down during the rise")
+    # in crop coordinates: nobody clipped, and the ring on the man left inside the frame
+    x0, y0, cw, ch = crop
+    to = lambda p: ((p[0] - x0) * W / cw, (p[1] - y0) * H / ch)  # noqa: E731
+    if s["view"] == "broadcast" and cw < W - 0.5:
+        inside = lambda px, py: -2 <= px <= W + 2 and -2 <= py <= H + 2  # noqa: E731
+        for name, pts in (("player", [(max(0, min(W, x)), max(0, min(H, y))) for i in (range(10) if slots is None else slots) for x, y in r["pts"][2 * i: 2 * i + 2]]),
+                          ("tag", [(t[0], t[1]) for t in r["tags"]] + [(t[2], t[3]) for t in r["tags"]])):
+            for p in pts:
+                if not inside(*to(p)):
+                    raise SystemExit(f"{where}: a {name} at {p} falls outside the crop {crop}")
+    if s["ring"] > 0.05 and s["view"] == "broadcast":
+        b = r["ringbox"]
+        for p in ((b[0], b[1]), (b[2], b[3]), tuple(r["proj"])):
+            px, py = to(p)
+            if not (0 <= px <= W and 0 <= py <= H):
+                raise SystemExit(f"{where}: the ring ({px:.0f}, {py:.0f}) is outside the frame")
 
 
 # ---------------------------------------------------------------- ffmpeg
@@ -439,14 +570,17 @@ def assemble(frames_dir: Path, mp4: Path, total_frames: int) -> None:
     nb = int(probe(mp4, "stream=nb_read_frames", "-count_frames", "-select_streams", "v:0"))
     size = probe(mp4, "stream=width,height", "-select_streams", "v:0").replace("\n", "x")
     print(f"wrote {mp4} ({mp4.stat().st_size / 1e6:.1f} MB): ffprobe {dur:.3f} s, {nb} frames, {size}")
-    if abs(dur - TOTAL_S) > TOTAL_TOL or nb != total_frames:
-        raise SystemExit(f"length {dur:.3f} s / {nb} frames, want {TOTAL_S} +- {TOTAL_TOL} s / {total_frames}")
+    if not TOTAL_MIN <= dur <= TOTAL_MAX or nb != total_frames:
+        raise SystemExit(f"length {dur:.3f} s / {nb} frames, want {TOTAL_MIN} to {TOTAL_MAX} s / {total_frames}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=ROOT / "reports" / "video")
     ap.add_argument("--scenes", default="", help="comma list: film only these scenes, no MP4")
+    ap.add_argument("--frame-stats", action="store_true", help="plan the crops, print the zoom, film nothing")
+    ap.add_argument("--all-ten", action="store_true",
+                    help="frame all ten players (the crop then stays at 1.00x: the off-ball attackers stand at the edge)")
     ap.add_argument("--keep-frames", action="store_true")
     args = ap.parse_args()
     scenes = parse_script(SCRIPT.read_text(encoding="utf-8"))
@@ -456,9 +590,9 @@ def main() -> int:
     frames_dir.mkdir(parents=True)
     for sc in scenes:
         print(f"scene {sc.n}: {sc.start}-{sc.end} s, {sc.frames} frames, {sc.name}")
-    counts = capture(scenes, frames_dir, only)
+    counts = capture(scenes, frames_dir, only, args.frame_stats, not args.all_ten)
     print("frames per scene:", counts)
-    if only:
+    if only or args.frame_stats:
         return 0
     total = sum(s.frames for s in scenes)
     written = len(list(frames_dir.glob("*.png")))

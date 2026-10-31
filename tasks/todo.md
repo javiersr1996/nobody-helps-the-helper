@@ -493,6 +493,32 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
       window: 5.23/6, 7.08/9, 4.80/6, 7.87/10, 21.77/21 (over by 0.77), 10.49/9 (over by 1.49).
       Memoria v0.13 (new section 16, Plan/Pendientes/Registro now 17-19; 51 pages, section on
       p. 45, read back with pdftotext). ruff 0, pytest 354 passed. Original line kept below.
+      ROUND 2 (2026-10-31, supersedes the 61 s, the 1525 frames and the scene 5 pan above): script
+      scene 6 is now the owner's cut ("Long help is taught with a rotation; we found only seven,
+      too few to test. On near help, nobody helps the helper."): 133 words by the `wc -w` grep,
+      per scene 13, 17, 9, 22, 50, 22; 159, 618, 0.63, 8.7, seven, ten games and the three others
+      grep in README.md (lines 11, 21, 13, 35, 3). Windows 0:00-0:06, 0:06-0:14, 0:14-0:20,
+      0:20-0:29, 0:29-0:51, 0:51-1:00; the parser now refuses a total outside 59-60 s (the old
+      61 s headers fail it, shown). ffprobe on the built file: 60.000 s, 1500 frames (150, 200,
+      150, 225, 550, 225), 1920x1080, no audio, blackdetect 0. Phone legibility, capture only:
+      device scale 2, tags set to 24/26 px by CSS injected BEFORE the page loads (the tags' size is
+      a plain CSS font-size and the page measures it once, so its own placement sees the larger
+      boxes; no page change), and scenes 1-4 cropped per frame to the tightest 16:9 window with a
+      40 px margin, smoothed (Gaussian, sigma 12 frames, zoom-out leading the need), zoom 2x
+      cap. Framing all ten players pins the zoom at 1.00x on every frame (the off-ball attackers
+      stand at the viewport edge), so the shipped build frames the seven story players (handler,
+      his defender, helper, man left, the three others; `--all-ten` keeps the ten): zoom 1.00 in
+      scene 1 (title card), 1.00 to 1.32 in scene 2, 1.31 in 3, 1.31 down to 1.00 in 4 as the
+      camera rises (median 1.26, max 1.32). The three grey off-ball attackers can be cut by the
+      crop at the edges, as the page's own frame already cuts them. Asserted per frame in crop
+      coordinates: the seven players, all tags and the ring inside the frame. The helper in
+      scene 3 sits behind the translucent backboard and reads as a faint figure under his
+      (now large) "helper" tag; the page's look is unchanged. Scene 5: two held crops of the
+      README PNG (no redraw), the court panel to 13.5 s, the interval panel after, a 6-frame
+      dissolve; the cut is 0.2 s before "Compared with" starts in the guide voice's word boundaries
+      (13.70 s into the line). Build time about 25 min. Guide voice per scene, line vs window:
+      5.23/6, 7.08/8, 4.80/6, 7.87/9, 21.77/22, 8.71/9: all fit, slack +0.77, +0.92, +1.20,
+      +1.13, +0.23, +0.29 s. Memoria v0.14. 354+ tests, ruff 0.
       Was: `scripts/wind_video.py` [sonnet], sibling of `video_slides.py`: 1920x1080 slides
       (title; figure 1; figure 2; the record) and, per D8, the drive captured from the page
       itself, driven by `seek(t)` frame by frame at 1920x1080 (the 3D hook and the camera
