@@ -461,7 +461,7 @@ editor. "Help", "helper", "covers" name measured vectors and distances, never de
 - [ ] C5 Phase close [haiku]: ruff + pytest exit 0; Javier reads the README.
 
 #### Phase D, 7 Dec to 13 Dec: the video
-- [ ] D1 (REWRITTEN 2026-10-30 twice, last to the owner's approved narrative: 139 words by `wc -w`, per scene 13, 17, 9, 22, 50, 28; the drive and figure 2 are done (item 11); waits for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
+- [ ] D1 (REWRITTEN 2026-10-30 twice, last to the owner's approved narrative: 119 words by `wc -w` (approved script, recounted 2026-11-01), per scene 13, 15, 9, 21, 39, 22; the drive and figure 2 are done (item 11); waits for Javier to read it aloud) `tasks/video_script_wind.md` [sonnet]: <= 160 spoken words, six scenes, each naming
       the figure or the page state (`seek(t)`) it shows; the base rate and the placebo are
       spoken, not only shown. Accept: word count by `wc -w`; Javier reads it aloud once and it
       lands between 55 and 62 s.
@@ -1433,6 +1433,21 @@ the body, titles 14 to 16, and each of the 21 numbers checked (184, 65 s, 16,7 m
       on main carries the new text; the page is unchanged (served sha256 a8e73b3bf4d0... =
       committed blob, last changed 4ac4b7c), HTTP 200. Next: D3 (Javier's voice), the
       biggest lever left per the council.
+   h. FABLE AUDIT 2026-11-01 (three read-only auditors: coherence, method, reproduction).
+      Passed: the thesis survives and the repo reproduces byte-identical. Fixed in local
+      commits, nothing pushed, page and figures untouched: bfb8222 (README: outcome line says
+      the gap, 4.4 points, is within noise once drives are resampled, CI -1.5 to +9.8; the
+      +1.35 scale is the helpers' own mean step, 4.7 ft, not the 4.2 ft median; robustness
+      says the fixed-targets variant lies below 0 in both groups; the nearest-attacker rule
+      agrees on 84 % against the HMM's 79 %; the placebo defined once; the licence names
+      three.js and the Quaternius mannequin; the earlier rebound study and the entry's modules
+      named; the Run it blocks moved to docs/RUN.md; 986 prose words, 994 rendered, 996 by
+      `wc -w`; a rendered-word rule in check_readme; memoria v0.23, section 15.8);
+      592b105 (package docstring and exports of help_table, drive_kinds, rotation_table, with
+      a test); the video-script source rows and this entry in the third commit.
+      DEFERRED (page, owner approval needed): "placebo" on figure 2 and on the page; "Nobody
+      within 6 ft" on the page -> "No defender within 6 ft"; the missing "+" in the video
+      caption bar "(CI -0.58 to 0.13)".
 
 ### Settled while building, not before
 - The whole defence sinks with the drive, so the x-component of the wind is partly retreat.

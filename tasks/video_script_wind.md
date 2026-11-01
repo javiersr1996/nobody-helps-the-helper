@@ -81,10 +81,10 @@ README line is the one `grep -n` finds, checked by `scripts/check_readme.py`):
 
 | Spoken | Source |
 |---|---|
-| three teammates | the three other defenders (`README.md` lines 3, 9 "the other three") |
-| a second and a half | the headline horizon, 1.52 s (`README.md` line 19 "At 1.5 s") |
-| 2.6 feet | `README.md` line 11 ("**2.6 ft**"), `near_committed_drives.csv`: `left_clear_38` of `drive-114243-1-1` (scene 0), `nearest_who_38` = helper |
-| 618, 246 | `README.md` line 9 ("**246 of 618**"), `help_kinds_summary.csv`: the committed count, `count,drives,resolved` 618 |
-| 1.35 feet (scene 5: "it would read 1.35 feet") | `README.md` line 19 ("the mean would read **+1.35 ft**"; the helpers' median step 4.2 ft) |
-| 0.13 ("the data rule out more than 0.13") | `README.md` line 19 ("the data rule out more than **+0.13 ft**") |
-| seven (scene 6: "only seven") | `README.md` line 39 ("**7**"), `count,flag,long` 7 |
+| three teammates | the three other defenders (`README.md` lines 3, 11 "the other three") |
+| a second and a half | the headline horizon, 1.52 s (`README.md` line 21 "At 1.5 s") |
+| 2.6 feet | not in the README: figure 1's subtitle ("1.5 s later the man he was guarding is 2.6 ft from the nearest defender", built by `scripts/help_figures.py` from the scene) and `reports/near_committed_drives.csv`: `left_clear_38` of `drive-114243-1-1` (scene 0) = 2.64, `nearest_who_38` = helper |
+| 618, 246 | `README.md` line 11 ("**246 of 618**"), `help_kinds_summary.csv`: the committed count, `count,drives,resolved` 618 |
+| 1.35 feet (scene 5: "it would read 1.35 feet") | `README.md` line 21 ("the mean would read **+1.35 ft**"; the helpers' mean step 4.7 ft) |
+| 0.13 ("the data rule out more than 0.13") | `README.md` line 21 ("the data rule out more than **+0.13 ft**") |
+| seven (scene 6: "only seven") | `README.md` line 43 ("**7**"), `count,flag,long` 7 |
