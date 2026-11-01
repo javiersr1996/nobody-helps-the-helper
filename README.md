@@ -24,7 +24,7 @@ Coaches teach it to one defender, on the pass. Two readings were fixed in git be
 
 Big moves cut both ways: in 43 % of drives one of them moves 4 ft or more toward the man left, in 39 % toward the comparison attackers; with the nearest at home, 34 % and 29 %, a similar gap: no excess toward him.
 
-As context, from the help step to +3 s, after any near step in (263 drives, stayed in or not) the ball reaches the man left in **12.9 %**, against **8.5 %** in the reference (199). The gap, 4.4 points, is within noise once drives are resampled (CI -1.5 to +9.8 points). At the catch he is no more open and shoots no more often.
+As context, from the help step to +3 s, after any near help (263 drives, went back or not) the ball reaches the man left in **12.9 %**, against **8.5 %** in the reference (199). The gap, 4.4 points, is within noise once drives are resampled (CI -1.5 to +9.8 points). At the catch he is no more open and shoots no more often.
 
 ![Figure 2: who covers the man the helper leaves](reports/figures/wind_figure_2_who_covers.png)
 
@@ -41,7 +41,7 @@ To our knowledge this has not been measured from tracking, and no public metric 
 ## Limits
 
 - Long help, when the defender farthest from the ball jumps into the drive's path: **7** of 618 drives. Against drives where he stays home, the other three move toward his man +1.44 ft more (CI -0.33 to +2.98): the direction coaches teach, on too few drives.
-- Who guards whom is the provider's table, with no ground truth. A hidden Markov model in the manner of Franks et al. (2015) agrees on the man left in **79 %** of these drives (91 % one second earlier), the nearest-attacker rule in 84 %: not the best available. On those the absence holds.
+- Who guards whom is the provider's table, with no ground truth. A hidden Markov model in the manner of Franks et al. (2015) agrees on the man left in **79 %** of these drives (91 % one second earlier; the nearest attacker alone: 84 %); on the drives where they agree the absence holds.
 - The rotation after the pass cannot be judged: only n = 18 closeouts land on a man left.
 - The frame mirrors by the handler's lateral motion; the provider's direction agrees on 67 % (left) and 72 % (right).
 

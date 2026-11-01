@@ -256,7 +256,7 @@ SOURCES: tuple[Source, ...] = (
            lambda d: hmm_agreement(d, "hmm"), pct0),
     Source("of these drives (", "hmm_matchups_summary.csv",
            lambda d: hmm_agreement(d, "hmm_1s_before"), pct0, False),
-    Source("the nearest-attacker rule in ", "hmm_matchups_summary.csv",
+    Source("the nearest attacker alone: ", "hmm_matchups_summary.csv",
            lambda d: float(one(d, section="agreement", config="baseline", group="committed",
                                series="closest_attacker")["value"]), pct0, False),
     # The outcome of the man left (man_left_outcome_summary.csv): near help vs stays home.
